@@ -2,7 +2,6 @@ package main
 
 import (
 	"container/list"
-	"context"
 	"fmt"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -39,7 +38,7 @@ func main(){
 
 	config, _ := clientcmd.BuildConfigFromFlags("", "C:\\Users\\diego\\.kube\\config")
 	clienset, _ := kubernetes.NewForConfig(config)
-	svcs, _ := clienset.CoreV1().Services("").List(context.TODO(), v1.ListOptions{})
+	svcs, _ :=  clienset.CoreV1().Services("").List(v1.ListOptions{})
 	for _, i := range svcs.Items {
 		fmt.Println(i.Name, i.Spec.ClusterIP)
 	}
