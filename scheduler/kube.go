@@ -2,7 +2,11 @@ package main
 
 import (
 	"container/list"
+	"context"
 	"fmt"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"math/rand"
 	"sync"
 )
@@ -33,12 +37,12 @@ func worker(s *SyncList, wg *sync.WaitGroup){
 
 func main(){
 
-	//config, _ := clientcmd.BuildConfigFromFlags("", "C:\\Users\\diego\\.kube\\config")
-	//clienset, _ := kubernetes.NewForConfig(config)
-	//svcs, _ := clienset.CoreV1().Services("").List(context.TODO(), v1.ListOptions{})
-	//for _, i := range svcs.Items {
-	//	fmt.Println(i.Name, i.Spec.ClusterIP)
-	//}
+	config, _ := clientcmd.BuildConfigFromFlags("", "C:\\Users\\diego\\.kube\\config")
+	clienset, _ := kubernetes.NewForConfig(config)
+	svcs, _ := clienset.CoreV1().Services("").List(context.TODO(), v1.ListOptions{})
+	for _, i := range svcs.Items {
+		fmt.Println(i.Name, i.Spec.ClusterIP)
+	}
 
 
 	var wg sync.WaitGroup
