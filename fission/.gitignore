@@ -1,0 +1,34 @@
+# Binaries
+cmd/fission-bundle/fission-bundle
+cmd/fission-cli/fission
+cmd/fission-cli/fission-cli
+cmd/fetcher/fetcher
+cmd/builder/builder
+cmd/preupgradechecks/pre-upgrade-checks
+
+# Logs
+test/logs/
+
+# Pycharm IDE
+.idea
+environments/php7/vendor/
+
+# terraform files
+.terraform/
+*.tfstate
+*.backup
+
+# Common backup files
+*.swp
+*.bak
+*.tmp
+*~
+*.tgz
+
+.DS_Store
+vendor/
+local/
+environments/dotnet20/Builder/.vs/
+environments/dotnet20/.vs/
+environments/dotnet20/obj/
+environments/dotnet20/bin/
