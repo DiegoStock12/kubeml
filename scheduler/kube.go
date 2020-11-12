@@ -3,6 +3,8 @@ package main
 import (
 	"container/list"
 	"fmt"
+	"github.com/fission/fission/pkg/fission-cli/cmd"
+	"github.com/fission/fission/pkg/controller/client"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -23,9 +25,9 @@ func NewSyncList() *SyncList {
 	}
 }
 
-func worker(s *SyncList, wg *sync.WaitGroup){
+func worker(s *SyncList, wg *sync.WaitGroup) {
 	fmt.Println("worker starting...")
-	for i := 0 ; i < 100 ; i++{
+	for i := 0; i < 100; i++ {
 		s.Lock()
 		s.PushBack(rand.Intn(100))
 		s.Unlock()
@@ -34,18 +36,32 @@ func worker(s *SyncList, wg *sync.WaitGroup){
 	wg.Done()
 }
 
-func main(){
+var (
+	g struct {
+		cmd.CommandActioner
+	}
+)
+
+func main() {
 
 	config, _ := clientcmd.BuildConfigFromFlags("", "C:\\Users\\diego\\.kube\\config")
 	clienset, _ := kubernetes.NewForConfig(config)
-	svcs, _ :=  clienset.CoreV1().Services("").List(v1.ListOptions{})
+	svcs, _ := clienset.CoreV1().Services("").List(v1.ListOptions{})
 	for _, i := range svcs.Items {
 		fmt.Println(i.Name, i.Spec.ClusterIP)
 	}
 
+	g := client.Clientset{}
 
-	var wg sync.WaitGroup
-	s := NewSyncList()
+	fmt.Println(g)
+	//
+	//_, err := g.Client().V1().Function().List("fission-function")
+	//if err != nil {
+	//	panic(err)
+	//}
+
+	//var wg sync.WaitGroup
+	//s := NewSyncList()
 
 	//s := NewSyncList()
 	//s.Lock()
@@ -53,14 +69,14 @@ func main(){
 	//s.PushBack(10)
 	//s.Unlock()
 
-	for i := 0 ; i < 100 ; i++{
-		wg.Add(1)
-		go worker(s, &wg)
-	}
+	//for i := 0 ; i < 100 ; i++{
+	//	wg.Add(1)
+	//	go worker(s, &wg)
+	//}
+	//
+	//wg.Wait()
 
-	wg.Wait()
-
-	fmt.Println("Length of the queue is ", s.Len())
+	//fmt.Println("Length of the queue is ", s.Len())
 
 	//for e:= s.Front(); e!= nil ; e = e.Next() {
 	//	fmt.Println(e.Value)
