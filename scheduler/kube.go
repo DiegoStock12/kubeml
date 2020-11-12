@@ -55,37 +55,9 @@ func main() {
 		panic(err)
 	}
 
-	fun := fissionClient.CoreV1().Functions("fission-function")
-	f, _ := fun.Get("example", metav1.GetOptions{})
-
-	fmt.Println(f.Kind)
-
-	//
-	//_, err := g.Client().V1().Function().List("fission-function")
-	//if err != nil {
-	//	panic(err)
-	//}
-
-	//var wg sync.WaitGroup
-	//s := NewSyncList()
-
-	//s := NewSyncList()
-	//s.Lock()
-	//s.PushBack(12)
-	//s.PushBack(10)
-	//s.Unlock()
-
-	//for i := 0 ; i < 100 ; i++{
-	//	wg.Add(1)
-	//	go worker(s, &wg)
-	//}
-	//
-	//wg.Wait()
-
-	//fmt.Println("Length of the queue is ", s.Len())
-
-	//for e:= s.Front(); e!= nil ; e = e.Next() {
-	//	fmt.Println(e.Value)
-	//}
+	env, _ := fissionClient.CoreV1().Functions("").List(metav1.ListOptions{})
+	for _, e := range env.Items {
+		fmt.Println(e.Name)
+	}
 
 }
