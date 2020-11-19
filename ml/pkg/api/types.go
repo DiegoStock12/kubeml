@@ -11,12 +11,12 @@ type (
 		BatchSize int `json:"batch_size"`
 		Epochs int `json:"epochs"`
 		Dataset string `json:"dataset"`
-		LearningRate string `json:"lr"`
+		LearningRate float64 `json:"lr"`
 	}
 
 	// InferRequest is sent when wanting to get a result back from a trained network
 	InferRequest struct {
-		ModelId string `json:"model_id"`
+		ModelId string   `json:"model_id"`
 		Data []Datapoint `json:"data"`
 	}
 

@@ -3,6 +3,7 @@ package model
 import (
 	"github.com/RedisAI/redisai-go/redisai"
 	"gorgonia.org/tensor"
+	"sync"
 
 	"log"
 )
@@ -24,6 +25,9 @@ type (
 		Lr float64
 
 		redisClient redisai.Client
+
+		// Internal Lock to be applied during the update
+		mu sync.Mutex
 	}
 
 	// Layer keeps the Weights and Bias of a certain layer of the Neural Network
@@ -59,30 +63,35 @@ func NewModel(name string, layerNames []string, lr float64, client redisai.Clien
 
 // Build gets all the initialized layers from the database
 // Build should be called once just after the network is initialized by a worker
-func (m *Model) Build()  {
-	// For each layername create a new layer with the tensors from the database
+func (m *Model) Build(psId string)  {
+	// For each layer name create a new layer with the tensors from the database
 	for _, layerName := range m.LayerNames {
-		l, _ := NewLayer(m.redisClient, layerName)
+		l, _ := NewLayer(m.redisClient, layerName, psId)
 		m.Layers = append(m.Layers, l)
 	}
-
 }
 
 // Update applies a set of gradients to all the layers
 // Simply iterate through the model layers and update each with the gradients
 // Simply use the layer names of the model with the -bias-grad added to them
-func (m *Model) Update() error {
-	for idx, layerName := range m.LayerNames {
+// TODO this should take as a parameter an Id so we can get the gradients of a specific worker
+func (m *Model) Update(psId, funcId string) error {
+
+	// lock the model
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for Idx, layerName := range m.LayerNames {
 
 		// Get the gradients from the database
-		g, err := NewGradient(m.redisClient, layerName)
+		g, err := NewGradient(m.redisClient, layerName, psId, funcId)
 		if err != nil {
 			log.Fatal("Could not build gradient", err)
 			return err
 		}
 
 		// Update the layer
-		err = m.Layers[idx].Update(g, m.Lr)
+		err = m.Layers[Idx].Update(g, m.Lr)
 		if err != nil {
 			log.Fatal("Could not update layer", layerName, err)
 			return err
@@ -91,13 +100,12 @@ func (m *Model) Update() error {
 	}
 
 	return nil
-
 }
 
 // Build a new layer by getting it from the database already initialized
-func NewLayer(redisClient redisai.Client, name string) (*Layer, error) {
+func NewLayer(redisClient redisai.Client, name, psId string) (*Layer, error) {
 
-	weightName, biasName := getWeightKeys(name, false)
+	weightName, biasName := getWeightKeys(name, false, psId, "")
 
 	// Get the weight and bias array from the redis database
 	_, sWeights, weightValues, err := redisClient.TensorGetValues(weightName)
@@ -144,10 +152,10 @@ func (layer *Layer) Update(g *Gradient, lr float64) error {
 }
 
 // Reads a gradient from the database
-func NewGradient(redisClient redisai.Client, layerName string) (*Gradient, error) {
+func NewGradient(redisClient redisai.Client, layerName , psId, funcId string) (*Gradient, error) {
 
 	// Get the redis keys
-	weightName, biasName := getWeightKeys(layerName, true)
+	weightName, biasName := getWeightKeys(layerName, true, psId, funcId)
 
 	// Get the weight and bias array from the redis database
 	_, sWeights, weightValues, err := redisClient.TensorGetValues(weightName)
