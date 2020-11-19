@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/RedisAI/redisai-go/redisai"
+	"github.com/gomodule/redigo/redis"
 	"gorgonia.org/tensor"
 	"log"
 )
@@ -34,7 +35,6 @@ func main()  {
 	}
 
 
-
 	fmt.Println("datatype is", dt, "and shape is", shape)
 	fmt.Println("values are", values)
 
@@ -44,9 +44,15 @@ func main()  {
 	dim := convertShape(shape...)
 	fmt.Println(dim)
 
+
 	// This works! We are able to work with Tensors that we read from the database
 	n := tensor.New(tensor.WithShape(dim...), tensor.WithBacking(values))
 	fmt.Println("n:\n%1.1f\n", n)
+
+
+	// We can also get normal redis entries like this
+	repl, _ := redis.String(client.ActiveConn.Do("GET", "example"))
+	fmt.Println(repl)
 
 
 }
