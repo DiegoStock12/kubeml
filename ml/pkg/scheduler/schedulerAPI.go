@@ -36,7 +36,7 @@ func (s *Scheduler) scheduleTrainTask(w http.ResponseWriter, r *http.Request)  {
 	// Add the request to the channel of the scheduler
 	// TODO see how to handle this so we just answer when the task is actually scheduled
 	// TODO send alongside the request a response channel and get the parameters chosen by the scheduler
-	s.schedChan <- &req
+	s.apiChan <- &req
 
 	w.WriteHeader(http.StatusOK)
 }

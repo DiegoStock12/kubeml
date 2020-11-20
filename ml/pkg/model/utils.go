@@ -1,6 +1,9 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/diegostock12/thesis/ml/pkg/api"
+)
 
 func shapeToIntArray(shape64 ...int64)  []int {
 	shape := make([]int, len(shape64))
@@ -18,11 +21,11 @@ func getWeightKeys(layerName string, grad bool, psId, funcId string) (string, st
 	// We get to index by functionID
 	if grad {
 		// Get the name of the gradients according to the layerName
-		weightName = fmt.Sprintf("%s:%s%s%s-%s", psId, layerName, weightSuffix, gradientSuffix, funcId)
-		biasName = fmt.Sprintf("%s:%s%s%s-%s", psId, layerName, biasSuffix, gradientSuffix, funcId)
+		weightName = fmt.Sprintf("%s:%s%s%s/%s", psId, layerName, api.WeightSuffix, api.GradientSuffix, funcId)
+		biasName = fmt.Sprintf("%s:%s%s%s/%s", psId, layerName, api.BiasSuffix, api.GradientSuffix, funcId)
 	} else {
-		weightName = fmt.Sprintf("%s:%s%s", psId, layerName, weightSuffix)
-		biasName = fmt.Sprintf("%s:%s%s", psId, layerName, biasSuffix)
+		weightName = fmt.Sprintf("%s:%s%s", psId, layerName, api.WeightSuffix)
+		biasName = fmt.Sprintf("%s:%s%s", psId, layerName, api.BiasSuffix)
 	}
 
 	return weightName, biasName

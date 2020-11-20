@@ -2,31 +2,28 @@ package model
 
 import (
 	"github.com/RedisAI/redisai-go/redisai"
+	"go.uber.org/zap"
 	"gorgonia.org/tensor"
 	"sync"
-
-	"log"
 )
 
-const (
-	weightSuffix   = "-weights"
-	biasSuffix     = "-bias"
-	gradientSuffix = "-grad"
-)
 
 type (
 
 	// Holds the Layers of the model
 	Model struct {
+		logger *zap.Logger
+
 		Name       string
 		LayerNames []string
 		Layers     []*Layer
 
 		Lr float64
 
-		redisClient redisai.Client
+		redisClient *redisai.Client
 
 		// Internal Lock to be applied during the update
+		// TODO looks like each tensor has its own lock. If this is the case maybe we can speed things up
 		mu sync.Mutex
 	}
 
@@ -52,8 +49,9 @@ type (
 )
 
 // Creates a new model with the specified layers
-func NewModel(name string, layerNames []string, lr float64, client redisai.Client) *Model {
+func NewModel(logger *zap.Logger, name string, layerNames []string, lr float64, client *redisai.Client) *Model {
 	return &Model{
+		logger: logger.Named("model"),
 		Name:       name,
 		LayerNames: layerNames,
 		Lr: lr,
@@ -63,12 +61,24 @@ func NewModel(name string, layerNames []string, lr float64, client redisai.Clien
 
 // Build gets all the initialized layers from the database
 // Build should be called once just after the network is initialized by a worker
-func (m *Model) Build(psId string)  {
+func (m *Model) Build(psId string)  error {
 	// For each layer name create a new layer with the tensors from the database
+	m.logger.Debug("Building the model", zap.String("psId", psId))
+
 	for _, layerName := range m.LayerNames {
-		l, _ := NewLayer(m.redisClient, layerName, psId)
+
+		m.logger.Debug("Creating new layer", zap.String("layerName", layerName))
+		l, err := NewLayer(m.redisClient, layerName, psId)
+		if err != nil {
+			m.logger.Error("Error building layer",
+				zap.String("layer", layerName),
+				zap.Error(err))
+			return err
+		}
 		m.Layers = append(m.Layers, l)
 	}
+
+	return nil
 }
 
 // Update applies a set of gradients to all the layers
@@ -81,19 +91,23 @@ func (m *Model) Update(psId, funcId string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	for Idx, layerName := range m.LayerNames {
+	for idx, layerName := range m.LayerNames {
 
 		// Get the gradients from the database
 		g, err := NewGradient(m.redisClient, layerName, psId, funcId)
 		if err != nil {
-			log.Fatal("Could not build gradient", err)
+			m.logger.Error("Could not build gradient",
+				zap.String("layer", layerName),
+				zap.Error(err))
 			return err
 		}
 
 		// Update the layer
-		err = m.Layers[Idx].Update(g, m.Lr)
+		err = m.Layers[idx].Update(g, m.Lr)
 		if err != nil {
-			log.Fatal("Could not update layer", layerName, err)
+			m.logger.Error("Could not update layer",
+				zap.String("layer",layerName),
+				zap.Error(err))
 			return err
 		}
 
@@ -102,8 +116,21 @@ func (m *Model) Update(psId, funcId string) error {
 	return nil
 }
 
+// Summary runs through the layers of a model and prints its info
+func (m *Model) Summary()  {
+	for i, n := range m.LayerNames {
+		m.logger.Info("Layer",
+			zap.String("name", n),
+			zap.Any("shape", m.Layers[i].WeightShape),
+			zap.Any("bias tensor", m.Layers[i].Bias.String()),
+			)
+	}
+
+}
+
 // Build a new layer by getting it from the database already initialized
-func NewLayer(redisClient redisai.Client, name, psId string) (*Layer, error) {
+func NewLayer(redisClient *redisai.Client, name, psId string) (*Layer, error) {
+
 
 	weightName, biasName := getWeightKeys(name, false, psId, "")
 
@@ -112,7 +139,6 @@ func NewLayer(redisClient redisai.Client, name, psId string) (*Layer, error) {
 	_, sBias, biasValues, err := redisClient.TensorGetValues(biasName)
 
 	if err != nil {
-		log.Fatal("Unable to retrieve the values from the database", err)
 		return nil, err
 	}
 
@@ -140,7 +166,6 @@ func (layer *Layer) Update(g *Gradient, lr float64) error {
 	// Update the gradients with the learning rate
 	err := g.applyLR(lr)
 	if err != nil {
-		log.Fatal("Error when applying gradients", err)
 		return err
 	}
 
@@ -152,7 +177,7 @@ func (layer *Layer) Update(g *Gradient, lr float64) error {
 }
 
 // Reads a gradient from the database
-func NewGradient(redisClient redisai.Client, layerName , psId, funcId string) (*Gradient, error) {
+func NewGradient(redisClient *redisai.Client, layerName , psId, funcId string) (*Gradient, error) {
 
 	// Get the redis keys
 	weightName, biasName := getWeightKeys(layerName, true, psId, funcId)
@@ -162,7 +187,6 @@ func NewGradient(redisClient redisai.Client, layerName , psId, funcId string) (*
 	_, sBias, biasValues, err := redisClient.TensorGetValues(biasName)
 
 	if err != nil {
-		log.Fatal("Unable to retrieve the values from the database", err)
 		return nil, err
 	}
 
@@ -191,7 +215,6 @@ func (g *Gradient) applyLR(lr float64) error {
 	g.Bias, err = g.Bias.MulScalar(lr, false)
 
 	if err != nil {
-		log.Fatal("Error when multiplying the gradients by the LR", err)
 		return err
 	}
 

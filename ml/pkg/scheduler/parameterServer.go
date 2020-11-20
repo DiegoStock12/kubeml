@@ -1,10 +1,9 @@
-package ps
+package scheduler
 
 import (
 	"fmt"
 	"github.com/RedisAI/redisai-go/redisai"
 	"github.com/diegostock12/thesis/ml/pkg/api"
-	"github.com/diegostock12/thesis/ml/pkg/scheduler"
 	"go.uber.org/zap"
 	"sync"
 
@@ -30,7 +29,7 @@ type (
 		model *model.Model
 
 		// Channel to communicate with the scheduler
-		schedChan chan<- *scheduler.ScheduleRequest
+		schedChan chan<- *ScheduleRequest
 
 		// Communication with the redisAI db
 		redisClient redisai.Client
@@ -42,17 +41,28 @@ type (
 
 // Creates a new parameter server to train the model
 func NewPS(logger *zap.Logger, id string, parallelism int,
-	req *api.TrainRequest, schedChan chan<- *scheduler.ScheduleRequest) *ParameterServer  {
+	req *api.TrainRequest, schedChan chan<- *ScheduleRequest) *ParameterServer {
 
 	logger.Info("Creating new parameter server")
 
+
+	client := redisai.Connect(fmt.Sprintf("redis://%s:%d", api.RedisHost, api.RedisPort), nil)
+	layerNames := []string{"conv1", "conv2", "fc1", "fc2"}
+
 	// TODO Should create model. Create a dummy model for now
-	m := &model.Model{
-		Name:       req.ModelType,
-		LayerNames: nil,
-		Layers:     nil,
-		Lr:         req.LearningRate,
+
+	logger.Debug("Creating random server that will go to the redis")
+	m := model.NewModel(logger, "resnet", layerNames, 0.01, client)
+
+	logger.Debug("Building model")
+	err := m.Build("example")
+	if err != nil {
+		panic(err)
 	}
+
+
+	// Summary of the model
+	m.Summary()
 
 
 
@@ -80,5 +90,9 @@ func NewPS(logger *zap.Logger, id string, parallelism int,
 //3) Start the API to get the requests from the functions
 // TODO fill in this function
 func (ps *ParameterServer) Start(port int)  {
+	ps.logger.Info("Started new parameter server", zap.Int("port", port))
+
+
+	go ps.Serve(port)
 
 }
