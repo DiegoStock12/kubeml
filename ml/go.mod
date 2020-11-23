@@ -8,6 +8,7 @@ require (
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/google/uuid v1.0.0
 	github.com/gorilla/mux v1.8.0
+	github.com/mediocregopher/radix/v3 v3.6.0 // indirect
 	go.uber.org/zap v1.9.1
 	gorgonia.org/tensor v0.9.14
 	k8s.io/apimachinery v0.0.0-20190612205821-1799e75a0719

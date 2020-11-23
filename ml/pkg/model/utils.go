@@ -1,8 +1,11 @@
 package model
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"github.com/diegostock12/thesis/ml/pkg/api"
+	"github.com/gomodule/redigo/redis"
 )
 
 func shapeToIntArray(shape64 ...int64)  []int {
@@ -12,6 +15,26 @@ func shapeToIntArray(shape64 ...int64)  []int {
 	}
 
 	return shape
+}
+
+// REDIS gives an error if the layer is too big, we must save the
+// layer as a blob directly
+func makeArgs(name string, shape []int64, values interface{}) (*redis.Args, error){
+
+	// Need to get the blob
+	valBlob := new(bytes.Buffer)
+
+	err := binary.Write(valBlob, binary.LittleEndian, values.([]float32))
+	if err != nil {
+		return nil, err
+	}
+
+	// Save the weights and the bias
+	args := redis.Args{}
+	args = args.Add(name, "FLOAT").AddFlat(shape)
+	args = args.Add("BLOB").Add(valBlob.Bytes())
+
+	return &args, nil
 }
 
 func getWeightKeys(layerName string, grad bool, psId, funcId string) (string, string){
@@ -30,3 +53,5 @@ func getWeightKeys(layerName string, grad bool, psId, funcId string) (string, st
 
 	return weightName, biasName
 }
+
+

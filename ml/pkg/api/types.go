@@ -11,7 +11,7 @@ type (
 		BatchSize int `json:"batch_size"`
 		Epochs int `json:"epochs"`
 		Dataset string `json:"dataset"`
-		LearningRate float64 `json:"lr"`
+		LearningRate float32 `json:"lr"`
 		FunctionName string `json:"function_name"`
 	}
 

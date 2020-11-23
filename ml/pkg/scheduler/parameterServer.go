@@ -107,36 +107,16 @@ func (ps *ParameterServer) serveNextEpoch() {
 	ps.numLock.Unlock()
 
 	// Update the model and invoke the functions
-	ps.publishModel()
+	err := ps.model.Save()
+	if err != nil {
+		ps.logger.Error("Could not update model",
+			zap.Error(err))
+	}
 	ps.invokeFunctions(ps.parallelism)
 
 }
 
-// Updates the model weights in the DB for the next epoch
-// The key for the model is psId:layerName
-// TODO use pipelined conn for REDIS to increase performance
-func (ps *ParameterServer) publishModel()  {
-	ps.logger.Info("Publishing model in the database")
-	for i, layerName := range ps.model.LayerNames {
 
-		err := ps.redisClient.TensorSet(fmt.Sprintf("%s:%s%s", ps.psId, layerName, api.WeightSuffix),
-			redisai.TypeFloat32, ps.model.Layers[i].WeightShape, ps.model.Layers[i].Weights)
-		if err != nil {
-			ps.logger.Error("Error setting weights",
-				zap.String("layer", layerName),
-				zap.Error(err))
-		}
-		err = ps.redisClient.TensorSet(fmt.Sprintf("%s:%s%s", ps.psId, layerName, api.BiasSuffix),
-			redisai.TypeFloat32, ps.model.Layers[i].BiasShape, ps.model.Layers[i].Bias)
-		if err != nil {
-			ps.logger.Error("Error setting bias",
-				zap.String("layer", layerName),
-				zap.Error(err))
-		}
-	}
-
-	ps.logger.Info("Model published in the DB")
-}
 
 // TODO see how to handle correctly the fact that the response will not return
 // Invokes N functions to start the next epoch
@@ -166,12 +146,12 @@ func (ps *ParameterServer) Start(port int) {
 
 	// TODO Should create model. Create a dummy model for now
 	ps.logger.Debug("Creating random server that will go to the redis")
-	m := model.NewModel(ps.logger, "resnet", layers, 0.01, ps.redisClient)
+	m := model.NewModel(ps.logger, ps.psId, "resnet", layers, ps.req.LearningRate, ps.redisClient)
 	// Set the model in the ps
 
 	ps.model = m
 	ps.logger.Debug("Building model")
-	err := m.Build("example")
+	err := m.Build()
 	if err != nil {
 		panic(err)
 	}
