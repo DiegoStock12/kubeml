@@ -12,6 +12,7 @@ type (
 		Epochs int `json:"epochs"`
 		Dataset string `json:"dataset"`
 		LearningRate float64 `json:"lr"`
+		FunctionName string `json:"function_name"`
 	}
 
 	// InferRequest is sent when wanting to get a result back from a trained network

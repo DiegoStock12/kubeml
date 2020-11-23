@@ -18,7 +18,8 @@ type (
 		LayerNames []string
 		Layers     []*Layer
 
-		Lr float64
+		lr float64
+		lrSched LrScheduler
 
 		redisClient *redisai.Client
 
@@ -31,20 +32,25 @@ type (
 	Layer struct {
 		Name string
 
-		WeightShape []int
+		WeightShape []int64
 		Weights     *tensor.Dense
 
-		BiasShape int
+		BiasShape []int64
 		Bias      *tensor.Dense
 	}
 
 	// Gradient saves the gradients of a layer
 	Gradient struct {
-		WeightShape []int
+		WeightShape []int64
 		Weights     *tensor.Dense
 
-		BiasShape int
+		BiasShape []int64
 		Bias      *tensor.Dense
+	}
+
+	// Just a learning rate scheduler that multiplies the rate by rate when invoked
+	LrScheduler struct {
+		rate float64
 	}
 )
 
@@ -54,10 +60,12 @@ func NewModel(logger *zap.Logger, name string, layerNames []string, lr float64, 
 		logger: logger.Named("model"),
 		Name:       name,
 		LayerNames: layerNames,
-		Lr: lr,
+		lr: lr,
 		redisClient: client,
 	}
 }
+
+
 
 // Build gets all the initialized layers from the database
 // Build should be called once just after the network is initialized by a worker
@@ -84,7 +92,7 @@ func (m *Model) Build(psId string)  error {
 // Update applies a set of gradients to all the layers
 // Simply iterate through the model layers and update each with the gradients
 // Simply use the layer names of the model with the -bias-grad added to them
-// TODO this should take as a parameter an Id so we can get the gradients of a specific worker
+// TODO seems like the layers already have a lock so maybe we do not need the mutex here
 func (m *Model) Update(psId, funcId string) error {
 
 	// lock the model
@@ -103,7 +111,7 @@ func (m *Model) Update(psId, funcId string) error {
 		}
 
 		// Update the layer
-		err = m.Layers[idx].Update(g, m.Lr)
+		err = m.Layers[idx].Update(g, m.lr)
 		if err != nil {
 			m.logger.Error("Could not update layer",
 				zap.String("layer",layerName),
@@ -152,9 +160,9 @@ func NewLayer(redisClient *redisai.Client, name, psId string) (*Layer, error) {
 
 	return &Layer{
 		Name:        name,
-		WeightShape: dimWeights,
+		WeightShape: sWeights,
 		Weights:     w,
-		BiasShape:   dimBias[0],
+		BiasShape:   sBias,
 		Bias:        b,
 	}, nil
 
@@ -199,9 +207,9 @@ func NewGradient(redisClient *redisai.Client, layerName , psId, funcId string) (
 	b := tensor.New(tensor.WithShape(dimBias...), tensor.WithBacking(biasValues))
 
 	return &Gradient{
-		WeightShape: dimWeights,
+		WeightShape: sWeights,
 		Weights:     w,
-		BiasShape:   dimBias[0],
+		BiasShape:   sBias,
 		Bias:        b,
 	}, nil
 
@@ -219,4 +227,12 @@ func (g *Gradient) applyLR(lr float64) error {
 	}
 
 	return nil
+}
+
+// Sets the model learning rate to the new value
+func (lrs LrScheduler) updateLr(m *Model)  {
+	m.logger.Info("Updating the LR",
+		zap.Float64("Rate", lrs.rate),
+		zap.Float64("Current rate", m.lr))
+	m.lr *= lrs.rate
 }
