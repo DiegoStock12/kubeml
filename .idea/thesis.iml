@@ -4,6 +4,9 @@
     <facet type="Python" name="Python facet">
       <configuration sdkName="Python 3.6 (thesis) (3)" />
     </facet>
+    <facet type="Python" name="Python facet">
+      <configuration sdkName="Python 3.6 (thesis)" />
+    </facet>
   </component>
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
@@ -11,7 +14,7 @@
     </content>
     <orderEntry type="jdk" jdkName="Python 3.6 (venv)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" name="Python 3.6 (thesis) (3) interpreter library" level="application" />
+    <orderEntry type="library" name="Python 3.6 (thesis) interpreter library" level="application" />
   </component>
   <component name="TemplatesService">
     <option name="TEMPLATE_FOLDERS">

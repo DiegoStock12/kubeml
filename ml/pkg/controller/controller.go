@@ -4,6 +4,9 @@ import (
 	"go.uber.org/zap"
 )
 
+
+// TODO the controller should also take care of creating the functions and so on
+// TODO look at the fission cli how they create functions and get the code
 type (
 
 	// Main struct of the controller
