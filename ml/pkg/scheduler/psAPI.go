@@ -34,9 +34,8 @@ func (ps *ParameterServer) handleLayerNames(w http.ResponseWriter, r *http.Reque
 	ps.logger.Debug("Parsed the layer names", zap.Any("names", names))
 	w.WriteHeader(http.StatusOK)
 
+	// TODO maybe this is not needed and we can get the result already from the http request
 	ps.layerChan <- names
-
-
 }
 
 // Invoked by the serverless functions when they finish an epoch, should update the model
@@ -50,7 +49,7 @@ func (ps *ParameterServer) handleFinish(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 
 	// Update the model with the new gradients
-	err := ps.model.Update(ps.psId, funcId)
+	err := ps.model.Update(funcId)
 	if err != nil {
 		ps.logger.Error("Error while updating model",
 			zap.Error(err))
@@ -67,7 +66,7 @@ func (ps *ParameterServer) handleFinish(w http.ResponseWriter, r *http.Request) 
 	defer ps.numLock.Unlock()
 	ps.toFinish -=1
 	if ps.toFinish == 0{
-		ps.epochChan <- &EpochFinished{}
+		ps.epochChan <- struct{}{}
 	}
 
 }

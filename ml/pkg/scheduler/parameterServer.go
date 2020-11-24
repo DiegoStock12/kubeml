@@ -28,8 +28,8 @@ type (
 
 		// Channel to communicate with the scheduler and the API to receive layer names
 		schedChan chan<- *ScheduleRequest
-		layerChan <-chan []string
-		epochChan <-chan *EpochFinished
+		layerChan chan []string
+		epochChan chan struct{}
 
 		// Communication with the redisAI db
 		redisClient *redisai.Client
@@ -40,8 +40,6 @@ type (
 		// To get and set the value of the number of tasks to finish
 		numLock sync.Mutex
 	}
-
-	EpochFinished struct{}
 )
 
 // Creates a new parameter server to train the model
@@ -62,7 +60,7 @@ func NewPS(logger *zap.Logger, id string, parallelism int,
 		toFinish:    parallelism,
 		schedChan:   schedChan,
 		layerChan:   make(chan []string),
-		epochChan:   make(chan *EpochFinished),
+		epochChan:   make(chan struct{}),
 		redisClient: client,
 		req:         req,
 	}

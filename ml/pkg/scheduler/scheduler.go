@@ -96,17 +96,13 @@ func (s *Scheduler) satisfyPSRequests() {
 			newParallelism: 2,
 			err:            nil,
 		}
-
-
 	}
-
 }
 
 // Start all the needed goroutines for
 //1) periodically consume the metrics that will be used for taking decisions
 //2) get the requests from the API through a channel and start the parameter server on demand
 //3) Start the API so the functions can notify about status
-// TODO this should be called from the ML bundle
 func StartScheduler(logger *zap.Logger, port int) error {
 
 	// Create the scheduler
