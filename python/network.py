@@ -244,6 +244,6 @@ def main():
                 funcId={funcId}, N={N}, task={task}, psId={psId}, psPort={psPort}
                 completed in {time.time() - start}"""
 
-    return f"""Task is validation, received parameters are 
+    return f"""Task is training, received parameters are 
                 funcId={funcId}, N={N}, task={task}, psId={psId}, psPort={psPort}
                 completed in {time.time() - start}"""
