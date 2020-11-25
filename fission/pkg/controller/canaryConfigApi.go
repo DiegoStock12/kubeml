@@ -77,7 +77,7 @@ func RegisterCanaryConfigRoute(ws *restful.WebService) {
 
 	ws.Route(
 		ws.PUT("/v2/canaryconfigs/{canaryConfig}").
-			Doc("Update canary config").
+			Doc("update canary config").
 			Metadata(restfulspec.KeyOpenAPITags, tags).
 			To(func(req *restful.Request, resp *restful.Response) {
 				resp.ResponseWriter.WriteHeader(http.StatusOK)

@@ -49,7 +49,7 @@ func Commands() *cobra.Command {
 	updateCmd := &cobra.Command{
 		Use:     "update",
 		Aliases: []string{},
-		Short:   "Update parameters of a canary config",
+		Short:   "update parameters of a canary config",
 		RunE:    wrapper.Wrapper(Update),
 	}
 	wrapper.SetFlags(updateCmd, flag.FlagSet{
@@ -82,7 +82,7 @@ func Commands() *cobra.Command {
 	command := &cobra.Command{
 		Use:     "canary",
 		Aliases: []string{"canary-config"},
-		Short:   "Create, Update and manage canary configs",
+		Short:   "Create, update and manage canary configs",
 	}
 
 	command.AddCommand(createCmd, getCmd, updateCmd, deleteCmd, listCmd)

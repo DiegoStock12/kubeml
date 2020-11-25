@@ -49,7 +49,7 @@ func Commands() *cobra.Command {
 
 	updateCmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update an environment",
+		Short: "update an environment",
 		RunE:  wrapper.Wrapper(Update),
 	}
 	wrapper.SetFlags(updateCmd, flag.FlagSet{

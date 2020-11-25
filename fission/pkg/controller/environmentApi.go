@@ -75,7 +75,7 @@ func RegisterEnvironmentRoute(ws *restful.WebService) {
 
 	ws.Route(
 		ws.PUT("/v2/environments/{environment}").
-			Doc("Update environment").
+			Doc("update environment").
 			Metadata(restfulspec.KeyOpenAPITags, tags).
 			To(func(req *restful.Request, resp *restful.Response) {
 				resp.ResponseWriter.WriteHeader(http.StatusOK)

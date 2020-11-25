@@ -74,7 +74,7 @@ func RegisterWatchRoute(ws *restful.WebService) {
 
 	ws.Route(
 		ws.PUT("/v2/watches/{watch}").
-			Doc("Update kubernetes watch").
+			Doc("update kubernetes watch").
 			Metadata(restfulspec.KeyOpenAPITags, tags).
 			To(func(req *restful.Request, resp *restful.Response) {
 				resp.ResponseWriter.WriteHeader(http.StatusOK)

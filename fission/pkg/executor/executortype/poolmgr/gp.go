@@ -501,7 +501,7 @@ func (gp *GenericPool) createPool() error {
 	if err == nil {
 		if depl.Annotations[fv1.EXECUTOR_INSTANCEID_LABEL] != gp.instanceId {
 			deployment.Annotations[fv1.EXECUTOR_INSTANCEID_LABEL] = gp.instanceId
-			// Update with the latest deployment spec. Kubernetes will trigger
+			// update with the latest deployment spec. Kubernetes will trigger
 			// rolling update if spec is different from the one in the cluster.
 			depl, err = gp.kubernetesClient.AppsV1().Deployments(gp.namespace).Update(deployment)
 		}

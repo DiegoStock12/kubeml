@@ -86,7 +86,7 @@ func RegisterFunctionRoute(ws *restful.WebService) {
 
 	ws.Route(
 		ws.PUT("/v2/functions/{function}").
-			Doc("Update function").
+			Doc("update function").
 			Metadata(restfulspec.KeyOpenAPITags, tags).
 			To(func(req *restful.Request, resp *restful.Response) {
 				resp.ResponseWriter.WriteHeader(http.StatusOK)

@@ -48,7 +48,7 @@ func (ps *ParameterServer) handleFinish(w http.ResponseWriter, r *http.Request) 
 
 	w.WriteHeader(http.StatusOK)
 
-	// Update the model with the new gradients
+	// update the model with the new gradients
 	err := ps.model.Update(funcId)
 	if err != nil {
 		ps.logger.Error("Error while updating model",

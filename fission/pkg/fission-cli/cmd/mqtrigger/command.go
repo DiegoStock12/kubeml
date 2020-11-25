@@ -41,7 +41,7 @@ func Commands() *cobra.Command {
 	updateCmd := &cobra.Command{
 		Use:     "update",
 		Aliases: []string{},
-		Short:   "Update a message queue trigger",
+		Short:   "update a message queue trigger",
 		RunE:    wrapper.Wrapper(Update),
 	}
 	wrapper.SetFlags(updateCmd, flag.FlagSet{

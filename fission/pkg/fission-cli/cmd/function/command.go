@@ -77,7 +77,7 @@ func Commands() *cobra.Command {
 	updateCmd := &cobra.Command{
 		Use:     "update",
 		Aliases: []string{},
-		Short:   "Update a function",
+		Short:   "update a function",
 		RunE:    wrapper.Wrapper(Update),
 	}
 	wrapper.SetFlags(updateCmd, flag.FlagSet{

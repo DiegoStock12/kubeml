@@ -75,7 +75,7 @@ func RegisterHTTPTriggerRoute(ws *restful.WebService) {
 
 	ws.Route(
 		ws.PUT("/v2/triggers/http/{httpTrigger}").
-			Doc("Update HTTP trigger").
+			Doc("update HTTP trigger").
 			Metadata(restfulspec.KeyOpenAPITags, tags).
 			To(func(req *restful.Request, resp *restful.Response) {
 				resp.ResponseWriter.WriteHeader(http.StatusOK)

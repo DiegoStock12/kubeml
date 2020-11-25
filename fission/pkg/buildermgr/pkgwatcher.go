@@ -68,12 +68,12 @@ func makePackageWatcher(logger *zap.Logger, fissionClient *crd.FissionClient, k8
 // dispatches buildPackage to build source package into deployment package.
 // Following is the steps build function takes to complete the whole process.
 // 1. Check package status
-// 2. Update package status to running state
+// 2. update package status to running state
 // 3. Check environment builder pod status
 // 4. Call buildPackage to build package
-// 5. Update package resource in package ref of functions that share the same package
-// 6. Update package status to succeed state
-// *. Update package status to failed state,if any one of steps above failed/time out
+// 5. update package resource in package ref of functions that share the same package
+// 6. update package status to succeed state
+// *. update package status to failed state,if any one of steps above failed/time out
 func (pkgw *packageWatcher) build(buildCache *cache.Cache, srcpkg *fv1.Package) {
 	// Ignore duplicate build requests
 	key := fmt.Sprintf("%v-%v", srcpkg.ObjectMeta.Name, srcpkg.ObjectMeta.ResourceVersion)
@@ -188,7 +188,7 @@ func (pkgw *packageWatcher) build(buildCache *cache.Cache, srcpkg *fv1.Package) 
 				updatePackage(pkgw.logger, pkgw.fissionClient, pkg, fv1.BuildStatusFailed, buildLogs, nil)
 			}
 
-			// A package may be used by multiple functions. Update
+			// A package may be used by multiple functions. update
 			// functions with old package resource version
 			for _, fn := range fnList.Items {
 				if fn.Spec.Package.PackageRef.Name == pkg.ObjectMeta.Name &&

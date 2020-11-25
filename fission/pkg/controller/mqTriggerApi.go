@@ -74,7 +74,7 @@ func RegisterMessageQueueTriggerRoute(ws *restful.WebService) {
 
 	ws.Route(
 		ws.PUT("/v2/triggers/messagequeue/{mqTrigger}").
-			Doc("Update message queue trigger").
+			Doc("update message queue trigger").
 			Metadata(restfulspec.KeyOpenAPITags, tags).
 			To(func(req *restful.Request, resp *restful.Response) {
 				resp.ResponseWriter.WriteHeader(http.StatusOK)

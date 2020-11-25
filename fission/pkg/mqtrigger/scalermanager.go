@@ -137,12 +137,12 @@ func StartScalerManager(logger *zap.Logger, routerURL string) error {
 				}
 
 				if err = updateDeployment(mqt, routerURL, kubeClient); err != nil {
-					logger.Error("Failed to Update Deployment", zap.Error(err))
+					logger.Error("Failed to update Deployment", zap.Error(err))
 					return
 				}
 
 				if err = updateScaledObject(mqt, authenticationRef); err != nil {
-					logger.Error("Failed to Update ScaledObject", zap.Error(err))
+					logger.Error("Failed to update ScaledObject", zap.Error(err))
 					return
 				}
 			}()

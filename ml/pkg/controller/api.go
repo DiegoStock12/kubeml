@@ -26,7 +26,6 @@ const(
 	InferenceTask
 )
 
-
 type TaskType int
 
 // Send a post request to the scheduler endpoints
@@ -69,7 +68,8 @@ func (c *Controller) sendRequestToScheduler(req interface{}, task TaskType) {
 	}
 }
 
-
+// TODO this should generate a train ID similar to pods (resnet-uid) that could be used to acces the results layer
+// TODO this could be related to the ID of the parameter server
 // Handle a train request and forward it to the scheduler
 func (c *Controller) handleTrainRequest(w http.ResponseWriter, r *http.Request)  {
 	body, err := ioutil.ReadAll(r.Body)

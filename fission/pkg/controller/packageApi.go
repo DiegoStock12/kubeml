@@ -76,7 +76,7 @@ func RegisterPackageRoute(ws *restful.WebService) {
 
 	ws.Route(
 		ws.PUT("/v2/packages/{package}").
-			Doc("Update package").
+			Doc("update package").
 			Metadata(restfulspec.KeyOpenAPITags, tags).
 			To(func(req *restful.Request, resp *restful.Response) {
 				resp.ResponseWriter.WriteHeader(http.StatusOK)

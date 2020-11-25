@@ -49,7 +49,7 @@ func Commands() *cobra.Command {
 	updateCmd := &cobra.Command{
 		Use:     "update",
 		Aliases: []string{},
-		Short:   "Update an HTTP trigger",
+		Short:   "update an HTTP trigger",
 		RunE:    wrapper.Wrapper(Update),
 	}
 	wrapper.SetFlags(updateCmd, flag.FlagSet{

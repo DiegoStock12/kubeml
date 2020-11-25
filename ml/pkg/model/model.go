@@ -25,7 +25,7 @@ type (
 		lr float32
 		lrSched LrScheduler
 
-		RedisClient *redisai.Client
+		redisClient *redisai.Client
 
 		// Internal Lock to be applied during the update
 		// TODO looks like each tensor has its own lock. If this is the case maybe we can speed things up
@@ -66,7 +66,7 @@ func NewModel(logger *zap.Logger, psId,  name string, layerNames []string, lr fl
 		psId:        psId,
 		LayerNames:  layerNames,
 		lr:          lr,
-		RedisClient: client,
+		redisClient: client,
 	}
 }
 
@@ -81,7 +81,7 @@ func (m *Model) Build()  error {
 	for _, layerName := range m.LayerNames {
 
 		m.logger.Debug("Creating new layer", zap.String("layerName", layerName))
-		l, err := NewLayer(m.RedisClient, layerName, m.psId)
+		l, err := newLayer(m.redisClient, layerName, m.psId)
 		if err != nil {
 			m.logger.Error("Error building layer",
 				zap.String("layer", layerName),
@@ -107,7 +107,7 @@ func (m *Model) Update(funcId string) error {
 	for idx, layerName := range m.LayerNames {
 
 		// Get the gradients from the database
-		g, err := NewGradient(m.RedisClient, layerName, m.psId, funcId)
+		g, err := newGradient(m.redisClient, layerName, m.psId, funcId)
 		if err != nil {
 			m.logger.Error("Could not build gradient",
 				zap.String("layer", layerName),
@@ -115,8 +115,8 @@ func (m *Model) Update(funcId string) error {
 			return err
 		}
 
-		// Update the layer
-		err = m.Layers[idx].Update(g, m.lr)
+		// update the layer
+		err = m.Layers[idx].update(g, m.lr)
 		if err != nil {
 			m.logger.Error("Could not update layer",
 				zap.String("layer",layerName),
@@ -152,7 +152,7 @@ func (m *Model) Save() error {
 
 		m.logger.Debug("Setting weights", zap.String("layer", layerName), zap.Any("shape", m.Layers[i].Weights))
 		args, _ := makeArgs(layerName, m.Layers[i].WeightShape, m.Layers[i].Weights.Data())
-		_, err := m.RedisClient.DoOrSend("AI.TENSORSET", *args, nil)
+		_, err := m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
 		if err != nil {
 			m.logger.Error("Error setting weights",
 				zap.String("layer", layerName),
@@ -161,7 +161,7 @@ func (m *Model) Save() error {
 		}
 		m.logger.Debug("Setting bias", zap.String("layer", layerName), zap.Any("shape", m.Layers[i].Bias))
 		args, _ = makeArgs(layerName, m.Layers[i].BiasShape, m.Layers[i].Bias.Data())
-		_, err = m.RedisClient.DoOrSend("AI.TENSORSET", *args, nil)
+		_, err = m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
 		if err != nil {
 			m.logger.Error("Error setting bias",
 				zap.String("layer", layerName),
@@ -177,7 +177,7 @@ func (m *Model) Save() error {
 }
 
 // Build a new layer by getting it from the database already initialized
-func NewLayer(redisClient *redisai.Client, name, psId string) (*Layer, error) {
+func newLayer(redisClient *redisai.Client, name, psId string) (*Layer, error) {
 
 
 	weightName, biasName := getWeightKeys(name, false, psId, "")
@@ -208,10 +208,10 @@ func NewLayer(redisClient *redisai.Client, name, psId string) (*Layer, error) {
 
 }
 
-// Update the layer given a particular gradient using SGD and the given learning rate
-func (layer *Layer) Update(g *Gradient, lr float32) error {
+// update the layer given a particular gradient using SGD and the given learning rate
+func (layer *Layer) update(g *Gradient, lr float32) error {
 
-	// Update the gradients with the learning rate
+	// update the gradients with the learning rate
 	err := g.applyLR(lr)
 	if err != nil {
 		return err
@@ -225,7 +225,7 @@ func (layer *Layer) Update(g *Gradient, lr float32) error {
 }
 
 // Reads a gradient from the database
-func NewGradient(redisClient *redisai.Client, layerName , psId, funcId string) (*Gradient, error) {
+func newGradient(redisClient *redisai.Client, layerName , psId, funcId string) (*Gradient, error) {
 
 	// Get the redis keys
 	weightName, biasName := getWeightKeys(layerName, true, psId, funcId)

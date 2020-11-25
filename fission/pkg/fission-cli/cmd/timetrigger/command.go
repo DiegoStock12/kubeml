@@ -37,7 +37,7 @@ func Commands() *cobra.Command {
 	updateCmd := &cobra.Command{
 		Use:     "update",
 		Aliases: []string{},
-		Short:   "Update a time trigger",
+		Short:   "update a time trigger",
 		RunE:    wrapper.Wrapper(Update),
 	}
 	wrapper.SetFlags(updateCmd, flag.FlagSet{

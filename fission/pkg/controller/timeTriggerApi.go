@@ -75,7 +75,7 @@ func RegisterTimeTriggerRoute(ws *restful.WebService) {
 
 	ws.Route(
 		ws.PUT("/v2/triggers/time/{timeTrigger}").
-			Doc("Update time trigger").
+			Doc("update time trigger").
 			Metadata(restfulspec.KeyOpenAPITags, tags).
 			To(func(req *restful.Request, resp *restful.Response) {
 				resp.ResponseWriter.WriteHeader(http.StatusOK)
