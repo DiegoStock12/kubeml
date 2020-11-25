@@ -11,3 +11,4 @@ sentry-sdk[flask]
 # requirements added by me
 torch
 torchvision
+redisai

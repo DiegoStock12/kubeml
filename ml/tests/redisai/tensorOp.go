@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func panicIf(err error){
+func PanicIf(err error){
 	if err != nil {
 		panic(err)
 	}
@@ -21,26 +21,26 @@ func main() {
 	fmt.Println(client.Pool.IdleTimeout)
 
 	l, err := zap.NewDevelopment()
-	panicIf(err)
+	PanicIf(err)
 
 	// Get the values of the gradients
 	m := model.NewModel(l,"example","resnet", []string{"conv1", "conv2", "fc1", "fc2"}, 0.01, client)
 
 	l.Info("Building model...")
 	err = m.Build()
-	panicIf(err)
+	PanicIf(err)
 
 
 	l.Info("Updating with gradients")
 	err = m.Update( "1")
-	panicIf(err)
+	PanicIf(err)
 
 	l.Info("Saving the new model to the database")
 	err = m.Save()
 
 
 	//con, err := redis.DialURL("redis://192.168.99.102:6379")
-	//panicIf(err)
+	//PanicIf(err)
 	//
 	//dt, shape, values, err := client.TensorGetValues("example:fc1-weight")
 	//fmt.Println(shape, dt)
@@ -61,7 +61,7 @@ func main() {
 	//_, err = con.Do("AI.TENSORSET", args...)
 	//"example", "FLOAT", 128, 9216,"VALUES", m.Layers[3].BiasShape,m.Layers[3].Bias.Data()
 
-	panicIf(err)
+	PanicIf(err)
 
 
 

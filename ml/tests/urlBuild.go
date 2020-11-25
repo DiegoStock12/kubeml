@@ -1,37 +1,43 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/diegostock12/thesis/ml/pkg/api"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"strconv"
 )
 
 
+const (
+	routerUrl = "http://192.168.99.101:32422"
+	functionName = "example"
+)
+
+func panicIf(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+
 func main() {
 
-	baseURL := "http://router.fission"
-	function := "example"
+
 	values := url.Values{}
 	values.Set("task", "train")
 	values.Set("funcId", strconv.Itoa(1))
 
-	final := baseURL + "/" + function + "?" + values.Encode()
+	final := routerUrl + "/" + functionName
 	fmt.Println(final)
 
-	// Try to encode a request
-	req := &api.TrainRequest{
-		ModelType:    "resnet",
-		BatchSize:    5,
-		Epochs:       5,
-		Dataset:      "MNIST",
-		LearningRate: 0.01,
-		FunctionName: "example",
-	}
+	resp, err := http.Get(final)
+	panicIf(err)
 
-	body, _ := json.Marshal(req)
-	fmt.Printf("%v", string(body))
+
+	body, err := ioutil.ReadAll(resp.Body)
+	fmt.Println(string(body))
+
 
 
 }
