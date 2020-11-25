@@ -1,5 +1,6 @@
-from flask import current_app
+from flask import current_app, jsonify
 import torch
+import redisai
 
 def other_func():
 	current_app.logger.info(f'Talking from another func')
@@ -9,6 +10,6 @@ def other_func():
 def main():
 	a = other_func()
 	# current_app.logger.info(torch.cuda.current_device())
-	return f'Hello I am a function and my result is {str(a)}'
+	return jsonify(tensor=str(a))
 	
 

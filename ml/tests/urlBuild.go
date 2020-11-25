@@ -11,7 +11,7 @@ import (
 
 const (
 	routerUrl = "http://192.168.99.101:32422"
-	functionName = "example"
+	functionName = "network"
 )
 
 func panicIf(err error) {
@@ -25,10 +25,13 @@ func main() {
 
 
 	values := url.Values{}
-	values.Set("task", "train")
+	values.Set("task", "init")
+	values.Set("psId", "example")
+	values.Set("psPort", "34523")
+	values.Set("N", "10")
 	values.Set("funcId", strconv.Itoa(1))
 
-	final := routerUrl + "/" + functionName
+	final := routerUrl + "/" + functionName + "?" + values.Encode()
 	fmt.Println(final)
 
 	resp, err := http.Get(final)

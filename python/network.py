@@ -15,7 +15,7 @@ import torch.utils.data as tdata
 from flask import current_app, request
 
 # some constants for testing
-redis_addr = '192.168.99.102'
+redis_addr = 'redisai.default'
 redis_port = 6379
 ps_url = 'http://scheduler.default'
 
@@ -137,7 +137,7 @@ def save_model_weights(model: nn.Module):
 
                 # Save
                 redis_con.tensorset(weight_key, layer.weight.cpu().detach().numpy(), dtype='float32')
-                redis_con.tensorset(weight_key, layer.weight.cpu().detach().numpy(), dtype='float32')
+                redis_con.tensorset(bias_key, layer.bias.cpu().detach().numpy(), dtype='float32')
 
     current_app.logger.info('Saved model to the database')
 
@@ -246,4 +246,6 @@ def main():
 
     return f"""Task is training, received parameters are 
                 funcId={funcId}, N={N}, task={task}, psId={psId}, psPort={psPort}
-                completed in {time.time() - start}"""
+                completed in {time.time() - start}
+
+    model = {[name for name, layer in model.named_children() if hasattr(layer, "bias")]}"""
