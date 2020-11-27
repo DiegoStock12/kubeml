@@ -12,3 +12,4 @@ sentry-sdk[flask]
 torch
 torchvision
 redisai
+pymongo
