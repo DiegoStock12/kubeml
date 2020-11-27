@@ -4,9 +4,8 @@ import numpy as np
 import pymongo
 import torch.utils.data as tdata
 
-# TODO change this to the actual database in minikube
-# should be something along the lines of mongo.default
-MONGO_IP = '192.168.99.102'
+
+MONGO_IP = 'mongodb.default'
 MONGO_PORT = 27017
 DATABASE = 'mnist'
 
@@ -53,9 +52,9 @@ class MnistDataset(tdata.Dataset):
         y = self.labels[idx]
 
         if self.transforms:
-            return self.transforms(x), y
+            return self.transforms(x), y.astype('int64')
         else:
-            return x, y
+            return x, y.astype('int64')
 
     # TODO look how we can maybe declare indexes in mongodb to speed this up
     def _load_data(self, minibatches=None):
@@ -67,7 +66,7 @@ class MnistDataset(tdata.Dataset):
         else:
             # Load the objects from Mongo
             batches = self.db.train.find({
-                '_id': {'$gte': minibatches[0], '$lte': minibatches[-1]}
+                '_id': {'$gte': minibatches.start, '$lte': minibatches.stop-1}
             })
 
         data, labels = None, None
@@ -82,12 +81,11 @@ class MnistDataset(tdata.Dataset):
                 data = np.vstack([data, d])
                 labels = np.vstack([labels, l])
 
-        return data, labels
+        return data, labels.flatten()
 
     @staticmethod
     def _split_minibatches(a, n):
         """Based on the number of minibatches return the ones assigned to each
         function so that the count is approximately the same """
-        a = list(a)
         k, m = divmod(len(a), n)
         return [a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n)]
