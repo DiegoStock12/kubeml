@@ -17,4 +17,4 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         workdir: fission/environments/python
-        tags: "latest, 0.1.0"
+        tags: "latest, 0.1.1"
