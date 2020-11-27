@@ -19,5 +19,8 @@ const (
 
 	// Address to access the fission router
 	ROUTER_ADDRESS = "http://router.fission"
+	MONGO_ADDRESS = "mongo.default"
+	MONGO_PORT = 27017
+	REDIS_ADDRESS = "redis.default"
 )
 

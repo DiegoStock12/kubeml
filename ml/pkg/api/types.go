@@ -27,5 +27,12 @@ type (
 		Label float32 `json:"label"`
 	}
 
+	// History is the train and validation history of a
+	// specific training job
+	History struct {
+		Id string `json:"_id"`
+		Data map[string][]float32 `json:"data"`
+	}
+
 )
 

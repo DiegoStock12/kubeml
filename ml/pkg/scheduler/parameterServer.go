@@ -1,11 +1,14 @@
 package scheduler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/RedisAI/redisai-go/redisai"
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	"github.com/diegostock12/thesis/ml/pkg/model"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
@@ -75,7 +78,7 @@ func NewPS(logger *zap.Logger, id string, parallelism int,
 		epochChan:   make(chan struct{}),
 		redisClient: client,
 		req:         req,
-		history: make(map[string][]float32),
+		history:     make(map[string][]float32),
 	}
 
 	return ps
@@ -183,12 +186,79 @@ func (ps *ParameterServer) invokeInitFunction() ([]string, error) {
 // invokeTrainFunctions Invokes N functions to start the next epoch
 // TODO see how to handle correctly the fact that the response will not return
 func (ps *ParameterServer) invokeTrainFunctions(n int) {
+
+	// Create the wait group and the channel
+	wg := &sync.WaitGroup{}
+	respChan := make(chan map[string]float32, n)
+
 	for i := 0; i < n; i++ {
 		query := ps.buildFunctionURL(i, n, "train", ps.req.FunctionName)
 
+		wg.Add(1)
 		// TODO this should return the train accuracy and loss for all of them
-		go http.Get(query)
+		go ps.launchFunction(i, query, wg, respChan)
 	}
+
+	wg.Wait()
+
+	ps.logger.Info("Got all the responses, iterating")
+	close(respChan)
+
+	// Calculate the mean and save in the history
+	var loss float32
+	for response := range respChan {
+		loss += response["loss"]
+	}
+	// After all divide by the number of elements and add to the history
+	avgLoss := loss / float32(n)
+
+	// TODO make this more general if we want to have multiple metrics coming our way
+	ps.logger.Info("Epoch had average loss", zap.Float32("loss", avgLoss))
+	values, exists := ps.history["trainLoss"]
+	if exists {
+		ps.history["trainLoss"] = append(values, avgLoss)
+	} else {
+		ps.history["trainLoss"] = []float32{avgLoss}
+	}
+
+}
+
+// launchFunction launches a training function and sends the results to the
+// invokeTrainFunctions function. Which averages the results and adds them to the history
+func (ps *ParameterServer) launchFunction(funcId int,
+	query string, wg *sync.WaitGroup, respChan chan map[string]float32) {
+
+	ps.logger.Info("Starting request for function number", zap.Int("func_id", funcId))
+	defer wg.Done()
+
+	// do the request
+	resp, err := http.Get(query)
+	if err != nil {
+		ps.logger.Error("Error when performing request",
+			zap.Int("funcId", funcId),
+			zap.Error(err))
+		return
+	}
+
+	var res map[string]float32
+	// We get a json with {loss: float32} so parse the json and so on
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		ps.logger.Error("Could not read response body", zap.Error(err))
+		return
+	}
+	if err = json.Unmarshal(body, &res); err != nil {
+		ps.logger.Error("Could not parse the JSON data", zap.Error(err), zap.String("data", string(body)))
+		return
+	}
+
+	// send the result to the channel and confirm exit
+
+	ps.logger.Info("Sending result to channel and exiting",
+		zap.Int("funcId", funcId),
+		zap.Any("results", res))
+	respChan <- res
+
 }
 
 // invokeValFunction After getting all the gradients and publishing the new model invoke
@@ -221,7 +291,7 @@ func (ps *ParameterServer) invokeValFunction() {
 	_ = json.Unmarshal(data, &results)
 
 	// Update the history with the new results
-	for metric := range ps.history {
+	for metric := range results {
 		value, exists := ps.history[metric]
 		if exists {
 			ps.history[metric] = append(value, results[metric])
@@ -230,6 +300,44 @@ func (ps *ParameterServer) invokeValFunction() {
 		}
 	}
 
+}
+
+// saveTrainingHistory saves the history in the mongo database
+func (ps *ParameterServer) saveTrainingHistory() {
+	// get the mongo connection
+	client, err := mongo.NewClient(options.Client().ApplyURI(createMongoURI()))
+	if err != nil {
+		ps.logger.Error("Could not create mongo client", zap.Error(err))
+		return
+	}
+
+	// Save the history in the kubeml database in the history collections
+	err = client.Connect(context.TODO())
+	if err != nil {
+		ps.logger.Error("Could not connect to mongo", zap.Error(err))
+		return
+	}
+
+	// Create the history and index by id
+	collection := client.Database("kubeml").Collection("history")
+	h := api.History{
+		Id:   ps.psId,
+		Data: ps.history,
+	}
+
+	// insert it in the DB
+	resp, err := collection.InsertOne(context.TODO(), h)
+	if err != nil {
+		ps.logger.Error("Could not insert the history in the database",
+			zap.Error(err))
+	}
+
+	ps.logger.Info("Inserted history", zap.Any("id", resp.InsertedID))
+
+}
+
+func createMongoURI() string {
+	return fmt.Sprintf("mongodb://%s:%d", api.MONGO_ADDRESS, api.MONGO_PORT)
 }
 
 // Start Starts a New parameter server which will execute the tasks
