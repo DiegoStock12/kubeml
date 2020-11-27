@@ -117,7 +117,7 @@ def save_gradients(tensor_dict: dict, params: TrainParams):
     """Save the gradients in the REDIS database after training"""
 
     for grad_name, tensor in tensor_dict.items():
-        current_app.logger.info(f'Setting the gradients for {params.ps_id}:{grad_name}/{params.ps_id}')
+        current_app.logger.info(f'Setting the gradients for {params.ps_id}:{grad_name}/{params.func_id}')
         redis_con.tensorset(f'{params.ps_id}:{grad_name}/{params.func_id}', tensor.cpu().numpy())
 
     current_app.logger.info('All the gradients were set in the db')

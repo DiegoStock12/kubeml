@@ -96,7 +96,7 @@ def train(model: nn.Module, device,
         train_utils.update_tensor_dict(model, tensor_dict)
         optimizer.step()
 
-        if batch_idx % 10 == 0:
+        if batch_idx % 4 == 0:
             current_app.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 1, batch_idx * len(data), len(train_loader.dataset),
                    100. * batch_idx / len(train_loader), loss.item()))
@@ -136,7 +136,7 @@ def main():
 
     # determine device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    current_app.logger.info('Running on device', device)
+    current_app.logger.info(f'Running on device {device}')
 
     # 1) Parse args to see the kind of task we have to do
     train_params = train_utils.parse_url_args()
