@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -28,8 +29,11 @@ func main() {
 	values.Set("task", "init")
 	values.Set("psId", "example")
 	values.Set("psPort", "34523")
-	values.Set("N", "10")
+	values.Set("N", "50")
 	values.Set("funcId", strconv.Itoa(1))
+	values.Set("batchSize", strconv.Itoa(128))
+	values.Set("lr", strconv.FormatFloat(0.01, 'f', -1, 32))
+
 
 	final := routerUrl + "/" + functionName + "?" + values.Encode()
 	fmt.Println(final)
@@ -37,9 +41,11 @@ func main() {
 	resp, err := http.Get(final)
 	panicIf(err)
 
-
+	var exit []string
 	body, err := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(body))
+	err = json.Unmarshal(body, &exit)
+	panicIf(err)
+	fmt.Println(string(body), exit)
 
 
 

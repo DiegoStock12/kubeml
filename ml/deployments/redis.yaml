@@ -29,6 +29,6 @@ metadata:
 spec:
   ports:
     - port: 6379
-  type: ClusterIP
+  type: LoadBalancer
   selector:
     app: "redisai"

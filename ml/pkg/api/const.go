@@ -24,3 +24,9 @@ const (
 	REDIS_ADDRESS = "redis.default"
 )
 
+const (
+	ROUTER_ADDRESS_DEBUG = "http://192.168.99.101:32422"
+	REDIS_ADDRESS_DEBUG = "192.168.99.101"
+	REDIS_PORT_DEBUG =31618
+)
+

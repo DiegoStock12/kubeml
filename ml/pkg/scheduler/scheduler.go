@@ -4,7 +4,6 @@ import (
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	"github.com/diegostock12/thesis/ml/pkg/util"
 
-	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -61,7 +60,8 @@ func (s *Scheduler) satisfyAPIRequests()  {
 		s.logger.Info("Received request to schedule network", zap.String("model", req.ModelType))
 
 		// generate a random uid for the psId and a random free port
-		psId := uuid.New().String()[:8]
+		//psId := uuid.New().String()[:8]
+		psId := "example"
 		port, err := util.FindFreePort()
 		if err != nil {
 			s.logger.Error("Could not find free port",
@@ -126,10 +126,11 @@ func StartScheduler(logger *zap.Logger, port int) error {
 	s.logger.Debug("Sending random trainrequest")
 	s.apiChan <- &api.TrainRequest{
 		ModelType:    "resnet",
-		BatchSize:    32,
+		BatchSize:    128,
 		Epochs:       5,
 		Dataset:      "MNIST",
-		LearningRate: 0.001,
+		LearningRate: 0.01,
+		FunctionName: "network",
 	}
 
 

@@ -15,7 +15,10 @@ func main(){
 
 	// Create the scheduler which will trigger the parameter server for now
 	// The paramater server will also fetch the layers from the redis db and build a model
-	scheduler.StartScheduler(logger, 9090)
+	err = scheduler.StartScheduler(logger, 9090)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	select{}
 

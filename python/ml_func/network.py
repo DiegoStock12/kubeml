@@ -154,7 +154,7 @@ def main():
     if train_params.task == 'init':
         # Save the models and return the weights
         train_utils.save_model_weights(model, train_params)
-        return f'Model saved, layers are {[name for name, layer in model.named_children() if hasattr(layer, "bias")]}'
+        return jsonify([name for name, layer in model.named_children() if hasattr(layer, "bias")])
 
     # For training or validation we need to
     # 1) create the dataset
@@ -165,27 +165,29 @@ def main():
                                       task=train_params.task, transform=transf)
     train_utils.load_model_weights(model, train_params)
     # TODO receive the batch size through the api call
-    loader = tdata.DataLoader(dataset, batch_size=128)
+    loader = tdata.DataLoader(dataset, batch_size=train_params.batch_size)
     current_app.logger.info(f'built dataset of size {dataset.data.shape} task is {train_params.task}')
 
     # If we want to validate we call test, if not we call train, we return the stats from the
     if train_params.task == 'val':
         acc, loss = validate(model, device, loader)
+        res = train_utils.send_train_finish(train_params, loss=loss, accuracy=acc)
         current_app.logger.info(f"""Task is validation, received parameters are 
                 funcId={train_params.func_id}, N={train_params.N}, task={train_params.task}, 
                 psId={train_params.ps_id}, psPort={train_params.ps_port}
                 completed in {time.time() - start}""")
-        return jsonify(accuracy=acc, loss=loss)
+        return res
 
     elif train_params.task == 'train':
         # TODO make this lr this also a parameter
-        optimizer = optim.Adam(model.parameters(), lr=0.01)
+        optimizer = optim.Adam(model.parameters(), lr=train_params.lr)
         loss = train(model, device, loader, optimizer)
 
         # After training save the gradients
         train_utils.save_gradients(tensor_dict, train_params)
+        res = train_utils.send_train_finish(train_params, loss=loss)
         current_app.logger.info(f"""Task is training, received parameters are 
                 funcId={train_params.func_id}, N={train_params.N}, task={train_params.task}, 
                 psId={train_params.ps_id}, psPort={train_params.ps_port}
-                completed in {time.time() - start}""")
-        return jsonify(loss=loss)
+                completed in {time.time() - start}, res={res}""")
+        return res

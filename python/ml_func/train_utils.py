@@ -3,8 +3,10 @@
 import redisai as rai
 import torch
 import torch.nn as nn
+import dataclasses
 from dataclasses import dataclass
 from flask import request, current_app
+import requests
 
 # some constants for testing
 redis_addr = 'redisai.default'
@@ -14,6 +16,8 @@ ps_url = 'http://scheduler.default'
 redis_con = rai.Client(host=redis_addr, port=redis_port)
 
 
+# These are the dataclasses that the PS sends to the function
+# and the results sent back to the PS api
 @dataclass
 class TrainParams:
     ps_id: str
@@ -21,6 +25,20 @@ class TrainParams:
     N: int
     task: str
     func_id: int
+    lr: float
+    batch_size: int
+
+
+# This is sent back to the parameter server
+# TODO make a PS service instead of using the scheduler for everything
+# results is a dictionary with the results from the training ( TODO Should be able to be defined
+# by the user in the future ) like: results: { loss: final_loss, train_accuracy: train_acc }
+# We'll just use the loss for now
+@dataclass
+class TrainResults:
+    ps_id: str
+    func_id: int
+    results: dict
 
 
 def update_tensor_dict(m: nn.Module, d: dict):
@@ -48,6 +66,8 @@ def parse_url_args() -> TrainParams:
         - train is the normal function. Loads the dataset and optimizes the network
         - val just takes the validation dataset and returns its accuracy to the ps
         - init just initializes the network so that all the following workers use the same weights
+    - lr: learning rate to be applied in this epoch
+    - batch_size: internal batch size to be used # TODO check this
     TODO maybe we should add a link to the dataset uri so they can find it
     TODO or standardize that the dataset should be divided in test/train and easy
     """
@@ -58,15 +78,22 @@ def parse_url_args() -> TrainParams:
     N = int(request.args.get('N'))
     task = request.args.get('task')
     func_id = int(request.args.get('funcId'))
+    batch = int(request.args.get('batchSize'))
+    lr = float(request.args.get('lr'))
 
-    current_app.logger.info(f'Loaded the configs: funcId={func_id}, N={N}, task={task}, psId={ps_id}, psPort={ps_port}')
+
+    current_app.logger.info(f'''Loaded the configs: funcId={func_id},
+                            N={N}, task={task}, psId={ps_id}, psPort={ps_port},
+                            batch-size={batch}, lr={lr}''')
 
     return TrainParams(
         ps_id=ps_id,
         ps_port=ps_port,
         N=N,
         task=task,
-        func_id=func_id
+        func_id=func_id,
+        batch_size=batch,
+        lr=lr
     )
 
 
@@ -121,3 +148,26 @@ def save_gradients(tensor_dict: dict, params: TrainParams):
         redis_con.tensorset(f'{params.ps_id}:{grad_name}/{params.func_id}', tensor.cpu().numpy())
 
     current_app.logger.info('All the gradients were set in the db')
+
+
+# Send the train results back to the PS
+# TODO ps should be its own service
+def send_train_finish(params: TrainParams, **kwargs) -> dict:
+    """With the train params build the url and build the response"""
+    # for now just take the kwargs and that's it
+    res = TrainResults(
+        results=kwargs
+    )
+
+    # encode as dictionary and json dump
+    res_d = dataclasses.asdict(res)
+    current_app.logger.info(f"Sending response {res_d}")
+
+    # build the url and post the results
+    url = f'{ps_url}:{params.ps_port}/finish/{params.func_id}'
+    r = requests.post(url, json=res_d)
+
+    if r.status_code != 200:
+        current_app.logger.error(f'Error sending results to the server {r.status_code}')
+
+    return res_d

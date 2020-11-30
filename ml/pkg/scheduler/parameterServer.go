@@ -64,7 +64,7 @@ func NewPS(logger *zap.Logger, id string, parallelism int,
 
 	// TODO can this REDIS conn be shared with the model? I think so
 	// Create the connection to the REDIS api that we'll pass through
-	client := redisai.Connect(fmt.Sprintf("redis://%s:%d", api.RedisHost, api.RedisPort), nil)
+	client := redisai.Connect(fmt.Sprintf("redis://%s:%d", api.REDIS_ADDRESS_DEBUG, api.REDIS_PORT_DEBUG), nil)
 
 	// Create the PS struct
 	ps := &ParameterServer{
@@ -263,6 +263,7 @@ func (ps *ParameterServer) launchFunction(funcId int,
 
 // invokeValFunction After getting all the gradients and publishing the new model invoke
 // the validation function to get the performance of the system, these are returned as a dict
+// TODO this could also be run with many functions
 func (ps *ParameterServer) invokeValFunction() {
 
 	// TODO instead of returning the map we could add it to a PS level map that tracks the progress
@@ -382,7 +383,7 @@ func (ps *ParameterServer) Start(port int) {
 	m.Summary()
 	ps.logger.Info("Created parameter server")
 
-	go ps.serveTrainJob()
+	//go ps.serveTrainJob()
 
 }
 
@@ -396,8 +397,10 @@ func (ps *ParameterServer) buildFunctionURL(funcId, numFunc int, task, funcName 
 	values.Set("psPort", strconv.Itoa(ps.psPort))
 	values.Set("N", strconv.Itoa(numFunc))
 	values.Set("funcId", strconv.Itoa(funcId))
+	values.Set("batchSize", strconv.Itoa(ps.req.BatchSize))
+	values.Set("lr", strconv.FormatFloat(float64(ps.req.LearningRate), 'f', -1, 32))
 
-	dest := api.ROUTER_ADDRESS + "/" + funcName + "?" + values.Encode()
+	dest := api.ROUTER_ADDRESS_DEBUG + "/" + funcName + "?" + values.Encode()
 
 	ps.logger.Debug("Built url", zap.String("url", dest))
 
