@@ -187,11 +187,13 @@ func (ps *ParameterServer) invokeInitFunction() ([]string, error) {
 // TODO see how to handle correctly the fact that the response will not return
 func (ps *ParameterServer) invokeTrainFunctions(n int) {
 
+	ps.logger.Debug("Invoking functions", zap.Int("N", n))
 	// Create the wait group and the channel
 	wg := &sync.WaitGroup{}
 	respChan := make(chan map[string]float32, n)
 
 	for i := 0; i < n; i++ {
+		ps.logger.Debug("Invoking function", zap.Int("id", i))
 		query := ps.buildFunctionURL(i, n, "train", ps.req.FunctionName)
 
 		wg.Add(1)
@@ -207,6 +209,7 @@ func (ps *ParameterServer) invokeTrainFunctions(n int) {
 	// Calculate the mean and save in the history
 	var loss float32
 	for response := range respChan {
+		ps.logger.Debug("Got result...", zap.Any("Result", response))
 		loss += response["loss"]
 	}
 	// After all divide by the number of elements and add to the history
@@ -220,6 +223,8 @@ func (ps *ParameterServer) invokeTrainFunctions(n int) {
 	} else {
 		ps.history["trainLoss"] = []float32{avgLoss}
 	}
+
+	ps.logger.Debug("History updated", zap.Any("history", ps.history))
 
 }
 
@@ -240,7 +245,7 @@ func (ps *ParameterServer) launchFunction(funcId int,
 		return
 	}
 
-	var res map[string]float32
+	var res map[string]map[string]float32
 	// We get a json with {loss: float32} so parse the json and so on
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -257,7 +262,7 @@ func (ps *ParameterServer) launchFunction(funcId int,
 	ps.logger.Info("Sending result to channel and exiting",
 		zap.Int("funcId", funcId),
 		zap.Any("results", res))
-	respChan <- res
+	respChan <- res["results"]
 
 }
 
@@ -383,7 +388,7 @@ func (ps *ParameterServer) Start(port int) {
 	m.Summary()
 	ps.logger.Info("Created parameter server")
 
-	//go ps.serveTrainJob()
+	go ps.serveTrainJob()
 
 }
 

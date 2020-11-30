@@ -12,6 +12,7 @@ import requests
 redis_addr = 'redisai.default'
 redis_port = 6379
 ps_url = 'http://scheduler.default'
+ps_local = 'http://127.0.0.1'
 
 redis_con = rai.Client(host=redis_addr, port=redis_port)
 
@@ -36,8 +37,6 @@ class TrainParams:
 # We'll just use the loss for now
 @dataclass
 class TrainResults:
-    ps_id: str
-    func_id: int
     results: dict
 
 
@@ -164,10 +163,11 @@ def send_train_finish(params: TrainParams, **kwargs) -> dict:
     current_app.logger.info(f"Sending response {res_d}")
 
     # build the url and post the results
-    url = f'{ps_url}:{params.ps_port}/finish/{params.func_id}'
-    r = requests.post(url, json=res_d)
+    url = f'{ps_local}:{params.ps_port}/finish/{params.func_id}'
+    # TODO uncomment this
+    # r = requests.post(url, json=res_d)
 
-    if r.status_code != 200:
-        current_app.logger.error(f'Error sending results to the server {r.status_code}')
+    # if r.status_code != 200:
+    #     current_app.logger.error(f'Error sending results to the server {r.status_code}')
 
     return res_d

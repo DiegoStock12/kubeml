@@ -176,7 +176,7 @@ def main():
                 funcId={train_params.func_id}, N={train_params.N}, task={train_params.task}, 
                 psId={train_params.ps_id}, psPort={train_params.ps_port}
                 completed in {time.time() - start}""")
-        return res
+        return jsonify(res)
 
     elif train_params.task == 'train':
         # TODO make this lr this also a parameter
@@ -190,4 +190,4 @@ def main():
                 funcId={train_params.func_id}, N={train_params.N}, task={train_params.task}, 
                 psId={train_params.ps_id}, psPort={train_params.ps_port}
                 completed in {time.time() - start}, res={res}""")
-        return res
+        return jsonify(res)

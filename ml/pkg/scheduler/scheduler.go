@@ -68,8 +68,9 @@ func (s *Scheduler) satisfyAPIRequests()  {
 				zap.Error(err))
 		}
 
+		//  TODO this parallelism should be optimized
 		// Create a parameter server and start it in a new goroutine
-		paramServer := NewPS(s.logger, psId, 2, req, s.psChan)
+		paramServer := NewPS(s.logger, psId, 4, req, s.psChan)
 
 		go paramServer.Start(port)
 
@@ -127,7 +128,7 @@ func StartScheduler(logger *zap.Logger, port int) error {
 	s.apiChan <- &api.TrainRequest{
 		ModelType:    "resnet",
 		BatchSize:    128,
-		Epochs:       5,
+		Epochs:       1,
 		Dataset:      "MNIST",
 		LearningRate: 0.01,
 		FunctionName: "network",
