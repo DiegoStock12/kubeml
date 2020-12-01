@@ -1,12 +1,11 @@
 """Utils to work with saving and loading gradients"""
 
+import dataclasses
 import redisai as rai
 import torch
 import torch.nn as nn
-import dataclasses
 from dataclasses import dataclass
 from flask import request, current_app
-import requests
 
 # some constants for testing
 redis_addr = 'redisai.default'
@@ -43,14 +42,16 @@ class TrainResults:
 def update_tensor_dict(m: nn.Module, d: dict):
     """Update the tensor dict so we can save it after the epoch is finished"""
     with torch.no_grad():
-        for n, l in m.named_children():
-            if hasattr(l, 'weight'):
-                if n in d:
-                    d[f'{n}-weight-grad'] += l.weight.grad
-                    d[f'{n}-bias-grad'] += l.bias.grad
+        for name, layer in m.named_modules():
+            if _should_save_layer(layer):
+                if name in d:
+                    d[f'{name}-weight-grad'] += layer.weight.grad
+                    if layer.bias is not None:
+                        d[f'{name}-bias-grad'] += layer.bias.grad
                 else:
-                    d[f'{n}-weight-grad'] = l.weight.grad
-                    d[f'{n}-bias-grad'] = l.bias.grad
+                    d[f'{name}-weight-grad'] = layer.weight.grad
+                    if layer.bias is not None:
+                        d[f'{name}-bias-grad'] = layer.bias.grad
 
 
 def parse_url_args() -> TrainParams:
@@ -80,7 +81,6 @@ def parse_url_args() -> TrainParams:
     batch = int(request.args.get('batchSize'))
     lr = float(request.args.get('lr'))
 
-
     current_app.logger.info(f'''Loaded the configs: funcId={func_id},
                             N={N}, task={task}, psId={ps_id}, psPort={ps_port},
                             batch-size={batch}, lr={lr}''')
@@ -100,43 +100,76 @@ def load_model_weights(model: nn.Module, params: TrainParams):
     """Load the model weights saved in the database to start the new epoch"""
     current_app.logger.info('Loading model from database')
     with torch.no_grad():
-        for name, layer in model.named_children():
-            # only load and save layers that have bias
-            # this excludes dropout and pool layers
-            # since those weights are not optimizable
-            if hasattr(layer, 'bias'):
-                # How the layers are saved in the database
+        for name, layer in model.named_modules():
+            # only load and save layers that are optimizable (conv or fc)
+            if _should_save_layer(layer):
+
+                # Load the weight
+                current_app.logger.info(f'Loading weights for layer {name}')
                 weight_key = f'{params.ps_id}:{name}-weight'
-                bias_key = f'{params.ps_id}:{name}-bias'
-
-                current_app.logger.info(f'Loading weights and biases for layer {name}')
-
-                # Load the particular layer weight and bias
                 w = redis_con.tensorget(weight_key)
                 layer.weight = torch.nn.Parameter(torch.from_numpy(w))
 
-                w = redis_con.tensorget(bias_key)
-                layer.bias = torch.nn.Parameter(torch.from_numpy(w))
+                # If the layer has an active bias retrieve it
+                # Some of the layers in resnet do not have bias
+                # or it is None. It is not needed with BN, so skip it
+                if layer.bias is not None:
+                    current_app.logger.info(f'Loading bias for layer {name}')
+                    bias_key = f'{params.ps_id}:{name}-bias'
+                    w = redis_con.tensorget(bias_key)
+                    layer.bias = torch.nn.Parameter(torch.from_numpy(w))
 
     current_app.logger.info('Model loaded from database')
 
 
+# def save_model_weights(model: nn.Module, params: TrainParams):
+#     """After the init task we should save the model gradients to the database"""
+#     current_app.logger.info('Saving model to the database')
+#     with torch.no_grad():
+#         for name, layer in model.named_children():
+#             if hasattr(layer, 'bias'):
+#                 weight_key = f'{params.ps_id}:{name}-weight'
+#                 bias_key = f'{params.ps_id}:{name}-bias'
+#
+#                 current_app.logger.info(f'Setting weights and biases for layer {name}')
+#
+#                 # Save
+#                 redis_con.tensorset(weight_key, layer.weight.cpu().detach().numpy(), dtype='float32')
+#                 redis_con.tensorset(bias_key, layer.bias.cpu().detach().numpy(), dtype='float32')
+#
+#     current_app.logger.info('Saved model to the database')
+
 def save_model_weights(model: nn.Module, params: TrainParams):
-    """After the init task we should save the model gradients to the database"""
+    r"""After the init task we should save the model gradients to the database
+
+    Instead of looking if a layer has a bias term (some of the batch norm can have it,
+    look if the layer is of type conv or not"""
     current_app.logger.info('Saving model to the database')
     with torch.no_grad():
-        for name, layer in model.named_children():
-            if hasattr(layer, 'bias'):
+        for name, layer in model.named_modules():
+            if _should_save_layer(layer):
+
+                # Save the weights
+                current_app.logger.info(f'Setting weights for layer {name}')
                 weight_key = f'{params.ps_id}:{name}-weight'
-                bias_key = f'{params.ps_id}:{name}-bias'
-
-                current_app.logger.info(f'Setting weights and biases for layer {name}')
-
-                # Save
                 redis_con.tensorset(weight_key, layer.weight.cpu().detach().numpy(), dtype='float32')
-                redis_con.tensorset(bias_key, layer.bias.cpu().detach().numpy(), dtype='float32')
+
+                # Save the bias if not None
+                if layer.bias is not None:
+                    current_app.logger.info(f'Setting bias for layer {name}')
+                    bias_key = f'{params.ps_id}:{name}-bias'
+                    redis_con.tensorset(bias_key, layer.bias.cpu().detach().numpy(), dtype='float32')
 
     current_app.logger.info('Saved model to the database')
+
+
+def _should_save_layer(layer: nn.Module) -> bool:
+    """Should save layer returns just whether the layer is optimizable or not
+    and thus if it should be sent to the parameter server"""
+    t = str(type(layer))
+    if 'conv' in t or 'linear' in t:
+        return True
+    return False
 
 
 def save_gradients(tensor_dict: dict, params: TrainParams):
