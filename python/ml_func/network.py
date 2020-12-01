@@ -176,6 +176,7 @@ def main():
                 funcId={train_params.func_id}, N={train_params.N}, task={train_params.task}, 
                 psId={train_params.ps_id}, psPort={train_params.ps_port}
                 completed in {time.time() - start}""")
+        del dataset
         return jsonify(res)
 
     elif train_params.task == 'train':
@@ -190,4 +191,5 @@ def main():
                 funcId={train_params.func_id}, N={train_params.N}, task={train_params.task}, 
                 psId={train_params.ps_id}, psPort={train_params.ps_port}
                 completed in {time.time() - start}, res={res}""")
+        del dataset
         return jsonify(res)

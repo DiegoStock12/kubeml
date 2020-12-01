@@ -176,7 +176,13 @@ func (ps *ParameterServer) invokeInitFunction() ([]string, error) {
 		return nil, err
 	}
 
-	_ = json.Unmarshal(data, &names)
+	err = json.Unmarshal(data, &names)
+	if err != nil {
+		ps.logger.Error("Could not unmarshall json",
+			zap.String("body", string(data)),
+			zap.Error(err))
+		return names, err
+	}
 
 	// Set the layer names
 	return names, nil
@@ -252,6 +258,8 @@ func (ps *ParameterServer) launchFunction(funcId int,
 		ps.logger.Error("Could not read response body", zap.Error(err))
 		return
 	}
+
+	ps.logger.Debug(fmt.Sprintf("Received body, %s", string(body)))
 	if err = json.Unmarshal(body, &res); err != nil {
 		ps.logger.Error("Could not parse the JSON data", zap.Error(err), zap.String("data", string(body)))
 		return
@@ -294,7 +302,13 @@ func (ps *ParameterServer) invokeValFunction() {
 
 	// Unmarshall the JSON to a dict
 	// This JSON should give accuracy, precision, recall...
-	_ = json.Unmarshal(data, &results)
+	err = json.Unmarshal(data, &results)
+	if err != nil {
+		ps.logger.Error("Could not parse JSON",
+			zap.String("body", string(data)),
+			zap.Error(err))
+		return
+	}
 
 	// Update the history with the new results
 	for metric := range results {
@@ -369,6 +383,9 @@ func (ps *ParameterServer) Start(port int) {
 	if err != nil {
 		panic(err)
 	}
+	if len(layers) == 0 {
+		ps.logger.Fatal("Received empty layers, exiting...")
+	}
 
 	ps.logger.Debug("Received layers", zap.Any("Layers", layers))
 
@@ -388,7 +405,7 @@ func (ps *ParameterServer) Start(port int) {
 	m.Summary()
 	ps.logger.Info("Created parameter server")
 
-	go ps.serveTrainJob()
+	//go ps.serveTrainJob()
 
 }
 

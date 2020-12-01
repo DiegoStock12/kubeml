@@ -5,6 +5,7 @@ import (
 	"github.com/RedisAI/redisai-go/redisai"
 	"github.com/gomodule/redigo/redis"
 	"log"
+	"reflect"
 )
 
 
@@ -12,20 +13,21 @@ import (
 func main() {
 
 	// Connect to the client
-	conn := redisai.Connect(fmt.Sprintf("redis://%s:%d", "192.168.99.102", 6379), nil)
+	conn := redisai.Connect(fmt.Sprintf("redis://%s:%d", "192.168.99.101", 31618), nil)
 	defer conn.Close()
 
-	// Get the values of the list
-	l, err := redis.Strings(conn.DoOrSend("LRANGE", redis.Args{"layers", 0, -1}, nil))
+	// Get if the key exists
+	res, err := redis.Int(conn.DoOrSend("EXISTS", redis.Args{"example:conv1-weight-grad/0"}, nil))
 	if err != nil {
 		log.Fatal(err)
 	}
 
 
+
 	//for _, layer := range strings.Split(l, " ") {
 	//	fmt.Println(layer)
 	//}
-	fmt.Println(l)
+	fmt.Println(reflect.TypeOf(res), res)
 
 
 }

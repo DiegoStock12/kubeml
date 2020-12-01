@@ -1,17 +1,19 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"github.com/RedisAI/redisai-go/redisai"
-	"github.com/gomodule/redigo/redis"
+	"go.uber.org/zap"
 	"gorgonia.org/tensor"
 	"log"
 )
 
 const (
-	host = "192.168.99.102"
-	port = 6379
-	testTensorName = "grad-conv1"
+	host = "192.168.99.101"
+	port = 31618
+	testTensorName = "example:fc1-weight"
 )
 
 func convertShape(dims ...int64) []int {
@@ -23,36 +25,64 @@ func convertShape(dims ...int64) []int {
 	return shape
 }
 
+func getLen(dims ...int64) int64 {
+	cum := int64(1)
+	for _, v := range dims {
+		cum *= v
+	}
+	return cum
+}
+
 func main()  {
+
+	logger, _ := zap.NewDevelopment()
 
 	// Create a client
 	client := redisai.Connect(fmt.Sprintf("redis://%s:%d", host, port), nil)
 
+	logger.Debug("loading...")
 	// get the test tensor
-	dt, shape, values, err := client.TensorGetValues(testTensorName)
+	_, shape, blob, err := client.TensorGetBlob(testTensorName)
 	if err != nil{
 		log.Fatal(err)
 	}
+	logger.Debug("loaded")
+	len := getLen(shape...)
+	fmt.Println(len)
 
+	//fmt.Println(blob)
+	//fmt.Println("datatype is", dt, "and shape is", shape)
+	//fmt.Println("values are", values)
+	values := make([]float32, len)
+	//fmt.Println(values)
+	r := bytes.NewReader(blob)
+	//fmt.Println(r.Len())
+	err = binary.Read(r,binary.LittleEndian, &values)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	fmt.Println("datatype is", dt, "and shape is", shape)
-	fmt.Println("values are", values)
-
-	//b := tensor.New(tensor.WithShape(2,2), tensor.WithBacking([]int{1,2,3,4}))
-	//fmt.Printf("b:\n%1.1f\n", b)
-
+	//fmt.Println(values)
+	////b := tensor.New(tensor.WithShape(2,2), tensor.WithBacking([]int{1,2,3,4}))
+	////fmt.Printf("b:\n%1.1f\n", b)
+	//
+	//err = binary.Read(bytes.NewReader(blob), binary.LittleEndian, &values)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//fmt.Println(values)
+	//
 	dim := convertShape(shape...)
 	fmt.Println(dim)
 
-
 	// This works! We are able to work with Tensors that we read from the database
 	n := tensor.New(tensor.WithShape(dim...), tensor.WithBacking(values))
-	fmt.Println("n:\n%1.1f\n", n)
+	fmt.Printf("%v\n", n)
 
 
 	// We can also get normal redis entries like this
-	repl, _ := redis.String(client.ActiveConn.Do("GET", "example"))
-	fmt.Println(repl)
+	//repl, _ := redis.String(client.ActiveConn.Do("GET", "example"))
+	//fmt.Println(repl)
 
 
 }

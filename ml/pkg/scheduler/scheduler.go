@@ -70,7 +70,7 @@ func (s *Scheduler) satisfyAPIRequests()  {
 
 		//  TODO this parallelism should be optimized
 		// Create a parameter server and start it in a new goroutine
-		paramServer := NewPS(s.logger, psId, 4, req, s.psChan)
+		paramServer := NewPS(s.logger, psId, api.DEBUG_PARALLELISM, req, s.psChan)
 
 		go paramServer.Start(port)
 
