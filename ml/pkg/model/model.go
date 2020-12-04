@@ -188,10 +188,12 @@ func newLayer(logger *zap.Logger, redisClient *redisai.Client, name, psId string
 
 	// Build the weight tensor
 	logger.Debug("Loading the weights...")
-	_, sWeights, weightValues, err := redisClient.TensorGetValues(weightName)
+
+	sWeights, weightValues, err := fetchTensor(redisClient, weightName)
 	if err != nil {
 		return nil, err
 	}
+
 	dimWeights := shapeToIntArray(sWeights...)
 	w := tensor.New(tensor.WithShape(dimWeights...), tensor.WithBacking(weightValues))
 
@@ -206,10 +208,11 @@ func newLayer(logger *zap.Logger, redisClient *redisai.Client, name, psId string
 	hasBias := true
 	if biasExists {
 		logger.Debug("Loading the biases")
-		_, sBias, biasValues, err := redisClient.TensorGetValues(biasName)
+		sBias, biasValues, err := fetchTensor(redisClient, biasName)
 		if err != nil {
 			return nil, err
 		}
+
 		// Cast the shape to an int array and build the layer tensor
 		dimBias := shapeToIntArray(sBias...)
 		// Build the actual tensor
@@ -255,10 +258,11 @@ func newGradient(redisClient *redisai.Client, layerName, psId, funcId string) (*
 	weightName, biasName := getWeightKeys(layerName, true, psId, funcId)
 
 	// Build the weight tensor
-	_, sWeights, weightValues, err := redisClient.TensorGetValues(weightName)
+	sWeights, weightValues, err := fetchTensor(redisClient, weightName)
 	if err != nil {
 		return nil, err
 	}
+
 	dimWeights := shapeToIntArray(sWeights...)
 	w := tensor.New(tensor.WithShape(dimWeights...), tensor.WithBacking(weightValues))
 
@@ -272,11 +276,12 @@ func newGradient(redisClient *redisai.Client, layerName, psId, funcId string) (*
 
 	hasBias := false
 	if biasExists {
-		_, sBias, biasValues, err := redisClient.TensorGetValues(biasName)
+		// Build the bias tensor
+		sBias, biasValues, err := fetchTensor(redisClient, biasName)
 		if err != nil {
 			return nil, err
 		}
-		// Cast the shape to an int array and build the layer tensor
+
 		dimBias := shapeToIntArray(sBias...)
 		// Build the actual tensor
 		b = tensor.New(tensor.WithShape(dimBias...), tensor.WithBacking(biasValues))
@@ -286,7 +291,7 @@ func newGradient(redisClient *redisai.Client, layerName, psId, funcId string) (*
 	return &Gradient{
 		WeightShape: sWeights,
 		Weights:     w,
-		HasBias: hasBias,
+		HasBias:     hasBias,
 		BiasShape:   sBias,
 		Bias:        b,
 	}, nil

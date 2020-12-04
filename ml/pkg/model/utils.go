@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/RedisAI/redisai-go/redisai"
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	"github.com/gomodule/redigo/redis"
 )
@@ -15,6 +16,49 @@ func shapeToIntArray(shape64 ...int64)  []int {
 	}
 
 	return shape
+}
+
+//dimsToLength to parse a blob to a flatten array of floats we need to build
+// a fixed size slice, this we do by taking the dimensions of the tensor and multiplying
+// them, so we can allocate a slice of that length onto which unpack the blob
+func dimsToLength(dims ...int64) int64 {
+	accum := int64(1)
+	for _, v := range dims {
+		accum *= v
+	}
+	return accum
+}
+
+//blobToFloatArray takes the blob returned by Redis (needed to make the tensor loading
+// far faster) and translates into a float array that can then be used to build
+// a gorgonia tensor
+func blobToFloatArray (blob []byte, shape []int64) ([]float32, error) {
+	// Get the total number of components of the tensor
+	length := dimsToLength(shape...)
+	// allocate the slice
+	values := make([]float32, length)
+
+	// read the blob and extract it to the slice
+	r := bytes.NewReader(blob)
+	err := binary.Read(r, binary.LittleEndian, &values)
+	if err != nil { return nil, err}
+	return values, nil
+}
+
+
+// fetchTensor abstracts away fetching a tensor from redis in binary format and converting
+// it to a tensor. Returns the dimensions and the values of the tensor
+func fetchTensor(client *redisai.Client, name string) ([]int64, []float32, error) {
+	// Get the tensor from redis
+	_, shape, blob, err := client.TensorGetBlob(name)
+	if err != nil {return nil, nil, err}
+
+	// Convert the tensor to []float32
+	values, err := blobToFloatArray(blob, shape)
+	if err != nil {
+		return nil, nil, err}
+
+	return shape, values, nil
 }
 
 // REDIS gives an error if the layer is too big, we must save the

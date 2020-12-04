@@ -26,7 +26,7 @@ func main() {
 
 
 	values := url.Values{}
-	values.Set("task", "train")
+	values.Set("task", "init")
 	values.Set("psId", "example")
 	values.Set("psPort", "34523")
 	values.Set("N", "50")
