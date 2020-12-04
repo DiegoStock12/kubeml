@@ -174,7 +174,7 @@ def main():
         res = train_utils.send_train_finish(train_params, loss=loss, accuracy=acc)
         current_app.logger.info(f"""Task is validation, received parameters are 
                 funcId={train_params.func_id}, N={train_params.N}, task={train_params.task}, 
-                psId={train_params.ps_id}, psPort={train_params.ps_port}
+                psId={train_params.ps_id},
                 completed in {time.time() - start}""")
         del dataset
         return jsonify(res)
@@ -189,7 +189,7 @@ def main():
         res = train_utils.send_train_finish(train_params, loss=loss)
         current_app.logger.info(f"""Task is training, received parameters are 
                 funcId={train_params.func_id}, N={train_params.N}, task={train_params.task}, 
-                psId={train_params.ps_id}, psPort={train_params.ps_port}
+                psId={train_params.ps_id},
                 completed in {time.time() - start}, res={res}""")
         del dataset
         return jsonify(res)

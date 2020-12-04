@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"github.com/RedisAI/redisai-go/redisai"
+	"github.com/diegostock12/thesis/ml/pkg/api"
 	"github.com/gomodule/redigo/redis"
 	"go.uber.org/zap"
 	"gorgonia.org/tensor"
@@ -16,7 +17,7 @@ type (
 		logger *zap.Logger
 
 		// Id of the parameter server
-		psId string
+		jobId string
 
 		Name       string
 		LayerNames []string
@@ -37,21 +38,17 @@ type (
 	Layer struct {
 		Name string
 
-		WeightShape []int64
 		Weights     *tensor.Dense
 
 		HasBias   bool
-		BiasShape []int64
 		Bias      *tensor.Dense
 	}
 
 	// Gradient saves the gradients of a layer
 	Gradient struct {
-		WeightShape []int64
 		Weights     *tensor.Dense
 
 		HasBias   bool
-		BiasShape []int64
 		Bias      *tensor.Dense
 	}
 
@@ -62,13 +59,14 @@ type (
 )
 
 // Creates a new model with the specified layers
-func NewModel(logger *zap.Logger, psId, name string, layerNames []string, lr float32, client *redisai.Client) *Model {
+func NewModel(logger *zap.Logger, jobId string , task api.TrainRequest,
+	layerNames []string, client *redisai.Client) *Model {
 	return &Model{
 		logger:      logger.Named("model"),
-		Name:        name,
-		psId:        psId,
+		Name:        task.ModelType,
+		jobId:       jobId,
 		LayerNames:  layerNames,
-		lr:          lr,
+		lr:          task.LearningRate,
 		redisClient: client,
 	}
 }
@@ -77,12 +75,12 @@ func NewModel(logger *zap.Logger, psId, name string, layerNames []string, lr flo
 // Build should be called once just after the network is initialized by a worker
 func (m *Model) Build() error {
 	// For each layer name create a new layer with the tensors from the database
-	m.logger.Debug("Building the model", zap.String("psId", m.psId))
+	m.logger.Debug("Building the model", zap.String("jobId", m.jobId))
 
 	for _, layerName := range m.LayerNames {
 
 		m.logger.Debug("Creating new layer", zap.String("layerName", layerName))
-		l, err := newLayer(m.logger, m.redisClient, layerName, m.psId)
+		l, err := newLayer(m.logger, m.redisClient, layerName, m.jobId)
 		if err != nil {
 			m.logger.Error("Error building layer",
 				zap.String("layer", layerName),
@@ -101,6 +99,8 @@ func (m *Model) Build() error {
 // TODO seems like the layers already have a lock so maybe we do not need the mutex here
 func (m *Model) Update(funcId string) error {
 
+	m.logger.Info("Updating model...")
+
 	// lock the model
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -108,7 +108,7 @@ func (m *Model) Update(funcId string) error {
 	for idx, layerName := range m.LayerNames {
 
 		// Get the gradients from the database
-		g, err := newGradient(m.redisClient, layerName, m.psId, funcId)
+		g, err := newGradient(m.redisClient, layerName, m.jobId, funcId)
 		if err != nil {
 			m.logger.Error("Could not build gradient",
 				zap.String("layer", layerName),
@@ -127,6 +127,7 @@ func (m *Model) Update(funcId string) error {
 
 	}
 
+	m.logger.Info("Updated model")
 	return nil
 }
 
@@ -135,7 +136,7 @@ func (m *Model) Summary() {
 	for i, n := range m.LayerNames {
 		m.logger.Info("Layer",
 			zap.String("name", n),
-			zap.Any("shape", m.Layers[i].WeightShape),
+			zap.Any("shape", m.Layers[i].Weights.Shape()),
 			zap.Bool("bias", m.Layers[i].HasBias),
 		)
 	}
@@ -150,8 +151,11 @@ func (m *Model) Save() error {
 
 	for i, layerName := range m.LayerNames {
 
-		m.logger.Debug("Setting weights", zap.String("layer", layerName), zap.Any("shape", m.Layers[i].Weights))
-		args, _ := makeArgs(layerName, m.Layers[i].WeightShape, m.Layers[i].Weights.Data())
+		m.logger.Debug("Setting weights",
+			zap.String("layer", layerName),
+			zap.Any("shape", m.Layers[i].Weights))
+		args, _ := makeArgs(m.jobId, layerName, api.WeightSuffix, m.Layers[i].Weights.Shape(), m.Layers[i].Weights.Data())
+
 		_, err := m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
 		if err != nil {
 			m.logger.Error("Error setting weights",
@@ -162,8 +166,11 @@ func (m *Model) Save() error {
 
 		// Set the bias only if it is needed
 		if m.Layers[i].HasBias {
-			m.logger.Debug("Setting bias", zap.String("layer", layerName), zap.Any("shape", m.Layers[i].Bias))
-			args, _ = makeArgs(layerName, m.Layers[i].BiasShape, m.Layers[i].Bias.Data())
+			m.logger.Debug("Setting bias",
+				zap.String("layer", layerName),
+				zap.Any("shape", m.Layers[i].Bias))
+			args, _ = makeArgs(m.jobId, layerName, api.BiasSuffix, m.Layers[i].Bias.Shape(), m.Layers[i].Bias.Data())
+
 			_, err = m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
 			if err != nil {
 				m.logger.Error("Error setting bias",
@@ -199,7 +206,6 @@ func newLayer(logger *zap.Logger, redisClient *redisai.Client, name, psId string
 
 	// If we have to build the bias tensor
 	var b *tensor.Dense
-	var sBias []int64
 	biasExists, err := tensorExists(redisClient, biasName)
 	if err != nil {
 		return nil, err
@@ -222,10 +228,8 @@ func newLayer(logger *zap.Logger, redisClient *redisai.Client, name, psId string
 
 	return &Layer{
 		Name:        name,
-		WeightShape: sWeights,
 		Weights:     w,
 		HasBias:     hasBias,
-		BiasShape:   sBias,
 		Bias:        b,
 	}, nil
 
@@ -268,7 +272,6 @@ func newGradient(redisClient *redisai.Client, layerName, psId, funcId string) (*
 
 	// If we have to build the bias tensor
 	var b *tensor.Dense
-	var sBias []int64
 	biasExists, err := tensorExists(redisClient, biasName)
 	if err != nil {
 		return nil, err
@@ -289,10 +292,8 @@ func newGradient(redisClient *redisai.Client, layerName, psId, funcId string) (*
 	}
 
 	return &Gradient{
-		WeightShape: sWeights,
 		Weights:     w,
 		HasBias:     hasBias,
-		BiasShape:   sBias,
 		Bias:        b,
 	}, nil
 

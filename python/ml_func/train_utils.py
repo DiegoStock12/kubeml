@@ -21,7 +21,6 @@ redis_con = rai.Client(host=redis_addr, port=redis_port)
 @dataclass
 class TrainParams:
     ps_id: str
-    ps_port: int
     N: int
     task: str
     func_id: int
@@ -43,7 +42,7 @@ def update_tensor_dict(m: nn.Module, d: dict):
     """Update the tensor dict so we can save it after the epoch is finished"""
     with torch.no_grad():
         for name, layer in m.named_modules():
-            if _should_save_layer(layer):
+            if _is_optimizable(layer):
                 if name in d:
                     d[f'{name}-weight-grad'] += layer.weight.grad
                     if layer.bias is not None:
@@ -74,7 +73,6 @@ def parse_url_args() -> TrainParams:
 
     # Set the global variables
     ps_id = request.args.get('psId')
-    ps_port = int(request.args.get('psPort'))
     N = int(request.args.get('N'))
     task = request.args.get('task')
     func_id = int(request.args.get('funcId'))
@@ -82,12 +80,11 @@ def parse_url_args() -> TrainParams:
     lr = float(request.args.get('lr'))
 
     current_app.logger.info(f'''Loaded the configs: funcId={func_id},
-                            N={N}, task={task}, psId={ps_id}, psPort={ps_port},
+                            N={N}, task={task}, psId={ps_id},
                             batch-size={batch}, lr={lr}''')
 
     return TrainParams(
         ps_id=ps_id,
-        ps_port=ps_port,
         N=N,
         task=task,
         func_id=func_id,
@@ -102,7 +99,7 @@ def load_model_weights(model: nn.Module, params: TrainParams):
     with torch.no_grad():
         for name, layer in model.named_modules():
             # only load and save layers that are optimizable (conv or fc)
-            if _should_save_layer(layer):
+            if _is_optimizable(layer):
 
                 # Load the weight
                 current_app.logger.info(f'Loading weights for layer {name}')
@@ -147,7 +144,7 @@ def save_model_weights(model: nn.Module, params: TrainParams):
     current_app.logger.info('Saving model to the database')
     with torch.no_grad():
         for name, layer in model.named_modules():
-            if _should_save_layer(layer):
+            if _is_optimizable(layer):
 
                 # Save the weights
                 current_app.logger.info(f'Setting weights for layer {name}')
@@ -163,7 +160,7 @@ def save_model_weights(model: nn.Module, params: TrainParams):
     current_app.logger.info('Saved model to the database')
 
 
-def _should_save_layer(layer: nn.Module) -> bool:
+def _is_optimizable(layer: nn.Module) -> bool:
     """Should save layer returns just whether the layer is optimizable or not
     and thus if it should be sent to the parameter server"""
     t = str(type(layer))
@@ -196,7 +193,7 @@ def send_train_finish(params: TrainParams, **kwargs) -> dict:
     current_app.logger.info(f"Sending response {res_d}")
 
     # build the url and post the results
-    url = f'{ps_local}:{params.ps_port}/finish/{params.func_id}'
+    # url = f'{ps_local}:{params.ps_port}/finish/{params.func_id}'
     # TODO uncomment this
     # r = requests.post(url, json=res_d)
 

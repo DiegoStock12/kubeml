@@ -58,7 +58,7 @@ func (sgd SGD) Step(m *Model, funcId string)  error {
 	for idx, layerName := range m.LayerNames {
 
 		// Get the gradients from the database
-		g, err := newGradient(m.redisClient, layerName, m.psId, funcId)
+		g, err := newGradient(m.redisClient, layerName, m.jobId, funcId)
 		if err != nil {
 			m.logger.Error("Could not build gradient",
 				zap.String("layer", layerName),

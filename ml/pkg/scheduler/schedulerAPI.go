@@ -11,7 +11,13 @@ import (
 	"github.com/diegostock12/thesis/ml/pkg/api"
 )
 
-// Api exposed by the scheduler to interact with the API server
+// handleTrainJobRequest listens to the TrainJobs of the Parameter Server and their
+// requests for a new level of parallelism.
+// To make this doable we need to put the request in a queue and wait for the scheduler
+// to get it and schedule it
+func (s *Scheduler) handleTrainJobRequest()  {
+
+}
 
 // Handle requests from the API to infer tasks
 func (s *Scheduler) scheduleTrainTask(w http.ResponseWriter, r *http.Request)  {

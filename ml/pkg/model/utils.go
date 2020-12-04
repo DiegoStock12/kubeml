@@ -7,6 +7,7 @@ import (
 	"github.com/RedisAI/redisai-go/redisai"
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	"github.com/gomodule/redigo/redis"
+	"gorgonia.org/tensor"
 )
 
 func shapeToIntArray(shape64 ...int64)  []int {
@@ -63,7 +64,7 @@ func fetchTensor(client *redisai.Client, name string) ([]int64, []float32, error
 
 // REDIS gives an error if the layer is too big, we must save the
 // layer as a blob directly
-func makeArgs(name string, shape []int64, values interface{}) (*redis.Args, error){
+func makeArgs(id, name, suffix string, shape tensor.Shape, values interface{}) (*redis.Args, error){
 
 	// Need to get the blob
 	valBlob := new(bytes.Buffer)
@@ -73,9 +74,12 @@ func makeArgs(name string, shape []int64, values interface{}) (*redis.Args, erro
 		return nil, err
 	}
 
+	// build layer name
+	entryName := fmt.Sprintf("%s:%s%s", id, name, suffix)
+
 	// Save the weights and the bias
 	args := redis.Args{}
-	args = args.Add(name, "FLOAT").AddFlat(shape)
+	args = args.Add(entryName, "FLOAT").AddFlat(shape)
 	args = args.Add("BLOB").Add(valBlob.Bytes())
 
 	return &args, nil
