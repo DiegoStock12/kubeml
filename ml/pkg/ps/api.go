@@ -64,7 +64,7 @@ func (ps *ParameterServer) handleSchedulerResponse(w http.ResponseWriter, r *htt
 	// Send the response to the channel
 	ch <- &resp
 
-	respondWithSuccess(w, []byte(jobId))
+
 }
 
 // handleScheduleRequest Handles the request of the scheduler to create a
@@ -106,6 +106,8 @@ func (ps *ParameterServer) handleScheduleRequest(w http.ResponseWriter, r *http.
 	// Create the train job and start serving
 	job := newTrainJob(ps.logger, jobId, &task, ch)
 	go job.serveTrainJob()
+
+	respondWithSuccess(w, []byte(jobId))
 }
 
 // Invoked by the serverless functions when they finish an epoch, should update the model
