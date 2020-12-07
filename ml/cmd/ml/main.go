@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/diegostock12/thesis/ml/pkg/ps"
 	"github.com/diegostock12/thesis/ml/pkg/scheduler"
 
 	"github.com/docopt/docopt-go"
@@ -26,10 +27,14 @@ func runController(logger *zap.Logger, port int) {
 
 // Run the scheduler
 func runScheduler(logger *zap.Logger, port int) {
-	err := scheduler.StartScheduler(logger, port)
-	if err != nil {
-		logger.Fatal("Scheduler could not start", zap.Error(err))
-	}
+	scheduler.Start(logger, port)
+	logger.Fatal("Scheduler exited")
+}
+
+// Run the parameter server
+func runParameterServer(logger *zap.Logger, port int) {
+	ps.Start(logger,port)
+	logger.Fatal("Parameter Server exited")
 }
 
 // TODO implement storage
@@ -60,11 +65,13 @@ Usage:
 	kubeml --controllerPort=<port>
 	kubeml --schedulerPort=<port>
 	kubeml --storageManagerPort=<port>
+	kubeml --psPort=<port>
 
 Options:
 	--controllerPort=<port>			Port that the controller should listen on
 	--schedulerPort=<port>			Port that the scheduler should listen on
 	--storageManagerPort=<port>		Port that the storage manager should listen on
+	--psPort=<port> 				Port that the parameter server should listen on
 `
 
 	// build development logger that will be passed down
@@ -83,6 +90,12 @@ Options:
 	if args["--controllerport"] != nil {
 		port := getPort(logger, args["--controllerPort"])
 		runController(logger, port)
+	}
+
+	// Run ps if it is the passed argument
+	if args["--psPort"] != nil {
+		port := getPort(logger, args["--psPort"])
+		runParameterServer(logger, port)
 	}
 
 	// Run scheduler if it is the passed argument
