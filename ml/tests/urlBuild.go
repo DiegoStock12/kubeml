@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 
@@ -24,12 +25,12 @@ func panicIf(err error) {
 
 func main() {
 
-
+	start := time.Now()
 	values := url.Values{}
 	values.Set("task", "init")
 	values.Set("psId", "example")
 	values.Set("psPort", "34523")
-	values.Set("N", "50")
+	values.Set("N", "20")
 	values.Set("funcId", strconv.Itoa(0))
 	values.Set("batchSize", strconv.Itoa(128))
 	values.Set("lr", strconv.FormatFloat(0.01, 'f', -1, 32))
@@ -46,6 +47,8 @@ func main() {
 	err = json.Unmarshal(body, &exit)
 	panicIf(err)
 	fmt.Println(string(body), exit)
+
+	fmt.Println(time.Now().Sub(start))
 
 
 

@@ -131,6 +131,8 @@ def validate(model, device, val_loader: tdata.DataLoader) -> (float, float):
 def main():
     global train_params
 
+    current_app.logger.info(f'Tensor dict is {len(tensor_dict)}')
+
     start = time.time()
     current_app.logger.info(f'Started serving request')
 

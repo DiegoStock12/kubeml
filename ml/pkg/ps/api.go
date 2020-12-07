@@ -33,7 +33,8 @@ func (ps *ParameterServer) handleSchedulerResponse(w http.ResponseWriter, r *htt
 	ch, exists := ps.jobIndex[jobId]
 	if !exists {
 		ps.logger.Error("Received response for non-existing job",
-			zap.String("id", jobId))
+			zap.String("id", jobId),
+			zap.Any("index", ps.jobIndex))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -106,6 +107,9 @@ func (ps *ParameterServer) handleScheduleRequest(w http.ResponseWriter, r *http.
 	// Create the train job and start serving
 	job := newTrainJob(ps.logger, jobId, &task, ch)
 	go job.serveTrainJob()
+
+	// Add the channel and the id to the map
+	ps.jobIndex[jobId] = ch
 
 	respondWithSuccess(w, []byte(jobId))
 }

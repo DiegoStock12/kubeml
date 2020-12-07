@@ -1,6 +1,7 @@
 """Utils to work with saving and loading gradients"""
 
-import dataclasses
+from typing import Dict
+
 import redisai as rai
 import torch
 import torch.nn as nn
@@ -33,9 +34,9 @@ class TrainParams:
 # results is a dictionary with the results from the training ( TODO Should be able to be defined
 # by the user in the future ) like: results: { loss: final_loss, train_accuracy: train_acc }
 # We'll just use the loss for now
-@dataclass
-class TrainResults:
-    results: dict
+# @dataclass
+# class TrainResults:
+#     results: dict
 
 
 def update_tensor_dict(m: nn.Module, d: dict):
@@ -44,11 +45,11 @@ def update_tensor_dict(m: nn.Module, d: dict):
         for name, layer in m.named_modules():
             if _is_optimizable(layer):
                 if name in d:
-                    d[f'{name}-weight-grad'] += layer.weight.grad
+                    d[f'{name}.weight.grad'] += layer.weight.grad
                     if layer.bias is not None:
-                        d[f'{name}-bias-grad'] += layer.bias.grad
+                        d[f'{name}.bias.grad'] += layer.bias.grad
                 else:
-                    d[f'{name}-weight-grad'] = layer.weight.grad
+                    d[f'{name}.weight.grad'] = layer.weight.grad
                     if layer.bias is not None:
                         d[f'{name}-bias-grad'] = layer.bias.grad
 
@@ -93,30 +94,71 @@ def parse_url_args() -> TrainParams:
     )
 
 
+# def load_model_weights(model: nn.Module, params: TrainParams):
+#     """Load the model weights saved in the database to start the new epoch"""
+#     current_app.logger.info('Loading model from database')
+#     with torch.no_grad():
+#         for name, lafyer in model.named_modules():
+#             # only load and save layers that are optimizable (conv or fc)
+#             if _is_optimizable(layer):
+#
+#                 # Load the weight
+#                 current_app.logger.info(f'Loading weights for layer {name}')
+#                 weight_key = f'{params.ps_id}:{name}.weight'
+#                 w = redis_con.tensorget(weight_key)
+#                 layer.weight = torch.nn.Parameter(torch.from_numpy(w))
+#
+#                 # If the layer has an active bias retrieve it
+#                 # Some of the layers in resnet do not have bias
+#                 # or it is None. It is not needed with BN, so skip it
+#                 if layer.bias is not None:
+#                     current_app.logger.info(f'Loading bias for layer {name}')
+#                     bias_key = f'{params.ps_id}:{name}.bias'
+#                     w = redis_con.tensorget(bias_key)
+#                     layer.bias = torch.nn.Parameter(torch.from_numpy(w))
+#
+#     current_app.logger.info('Model loaded from database')
+
 def load_model_weights(model: nn.Module, params: TrainParams):
     """Load the model weights saved in the database to start the new epoch"""
-    current_app.logger.info('Loading model from database')
-    with torch.no_grad():
-        for name, layer in model.named_modules():
-            # only load and save layers that are optimizable (conv or fc)
-            if _is_optimizable(layer):
+    # Get the tensors as a state dict from the database
+    state_dict = _get_model_dict(model, params.ps_id)
 
-                # Load the weight
-                current_app.logger.info(f'Loading weights for layer {name}')
-                weight_key = f'{params.ps_id}:{name}-weight'
-                w = redis_con.tensorget(weight_key)
-                layer.weight = torch.nn.Parameter(torch.from_numpy(w))
+    # Load the tensors onto the model
+    # By making it not strict we can omit layers in the state
+    # dict if those are not optimizable
+    model.load_state_dict(state_dict, strict=False)
 
-                # If the layer has an active bias retrieve it
-                # Some of the layers in resnet do not have bias
-                # or it is None. It is not needed with BN, so skip it
-                if layer.bias is not None:
-                    current_app.logger.info(f'Loading bias for layer {name}')
-                    bias_key = f'{params.ps_id}:{name}-bias'
-                    w = redis_con.tensorget(bias_key)
-                    layer.bias = torch.nn.Parameter(torch.from_numpy(w))
+    current_app.logger.info('Loaded state dict from the database')
 
-    current_app.logger.info('Model loaded from database')
+
+def _get_model_dict(model: nn.Module, ps_id: str) -> Dict[str, torch.Tensor]:
+    """Loads all the tensors from the weights and the biases from the database.
+    Parse them and introduce them in a dictionary that is then used by the torch
+    load_state_dict method to load the weights and biases of the previous epochs"""
+    state = dict()
+    for name, layer in model.named_modules():
+        # only load and save layers that are optimizable (conv or fc)
+        if _is_optimizable(layer):
+
+            # Load the weight
+            current_app.logger.debug(f'Loading weights for layer {name}')
+            weight_key = f'{ps_id}:{name}.weight'
+            w = redis_con.tensorget(weight_key)
+            # set the weight
+            state[weight_key] = torch.from_numpy(w)
+
+            # If the layer has an active bias retrieve it
+            # Some of the layers in resnet do not have bias
+            # or it is None. It is not needed with BN, so skip it
+            if layer.bias is not None:
+                current_app.logger.debug(f'Loading bias for layer {name}')
+                bias_key = f'{ps_id}:{name}.bias'
+                w = redis_con.tensorget(bias_key)
+                # set the bias
+                state[bias_key] = torch.from_numpy(w)
+
+    return state
 
 
 # def save_model_weights(model: nn.Module, params: TrainParams):
@@ -148,13 +190,13 @@ def save_model_weights(model: nn.Module, params: TrainParams):
 
                 # Save the weights
                 current_app.logger.info(f'Setting weights for layer {name}')
-                weight_key = f'{params.ps_id}:{name}-weight'
+                weight_key = f'{params.ps_id}:{name}.weight'
                 redis_con.tensorset(weight_key, layer.weight.cpu().detach().numpy(), dtype='float32')
 
                 # Save the bias if not None
                 if layer.bias is not None:
                     current_app.logger.info(f'Setting bias for layer {name}')
-                    bias_key = f'{params.ps_id}:{name}-bias'
+                    bias_key = f'{params.ps_id}:{name}.bias'
                     redis_con.tensorset(bias_key, layer.bias.cpu().detach().numpy(), dtype='float32')
 
     current_app.logger.info('Saved model to the database')
@@ -184,12 +226,11 @@ def save_gradients(tensor_dict: dict, params: TrainParams):
 def send_train_finish(params: TrainParams, **kwargs) -> dict:
     """With the train params build the url and build the response"""
     # for now just take the kwargs and that's it
-    res = TrainResults(
-        results=kwargs
-    )
 
-    # encode as dictionary and json dump
-    res_d = dataclasses.asdict(res)
+    # Simply return whatever the user chooses
+    # by calling this function with loss: smthg, acc: smthg, those are
+    # returned
+    res_d = kwargs
     current_app.logger.info(f"Sending response {res_d}")
 
     # build the url and post the results

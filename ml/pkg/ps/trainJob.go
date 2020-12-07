@@ -1,7 +1,9 @@
 package ps
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/RedisAI/redisai-go/redisai"
@@ -10,6 +12,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
+	"net/http"
+	"sync"
+	"time"
 )
 
 type (
@@ -45,6 +50,9 @@ type (
 
 		// history of the train job
 		history map[string][]float32
+
+		// to avoid exiting without the validation tasks finishin
+		wgVal *sync.WaitGroup
 	}
 )
 
@@ -67,6 +75,7 @@ func newTrainJob(logger *zap.Logger, id string,
 		redisClient: client,
 		task:        task,
 		history:     make(map[string][]float32),
+		wgVal:       &sync.WaitGroup{},
 	}
 
 	return job
@@ -126,7 +135,15 @@ func (job *TrainJob) serveTrainJob() {
 		// requests and waits until all of them are done, so
 		// we can just block until all of them are fully completed
 		// TODO we could do the thing of adding an extra b funcs to deal with stragglers
+
+		// Get the completion time to send to the scheduler so it can calculate the throughput
+		startTime := time.Now()
+
 		job.invokeTrainFunctions()
+
+		// Get the elapsed time
+		elapsed := time.Now().Sub(startTime)
+		job.logger.Debug("Elapsed time", zap.Any("elapsed", elapsed))
 
 		// The model updates and so on is handled in parallel in the API
 		// Here we just wait for all functions to be done
@@ -142,9 +159,11 @@ func (job *TrainJob) serveTrainJob() {
 
 		// TODO handle the response from the val func
 		// Invoke the validation function while we wait for the scheduler
-		go job.invokeValFunction()
+		job.wgVal.Add(1)
+		go job.invokeValFunction(job.wgVal)
 
 		// TODO send request to the scheduler through the API
+		job.sendSchedulerRequest(elapsed)
 
 		job.logger.Debug("Waiting for scheduler response")
 		resp := <-job.schedChan
@@ -164,11 +183,14 @@ func (job *TrainJob) serveTrainJob() {
 		job.epoch++
 	}
 
-	job.logger.Info(fmt.Sprintf("Training finished after %d epochs", job.epoch))
+	// Wait for the val functions to finish
+	job.wgVal.Wait()
+
+	job.logger.Info(fmt.Sprintf("Training finished after %d epochs", job.epoch-1))
 
 	// TODO should save results of the training in the database
-	job.saveTrainingHistory()
-	job.logger.Info("Exiting...")
+	//job.saveTrainingHistory()
+	job.logger.Info("Exiting...", zap.Any("history", job.history))
 
 }
 
@@ -203,5 +225,38 @@ func (job *TrainJob) saveTrainingHistory() {
 	}
 
 	job.logger.Info("Inserted history", zap.Any("id", resp.InsertedID))
+
+}
+
+// sendSchedulerRequest notifies the scheduler about the completion of an epoch and sends the
+// basic information such as elapsed time, number of functions and so on
+func (job *TrainJob) sendSchedulerRequest(elapsed time.Duration) {
+
+	// build the task
+	req := api.ScheduleRequest{
+		Parameters:  job.task.Parameters,
+		Parallelism: job.parallelism,
+		ElapsedTime: elapsed.Seconds(),
+		JobId:       job.jobId,
+	}
+
+	addr := fmt.Sprintf("%s:%d/job", api.DEBUG_URL, api.SCHEDULER_DEBUG_PORT)
+	job.logger.Debug("Built response address", zap.String("url", addr))
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		job.logger.Error("Could not marshal trainjob update",
+			zap.Error(err),
+			zap.Any("request", req))
+		return
+	}
+
+	_, err = http.Post(addr, "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		job.logger.Error("Could not send request to scheduler",
+			zap.Error(err),
+			zap.Any("response", req))
+		return
+	}
 
 }

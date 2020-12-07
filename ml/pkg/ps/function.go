@@ -35,9 +35,11 @@ func (job *TrainJob) buildFunctionURL(funcId, numFunc int, task, funcName string
 // invokeInitFunction calls a single function which initializes the
 // model, saves it to the database and returns the layer names that the job will save
 func (job *TrainJob) invokeInitFunction() ([]string, error) {
+
+	job.logger.Info("Invoking init function")
 	query := job.buildFunctionURL(0, 1, "init", job.task.Parameters.FunctionName)
 	resp, err := http.Get(query)
-
+	defer resp.Body.Close()
 	if err != nil {
 		// TODO here we should implement retries like in the fetcher specialize in fission
 		// TODO maybe create a special function called execute with retries
@@ -129,21 +131,26 @@ func (job *TrainJob) invokeTrainFunctions() {
 // invokeValFunction After getting all the gradients and publishing the new model invoke
 // the validation function to get the performance of the system, these are returned as a dict
 // TODO this could also be run with many functions
-func (job *TrainJob) invokeValFunction() {
+func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
+
+	defer wg.Done()
+	job.logger.Info("Invoking validation function")
 
 	// TODO instead of returning the map we could add it to a job level map that tracks the progress
 	var results map[string]float32
 
 	query := job.buildFunctionURL(0, 1, "val", job.task.Parameters.FunctionName)
 	resp, err := http.Get(query)
+	defer resp.Body.Close()
 	if err != nil {
 		// TODO here we should implement retries like in the fetcher specialize in fission
 		// TODO maybe create a special function called execute with retries
-		job.logger.Error("Could not call the init function",
+		job.logger.Error("Could not call the validation function",
 			zap.String("funcName", job.task.Parameters.FunctionName),
 			zap.Any("request", job.task.Parameters),
 			zap.Error(err))
 	}
+
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -162,6 +169,8 @@ func (job *TrainJob) invokeValFunction() {
 		return
 	}
 
+	job.logger.Debug("Got validation results", zap.Any("results", results))
+
 	// Update the history with the new results
 	for metric := range results {
 		value, exists := job.history[metric]
@@ -171,6 +180,8 @@ func (job *TrainJob) invokeValFunction() {
 			job.history[metric] = []float32{results[metric]}
 		}
 	}
+
+	job.logger.Debug("History updated", zap.Any("history", job.history))
 
 }
 
@@ -184,6 +195,7 @@ func (job *TrainJob) launchFunction(funcId int,
 
 	// do the request
 	resp, err := http.Get(query)
+	defer resp.Body.Close()
 	if err != nil {
 		job.logger.Error("Error when performing request",
 			zap.Int("funcId", funcId),
@@ -191,7 +203,7 @@ func (job *TrainJob) launchFunction(funcId int,
 		return
 	}
 
-	var res map[string]map[string]float32
+	var res map[string]float32
 	// We get a json with {loss: float32} so parse the json and so on
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -210,6 +222,6 @@ func (job *TrainJob) launchFunction(funcId int,
 	job.logger.Info("Sending result to channel and exiting",
 		zap.Int("funcId", funcId),
 		zap.Any("results", res))
-	respChan <- res["results"]
+	respChan <- res
 
 }

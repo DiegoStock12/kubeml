@@ -18,7 +18,7 @@ type (
 	// with the parallelism needed for the job
 	// TODO could use this both ways
 	TrainTask struct {
-		Parameters     TrainRequest `json:"request"`
+		Parameters  TrainRequest `json:"request"`
 		Parallelism int          `json:"parallelism"`
 	}
 
@@ -49,9 +49,10 @@ type (
 	// Messages exchanged between the components of the
 	// system. Namely Scheduler and PS
 	ScheduleRequest struct {
-		PsId        string `json:"ps_id"`
-		Network     string `json:"network"`
-		Parallelism int    `json:"parallelism"`
+		JobId        string       `json:"job_id"`
+		Parameters  TrainRequest `json:"request"`
+		ElapsedTime float64      `json:"elapsed_time,omitempty"`
+		Parallelism int          `json:"parallelism"`
 	}
 
 	ScheduleResponse struct {

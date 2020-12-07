@@ -11,11 +11,39 @@ import (
 	"github.com/diegostock12/thesis/ml/pkg/api"
 )
 
-// handleTrainJobRequest listens to the TrainJobs of the Parameter Server and their
+// newParallelism listens to the TrainJobs of the Parameter Server and their
 // requests for a new level of parallelism.
 // To make this doable we need to put the request in a queue and wait for the scheduler
 // to get it and schedule it
-func (s *Scheduler) handleTrainJobRequest()  {
+func (s *Scheduler) newParallelism(w http.ResponseWriter, r *http.Request)  {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		s.logger.Error("Failed to get the training request from the TrainJob", zap.Error(err))
+		http.Error(w, "Failed to read request", http.StatusInternalServerError)
+		return
+	}
+
+	var req api.ScheduleRequest
+	// read the train request
+	err = json.Unmarshal(body, &req)
+	if err != nil {
+		s.logger.Error("Failed to parse the trainjob request",
+			zap.Error(err),
+			zap.String("payload", string(body)))
+		http.Error(w, "Failed to decode the request", http.StatusInternalServerError)
+		return
+	}
+
+	s.logger.Debug("Received request for new parallelism",
+		zap.Any("request", req))
+
+	// Add the request to the channel of the scheduler
+	// TODO see how to handle this so we just answer when the task is actually scheduled
+	// TODO send alongside the request a response channel and get the parameters chosen by the scheduler
+	s.psChan <- &req
+
+	w.WriteHeader(http.StatusOK)
+
 
 }
 
@@ -63,6 +91,7 @@ func (s *Scheduler) healthHandler(w http.ResponseWriter, r *http.Request)  {
 // Create the handler for the scheduler to receive requests from the API
 func (s *Scheduler) GetHandler() http.Handler {
 	r := mux.NewRouter()
+	r.HandleFunc("/job", s.newParallelism).Methods("POST")
 	r.HandleFunc("/scheduleTrainTask", s.scheduleTrainTask).Methods("POST")
 	r.HandleFunc("/scheduleInferenceTask", s.scheduleInferenceTask).Methods("POST")
 	r.HandleFunc("/health", s.healthHandler).Methods("GET")

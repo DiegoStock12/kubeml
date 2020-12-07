@@ -3,9 +3,9 @@ package api
 const (
 
 	// Constants to save and retrieve the gradients
-	WeightSuffix   = "-weight"
-	BiasSuffix     = "-bias"
-	GradientSuffix = "-grad"
+	WeightSuffix   = ".weight"
+	BiasSuffix     = ".bias"
+	GradientSuffix = ".grad"
 )
 
 // Redis connection params

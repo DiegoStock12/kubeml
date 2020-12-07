@@ -14,14 +14,13 @@ import (
 
 type (
 	Scheduler struct {
-
 		logger *zap.Logger
 
 		// TODO see how we'll handle multiple requests coming from multiple parameter servers
 		// TODO how to decide how many functions each PS will invoke (we need metrics for this, start with constant)
 		// Schedule requests coming from the API
 		apiChan chan *api.TrainRequest
-		psChan chan *api.ScheduleRequest
+		psChan  chan *api.ScheduleRequest
 
 		// TODO might need some kind of map to hold all the different running tasks and also metrics
 		// Index to keep the information of the parameter servers
@@ -29,8 +28,6 @@ type (
 		// TODO add a task queue instead of a channel to handle all the task requests
 		// Copy this queue from the kubernetes scheduler
 	}
-
-
 )
 
 const (
@@ -75,10 +72,10 @@ func sendRequest(req *api.TrainRequest) error {
 }
 
 // Periodically consuming metrics to make scheduling decisions
-func (s *Scheduler) consumeMetrics()  {
+func (s *Scheduler) consumeMetrics() {
 	// TODO unimplemented
 	s.logger.Info("Scheduler starting to observe metrics")
-	select { }
+	select {}
 }
 
 // Listen for the messages from the API and schedule the job
@@ -86,7 +83,7 @@ func (s *Scheduler) consumeMetrics()  {
 //1) Create parameter server for the task with a new id
 //2) Indicate to the parameter server the right amount of functions to invoke
 //(It is gonna be a constant of 3 for the start)
-func (s *Scheduler) satisfyAPIRequests()  {
+func (s *Scheduler) satisfyAPIRequests() {
 	s.logger.Info("Scheduler started satisfying the requests from the API")
 
 	for {
@@ -97,11 +94,10 @@ func (s *Scheduler) satisfyAPIRequests()  {
 		// Right now for testing just print that we got the request and start a parameter server
 		s.logger.Info("Received request to schedule network", zap.String("model", req.ModelType))
 
-
 		//  TODO this parallelism should be optimized
 		// Create a parameter server and start it in a new goroutine
 		err := sendRequest(req)
-		if err != nil{
+		if err != nil {
 			s.logger.Error("Error sending request",
 				zap.Error(err))
 		}
@@ -119,12 +115,15 @@ func (s *Scheduler) satisfyPSRequests() {
 	for {
 
 		// Wait for requests from the PS
-		req := <- s.psChan
+		req := <-s.psChan
+
+		s.logger.Debug("Satisfying TrainJob request...")
+		s.logger.Info("Received request from PS", zap.String("psID", req.JobId))
 
 		// TODO this should pack all the intelligence in terms of scheduling requests
-		// For now just answer with a constant of 2 (same as parallelism)
+		// For now just answer with the same parallelism as before
 
-		s.logger.Info("Received request from PS", zap.String("psID", req.PsId))
+		s.sendJobResponse(req.Parallelism, req.JobId)
 		// TODO answer to the PS through rest
 
 	}
@@ -138,16 +137,15 @@ func Start(logger *zap.Logger, port int) {
 
 	// Create the scheduler
 	s := &Scheduler{
-		logger:    logger.Named("scheduler"),
+		logger:  logger.Named("scheduler"),
 		apiChan: make(chan *api.TrainRequest),
-		psChan: make(chan *api.ScheduleRequest),
+		psChan:  make(chan *api.ScheduleRequest),
 	}
 
 	// Start consuming metrics and also listening for requests
 	go s.consumeMetrics()
 	go s.satisfyAPIRequests()
 	go s.satisfyPSRequests()
-
 
 	// Finally start the API
 	go s.Serve(port)
@@ -161,13 +159,10 @@ func Start(logger *zap.Logger, port int) {
 	s.apiChan <- &api.TrainRequest{
 		ModelType:    "resnet",
 		BatchSize:    128,
-		Epochs:       1,
+		Epochs:       3,
 		Dataset:      "MNIST",
 		LearningRate: 0.01,
 		FunctionName: "network",
 	}
 
-
 }
-
-
