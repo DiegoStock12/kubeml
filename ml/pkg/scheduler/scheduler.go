@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/diegostock12/thesis/ml/pkg/api"
-	ferror "github.com/fission/fission/pkg/error"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
@@ -56,7 +56,7 @@ func sendRequest(req *api.TrainRequest) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return ferror.MakeErrorFromHTTP(resp)
+		return errors.Errorf("Error during operation, code was %d", resp.StatusCode)
 	}
 
 	// Get the response
