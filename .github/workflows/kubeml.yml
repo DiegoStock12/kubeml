@@ -1,5 +1,4 @@
-name: kubeml
-description: 'Build and publish the kubeml container'
+name: Compile the code and publish on dockerhub
 
 on:
   push:
