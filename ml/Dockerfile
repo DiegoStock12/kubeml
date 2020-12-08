@@ -1,17 +1,17 @@
 # 1) Download dependencies first so they are cached
-FROM golang:1.12.17-alpine AS godep
+FROM golang:1.12-alpine AS godep
 RUN apk add bash ca-certificates git gcc g++ libc-dev
 
 ENV GO111MODULE=on
 
 ARG GOPKG=github.com/diegostock12/thesis/ml
 
-WORKDIR /go/src/${GOPKG}
+WORKDIR /app
 
 # To reuse build cache, copy go.mod & go.sum and download dependencies first.
 COPY go.mod .
 COPY go.sum .
-RUN go mod download
+RUN go list ./...
 
 
 
@@ -19,13 +19,13 @@ RUN go mod download
 FROM godep as builder
 
 ARG GOPKG
-WORKDIR /go/src/${GOPKG}
+WORKDIR /app
 
 # Copy whole ml directory to work dir
 COPY ./ ./
 
 # Change working directory to where the stuff is
-WORKDIR /go/src/${GOPKG}/cmd/ml
+WORKDIR /app/cmd/ml
 
 
 # Build the application
