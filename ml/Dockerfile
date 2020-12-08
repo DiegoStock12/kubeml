@@ -30,15 +30,13 @@ WORKDIR /app/cmd/ml
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -o /go/bin/kubeml \
-    -gcflags=-trimpath=$GOPATH \
-    -asmflags=-trimpath=$GOPATH
+    -o kubeml
 
 
 
 # 3) Finally use another container to slim down the image size
 FROM alpine:3.10 as base
 RUN apk add --update ca-certificates
-COPY --from=builder /go/bin/ml /
+COPY --from=builder /app/cmd/ml/kubeml /
 
 ENTRYPOINT ["/kubeml"]
