@@ -36,7 +36,7 @@ type (
 		model *model.Model
 
 		// schedChan receives messages from the PS
-		schedChan <-chan *api.ScheduleResponse
+		schedChan <-chan *api.TrainTask
 		// epochChan is to synchronize when receiving all the responses from
 		// the functions
 		// TODO we can just wait until all the functions are ready with a WG
@@ -51,14 +51,14 @@ type (
 		// history of the train job
 		history map[string][]float32
 
-		// to avoid exiting without the validation tasks finishin
+		// to avoid exiting without the validation tasks finish
 		wgVal *sync.WaitGroup
 	}
 )
 
 // newTrainJob Creates a new TrainJob that will take care of a specific train request
-func newTrainJob(logger *zap.Logger, id string,
-	task *api.TrainTask, schedChan <-chan *api.ScheduleResponse) *TrainJob {
+func newTrainJob(logger *zap.Logger,
+	task *api.TrainTask, schedChan <-chan *api.TrainTask) *TrainJob {
 
 	logger.Info("Creating new train job")
 
@@ -67,8 +67,8 @@ func newTrainJob(logger *zap.Logger, id string,
 
 	// Create the PS struct
 	job := &TrainJob{
-		logger:      logger.Named(fmt.Sprintf("trainJob-%s", id)),
-		jobId:       id,
+		logger:      logger.Named(fmt.Sprintf("trainJob-%s", task.JobId)),
+		jobId:       task.JobId,
 		parallelism: task.Parallelism,
 		epoch:       1,
 		schedChan:   schedChan,
@@ -169,15 +169,17 @@ func (job *TrainJob) serveTrainJob() {
 		resp := <-job.schedChan
 
 		job.logger.Info("Received next config from the Scheduler",
-			zap.Int("new parallelism", resp.NewParallelism))
+			zap.Int("new parallelism", resp.Parallelism))
 
-		if resp.NewParallelism < 1 {
+		if resp.Parallelism < 1 {
 			job.logger.Error("Received bad configuration from the scheduler",
-				zap.Int("parallelism", resp.NewParallelism))
+				zap.Int("parallelism", resp.Parallelism))
 		}
 
+		job.task = resp
+
 		// Change the new limits
-		job.parallelism = resp.NewParallelism
+		job.parallelism = resp.Parallelism
 
 		// Increment the epoch
 		job.epoch++
@@ -232,22 +234,16 @@ func (job *TrainJob) saveTrainingHistory() {
 // basic information such as elapsed time, number of functions and so on
 func (job *TrainJob) sendSchedulerRequest(elapsed time.Duration) {
 
-	// build the task
-	req := api.ScheduleRequest{
-		Parameters:  job.task.Parameters,
-		Parallelism: job.parallelism,
-		ElapsedTime: elapsed.Seconds(),
-		JobId:       job.jobId,
-	}
-
 	addr := fmt.Sprintf("%s:%d/job", api.DEBUG_URL, api.SCHEDULER_DEBUG_PORT)
 	job.logger.Debug("Built response address", zap.String("url", addr))
 
-	body, err := json.Marshal(req)
+	job.task.ElapsedTime = elapsed.Seconds()
+
+	body, err := json.Marshal(job.task)
 	if err != nil {
 		job.logger.Error("Could not marshal trainjob update",
 			zap.Error(err),
-			zap.Any("request", req))
+			zap.Any("request", job.task))
 		return
 	}
 
@@ -255,7 +251,7 @@ func (job *TrainJob) sendSchedulerRequest(elapsed time.Duration) {
 	if err != nil {
 		job.logger.Error("Could not send request to scheduler",
 			zap.Error(err),
-			zap.Any("response", req))
+			zap.Any("response", job.task))
 		return
 	}
 

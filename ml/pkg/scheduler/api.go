@@ -15,7 +15,7 @@ import (
 // requests for a new level of parallelism.
 // To make this doable we need to put the request in a queue and wait for the scheduler
 // to get it and schedule it
-func (s *Scheduler) newParallelism(w http.ResponseWriter, r *http.Request)  {
+func (s *Scheduler) newParallelism(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		s.logger.Error("Failed to get the training request from the TrainJob", zap.Error(err))
@@ -23,9 +23,12 @@ func (s *Scheduler) newParallelism(w http.ResponseWriter, r *http.Request)  {
 		return
 	}
 
-	var req api.ScheduleRequest
+	// Receive the train task from the job
+	// and insert it in the queue to be scheduled
+	var task api.TrainTask
+
 	// read the train request
-	err = json.Unmarshal(body, &req)
+	err = json.Unmarshal(body, &task)
 	if err != nil {
 		s.logger.Error("Failed to parse the trainjob request",
 			zap.Error(err),
@@ -35,20 +38,17 @@ func (s *Scheduler) newParallelism(w http.ResponseWriter, r *http.Request)  {
 	}
 
 	s.logger.Debug("Received request for new parallelism",
-		zap.Any("request", req))
+		zap.Any("task", task))
 
-	// Add the request to the channel of the scheduler
-	// TODO see how to handle this so we just answer when the task is actually scheduled
-	// TODO send alongside the request a response channel and get the parameters chosen by the scheduler
-	s.psChan <- &req
+	// Add the request to scheduler queue
+	s.queue.pushTask(&task)
 
 	w.WriteHeader(http.StatusOK)
 
-
 }
 
-// Handle requests from the API to infer tasks
-func (s *Scheduler) scheduleTrainTask(w http.ResponseWriter, r *http.Request)  {
+// train receives the TrainRequest from the controller and enqueues them
+func (s *Scheduler) train(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		s.logger.Error("Failed to get the training request from the API", zap.Error(err))
@@ -56,7 +56,8 @@ func (s *Scheduler) scheduleTrainTask(w http.ResponseWriter, r *http.Request)  {
 		return
 	}
 
-	req := api.TrainRequest{}
+	var req api.TrainRequest
+
 	// read the train request
 	err = json.Unmarshal(body, &req)
 	if err != nil {
@@ -67,33 +68,39 @@ func (s *Scheduler) scheduleTrainTask(w http.ResponseWriter, r *http.Request)  {
 		return
 	}
 
-	// Add the request to the channel of the scheduler
-	// TODO see how to handle this so we just answer when the task is actually scheduled
-	// TODO send alongside the request a response channel and get the parameters chosen by the scheduler
-	s.apiChan <- &req
+	// Create the jobId and push to queue
+	id := createJobId()
+
+	// TODO now add it directly to the task queue
+	t := api.TrainTask{
+		Parameters:  req,
+		Parallelism: -1,
+		JobId:       id,
+		ElapsedTime: -1,
+	}
+
+	s.queue.pushTask(&t)
 
 	w.WriteHeader(http.StatusOK)
 }
 
-
 // Handle requests to infer with some datapoints
 // TODO unimplemented
-func (s *Scheduler) scheduleInferenceTask(w http.ResponseWriter, r *http.Request)  {
+func (s *Scheduler) infer(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
 // Handle heartbeats from Kubernetes
-func (s *Scheduler) healthHandler(w http.ResponseWriter, r *http.Request)  {
+func (s *Scheduler) healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
-
 
 // Create the handler for the scheduler to receive requests from the API
 func (s *Scheduler) GetHandler() http.Handler {
 	r := mux.NewRouter()
 	r.HandleFunc("/job", s.newParallelism).Methods("POST")
-	r.HandleFunc("/scheduleTrainTask", s.scheduleTrainTask).Methods("POST")
-	r.HandleFunc("/scheduleInferenceTask", s.scheduleInferenceTask).Methods("POST")
+	r.HandleFunc("/train", s.train).Methods("POST")
+	r.HandleFunc("/infer", s.infer).Methods("POST")
 	r.HandleFunc("/health", s.healthHandler).Methods("GET")
 	return r
 }
@@ -108,4 +115,3 @@ func (s *Scheduler) Serve(port int) {
 	s.logger.Fatal("Scheduler API done", zap.Error(err))
 
 }
-

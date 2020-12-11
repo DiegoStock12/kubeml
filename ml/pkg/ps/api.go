@@ -4,13 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/diegostock12/thesis/ml/pkg/api"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 )
-
 
 func respondWithSuccess(w http.ResponseWriter, resp []byte) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -21,9 +19,9 @@ func respondWithSuccess(w http.ResponseWriter, resp []byte) {
 	}
 }
 
-// handleSchedulerResponse Handles the responses from the scheduler to the
+// updateTask Handles the responses from the scheduler to the
 // requests by the parameter servers to
-func (ps *ParameterServer) handleSchedulerResponse(w http.ResponseWriter, r *http.Request)  {
+func (ps *ParameterServer) updateTask(w http.ResponseWriter, r *http.Request) {
 
 	// Get the job that the new response is for
 	vars := mux.Vars(r)
@@ -40,7 +38,7 @@ func (ps *ParameterServer) handleSchedulerResponse(w http.ResponseWriter, r *htt
 	}
 
 	// Unpack the Response
-	var resp api.ScheduleResponse
+	var resp api.TrainTask
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		ps.logger.Error("Could not read response body",
@@ -58,21 +56,19 @@ func (ps *ParameterServer) handleSchedulerResponse(w http.ResponseWriter, r *htt
 		return
 	}
 
-
 	ps.logger.Debug("Received response from the scheduler, sending to job...",
 		zap.Any("resp", resp))
 
 	// Send the response to the channel
 	ch <- &resp
 
-
 }
 
-// handleScheduleRequest Handles the request of the scheduler to create a
+// startTask Handles the request of the scheduler to create a
 // new training job. It creates a new parameter server thread and returns the id
 // of the created parameeter server
 // TODO the code for this is basically the code that is now present in the scheduler.go file
-func (ps *ParameterServer) handleScheduleRequest(w http.ResponseWriter, r *http.Request)  {
+func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 	ps.logger.Debug("Processing request from the Scheduler")
 
 	var task api.TrainTask
@@ -96,22 +92,17 @@ func (ps *ParameterServer) handleScheduleRequest(w http.ResponseWriter, r *http.
 	ps.logger.Debug("Received task from the scheduler",
 		zap.Any("task", task))
 
-	// Create an ID for the new trainJob
-	// and create the channel communicating
-	// PS and the job
-	jobId := uuid.New().String()[:8]
-	ch := make(chan *api.ScheduleResponse)
-	//jobId := "example"
+	ch := make(chan *api.TrainTask)
 
 	// TODO get a default parallelism
 	// Create the train job and start serving
-	job := newTrainJob(ps.logger, jobId, &task, ch)
+	job := newTrainJob(ps.logger, &task, ch)
 	go job.serveTrainJob()
 
 	// Add the channel and the id to the map
-	ps.jobIndex[jobId] = ch
+	ps.jobIndex[task.JobId] = ch
 
-	respondWithSuccess(w, []byte(jobId))
+	w.WriteHeader(http.StatusOK)
 }
 
 // Invoked by the serverless functions when they finish an epoch, should update the model
@@ -171,8 +162,8 @@ func (ps *ParameterServer) handleScheduleRequest(w http.ResponseWriter, r *http.
 func (ps *ParameterServer) GetHandler() http.Handler {
 	r := mux.NewRouter()
 	//r.HandleFunc("/finish/{funcId}", ps.handleFinish).Methods("POST")
-	r.HandleFunc("/start", ps.handleScheduleRequest).Methods("POST")
-	r.HandleFunc("/update/{jobId}", ps.handleSchedulerResponse).Methods("POST")
+	r.HandleFunc("/start", ps.startTask).Methods("POST")
+	r.HandleFunc("/update/{jobId}", ps.updateTask).Methods("POST")
 
 	return r
 }
