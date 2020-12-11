@@ -26,7 +26,7 @@ type (
 		// when receiving a response from the scheduler the
 		// api will consult the index and send the response to
 		// the appropriate worker
-		jobIndex map[string]chan *api.ScheduleResponse
+		jobIndex map[string]chan *api.TrainTask
 
 		mu *sync.Mutex
 	}
@@ -46,7 +46,7 @@ func  Start(logger *zap.Logger, port int) {
 	ps := &ParameterServer{
 		logger:    logger.Named("ps"),
 		port:      port,
-		jobIndex:  make(map[string]chan *api.ScheduleResponse),
+		jobIndex:  make(map[string]chan *api.TrainTask),
 		mu: &sync.Mutex{},
 	}
 
