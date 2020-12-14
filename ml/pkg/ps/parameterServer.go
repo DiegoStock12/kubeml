@@ -28,11 +28,43 @@ type (
 		// the appropriate worker
 		jobIndex map[string]chan *api.TrainTask
 
-		mu *sync.Mutex
+		// doneChan simply receives the exit messages from the jobs to
+		// delete them from the index.
+		// The jobs send their ID to the channel and the ps deletes the history
+		// TODo should this be buffered?
+		doneChan chan string
+
+		// Lock to alter the index
+		// TODO should it be RW?
+		mu sync.Mutex
 	}
 
 
 )
+
+// receiveFinish simply waits in the
+func (ps *ParameterServer) receiveFinish()  {
+
+	// Loop forever and wait for messages receiving the finish from the
+	// jobs
+	for {
+		id := <-ps.doneChan
+
+		ps.mu.Lock()
+		if _, exists := ps.jobIndex[id]; exists {
+			ps.logger.Debug("Received finish message", zap.String("jobId", id))
+			delete(ps.jobIndex, id)
+
+		} else {
+			ps.logger.Warn("Received finish message from unknown job",
+				zap.String("jobId", id))
+		}
+
+		ps.mu.Unlock()
+
+	}
+
+}
 
 
 // Start Starts a New parameter server which will execute the tasks
@@ -47,10 +79,13 @@ func  Start(logger *zap.Logger, port int) {
 		logger:    logger.Named("ps"),
 		port:      port,
 		jobIndex:  make(map[string]chan *api.TrainTask),
-		mu: &sync.Mutex{},
+		doneChan: make(chan string),
 	}
 
 	ps.logger.Info("Started new parameter server")
+
+	// start the listener for job finishes
+	go ps.receiveFinish()
 
 
 	// Start the API to receive requests

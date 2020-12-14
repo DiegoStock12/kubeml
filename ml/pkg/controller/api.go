@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/diegostock12/thesis/ml/pkg/api"
@@ -11,67 +10,22 @@ import (
 	"net/http"
 )
 
-
-const (
-	schedulerTrainPath = "/scheduleTrainTask"
-	schedulerInferencePath = "/scheduleInferenceTask"
-
-	// TODO change this is we use another namespace
-	schedulerURL = "http://scheduler.default"
-)
+//const (
+//	schedulerURL = "http://scheduler.default"
+//)
 
 // Task types to send to the scheduler
-const(
+const (
 	TrainTask TaskType = iota
 	InferenceTask
 )
 
 type TaskType int
 
-// Send a post request to the scheduler endpoints
-func (c *Controller) sendRequestToScheduler(req interface{}, task TaskType) {
-
-	switch task {
-	case TrainTask:
-		// build the url
-		url := schedulerURL + schedulerTrainPath
-		c.logger.Debug("Sending train request to scheduler at", zap.String("url", url))
-		// Create the request body
-		reqBody, err := json.Marshal(req.(api.TrainRequest))
-		if err != nil {
-			c.logger.Error("Could not marshall the request",
-				zap.Any("body", req),
-				zap.Error(err))
-		}
-		_, err = http.Post(url, "application/json", bytes.NewBuffer(reqBody))
-		if err != nil {
-			c.logger.Error("Error sending request",
-				zap.Error(err))
-		}
-
-	case InferenceTask:
-		url := schedulerURL + schedulerInferencePath
-		c.logger.Debug("Sending inference request to scheduler at", zap.String("url", url))
-		// Create the request body
-		reqBody, err := json.Marshal(req.(api.InferRequest))
-		if err != nil {
-			c.logger.Error("Could not marshall the request",
-				zap.Any("body", req),
-				zap.Error(err))
-		}
-		_, err = http.Post(url, "application/json", bytes.NewBuffer(reqBody))
-		if err != nil {
-			c.logger.Error("Error sending request",
-				zap.Error(err))
-		}
-	
-	}
-}
-
 // TODO this should generate a train ID similar to pods (resnet-uid) that could be used to acces the results layer
 // TODO this could be related to the ID of the parameter server
 // Handle a train request and forward it to the scheduler
-func (c *Controller) handleTrainRequest(w http.ResponseWriter, r *http.Request)  {
+func (c *Controller) handleTrainRequest(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		c.logger.Error("Could not read body", zap.Error(err))
@@ -91,28 +45,37 @@ func (c *Controller) handleTrainRequest(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
 
 	// Forward the request to the scheduler
-	c.sendRequestToScheduler(req, TrainTask)
+	id, err := c.scheduleRequest(req, TrainTask)
+	if err != nil {
+		c.logger.Error("Could not get job id",
+			zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	c.logger.Debug("got job id",zap.String("id", id))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(id))
 }
 
-func (c Controller) handleInferenceRequest(w http.ResponseWriter, r *http.Request)  {
+func (c Controller) handleInferenceRequest(w http.ResponseWriter, r *http.Request) {
 
 }
 
 // Handles the request to
-func (c *Controller) handleDatasetRequest(w http.ResponseWriter, r *http.Request)  {
+func (c *Controller) handleDatasetRequest(w http.ResponseWriter, r *http.Request) {
 
 }
 
 // Handle Kubernetes heartbeats
-func (c *Controller) handleHealth(w http.ResponseWriter, r *http.Request)  {
+func (c *Controller) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
 // Returns the functions used to handle requests
-func (c *Controller) getHandler()  http.Handler {
+func (c *Controller) getHandler() http.Handler {
 	r := mux.NewRouter()
 	r.HandleFunc("/train", c.handleTrainRequest).Methods("POST")
 	r.HandleFunc("/infer", c.handleInferenceRequest).Methods("POST")
@@ -123,7 +86,7 @@ func (c *Controller) getHandler()  http.Handler {
 }
 
 // Starts the Controller API to handle requests
-func (c *Controller) Serve(port int)  {
+func (c *Controller) Serve(port int) {
 	c.logger.Info("Starting controller API", zap.Int("port", port))
 	addr := fmt.Sprintf(":%v", port)
 

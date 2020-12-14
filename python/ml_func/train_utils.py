@@ -51,7 +51,7 @@ def update_tensor_dict(m: nn.Module, d: dict):
                 else:
                     d[f'{name}.weight.grad'] = layer.weight.grad
                     if layer.bias is not None:
-                        d[f'{name}-bias-grad'] = layer.bias.grad
+                        d[f'{name}.bias.grad'] = layer.bias.grad
 
 
 def parse_url_args() -> TrainParams:
@@ -127,9 +127,9 @@ def load_model_weights(model: nn.Module, params: TrainParams):
     # Load the tensors onto the model
     # By making it not strict we can omit layers in the state
     # dict if those are not optimizable
-    model.load_state_dict(state_dict, strict=False)
+    model.load_state_dict(state_dict)
 
-    current_app.logger.info('Loaded state dict from the database')
+    current_app.logger.info(f'Loaded state dict from the database {state_dict.keys()}')
 
 
 def _get_model_dict(model: nn.Module, ps_id: str) -> Dict[str, torch.Tensor]:
@@ -146,7 +146,7 @@ def _get_model_dict(model: nn.Module, ps_id: str) -> Dict[str, torch.Tensor]:
             weight_key = f'{ps_id}:{name}.weight'
             w = redis_con.tensorget(weight_key)
             # set the weight
-            state[weight_key] = torch.from_numpy(w)
+            state[weight_key[9:]] = torch.from_numpy(w)
 
             # If the layer has an active bias retrieve it
             # Some of the layers in resnet do not have bias
@@ -156,7 +156,7 @@ def _get_model_dict(model: nn.Module, ps_id: str) -> Dict[str, torch.Tensor]:
                 bias_key = f'{ps_id}:{name}.bias'
                 w = redis_con.tensorget(bias_key)
                 # set the bias
-                state[bias_key] = torch.from_numpy(w)
+                state[bias_key[9:]] = torch.from_numpy(w)
 
     return state
 
@@ -218,6 +218,9 @@ def save_gradients(tensor_dict: dict, params: TrainParams):
         current_app.logger.info(f'Setting the gradients for {params.ps_id}:{grad_name}/{params.func_id}')
         redis_con.tensorset(f'{params.ps_id}:{grad_name}/{params.func_id}', tensor.cpu().numpy())
 
+        if 'bias' in grad_name:
+            current_app.logger.debug(f'Func {params.func_id} setting {grad_name}: {tensor}')
+
     current_app.logger.info('All the gradients were set in the db')
 
 
@@ -242,3 +245,9 @@ def send_train_finish(params: TrainParams, **kwargs) -> dict:
     #     current_app.logger.error(f'Error sending results to the server {r.status_code}')
 
     return res_d
+
+
+def clean(data, model):
+    """Simply deletes the current con and dataset and model"""
+    del data, model
+    redis_con.close()

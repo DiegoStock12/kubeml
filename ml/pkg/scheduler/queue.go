@@ -27,11 +27,19 @@ type SchedulerQueue struct {
 	waitQ *queue
 }
 
+// NewQueue creates a queue for the scheduler
+func NewQueue() SchedulerQueue {
+	return SchedulerQueue{
+		trainQ: list.New(),
+		waitQ:  list.New(),
+	}
+}
+
 // pushTrainTask pushes the task so it can be analyzed
 // and given a new parallelism level
 func (sq *SchedulerQueue) pushTask(task *api.TrainTask)  {
 	sq.lock.Lock()
-	defer sq.lock.Lock()
+	defer sq.lock.Unlock()
 
 	// Insert a new TrainTask in the queue
 	sq.trainQ.PushBack(task)
@@ -65,7 +73,7 @@ func (sq *SchedulerQueue) pushRequest(req *api.TrainRequest) {
 	//sq.waitQ.PushBack(req)
 
 	// right now just create a task and push it to queue
-	t := api.TrainTask{
+	t := &api.TrainTask{
 		Parameters:  *req,
 		Parallelism: -1,
 		JobId:       createJobId(),

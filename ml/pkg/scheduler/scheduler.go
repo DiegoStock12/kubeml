@@ -31,7 +31,6 @@ func (s *Scheduler) consumeMetrics() {
 	select {}
 }
 
-
 // scheduleTasks Loop satisfying the requests coming from the Parameter servers
 // PS will send a request to the scheduler at the end of an epoch
 // to get the number of functions that should be run in the next iteration
@@ -43,24 +42,31 @@ func (s *Scheduler) scheduleTasks() {
 		// Wait until there is an element in the queue
 		t, err := s.queue.popTask()
 		if err != nil {
-			s.logger.Warn("Schedule queue is empty, sleeping...")
+			//s.logger.Warn("Schedule queue is empty, sleeping...")
 			// If there is no element sleep
 			// TODO see if the lock is a bottleneck
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(1 * time.Second)
 			continue
 		}
 
 		s.logger.Debug("Serving task", zap.Any("task", t))
 
-
 		// based on the previous time seen, give
 		// a new parallelism setting.
 		// if first time give a -1, if there is a -1
 		// it just ran 1 epoch so give same parallelism
-		elapsed, exists := s.cache[t.JobId]
-		if !exists {
+
+		if elapsed, exists := s.cache[t.JobId]; !exists {
 			s.cache[t.JobId] = -1
 			t.Parallelism = api.DEBUG_PARALLELISM
+
+			err = s.startTask(t)
+			if err != nil {
+				s.logger.Error("Error starting task",
+					zap.Any("task", t),
+					zap.Error(err))
+			}
+
 		} else {
 			if elapsed == -1 {
 				s.cache[t.JobId] = t.ElapsedTime
@@ -72,12 +78,14 @@ func (s *Scheduler) scheduleTasks() {
 				if t.ElapsedTime <= elapsed {
 					t.Parallelism++
 				} else {
-					t.Parallelism--
+					if t.Parallelism > 1 {
+						t.Parallelism--
+					}
 				}
 			}
-		}
 
-		s.updateTask(t)
+			s.updateTask(t)
+		}
 
 	}
 }
@@ -94,7 +102,7 @@ func Start(logger *zap.Logger, port int) {
 	// Create the scheduler
 	s := &Scheduler{
 		logger: logger.Named("scheduler"),
-		queue:  SchedulerQueue{},
+		queue:  NewQueue(),
 		cache:  make(map[string]float64),
 	}
 
@@ -106,18 +114,18 @@ func Start(logger *zap.Logger, port int) {
 	go s.Serve(port)
 
 	// Sleep for a couple of second
-	s.logger.Debug("sleeping")
-	time.Sleep(2 * time.Second)
+	//s.logger.Debug("sleeping")
+	//time.Sleep(2 * time.Second)
 
 	// Send a request into our own channel so we can create a PS
-	s.logger.Debug("Sending random trainrequest")
-	s.queue.pushRequest(&api.TrainRequest{
-		ModelType:    "resnet",
-		BatchSize:    128,
-		Epochs:       3,
-		Dataset:      "MNIST",
-		LearningRate: 0.01,
-		FunctionName: "network",
-	})
+	//s.logger.Debug("Sending random trainrequest")
+	//s.queue.pushRequest(&api.TrainRequest{
+	//	ModelType:    "resnet",
+	//	BatchSize:    128,
+	//	Epochs:       3,
+	//	Dataset:      "MNIST",
+	//	LearningRate: 0.01,
+	//	FunctionName: "network",
+	//})
 
 }

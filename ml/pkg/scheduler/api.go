@@ -79,9 +79,17 @@ func (s *Scheduler) train(w http.ResponseWriter, r *http.Request) {
 		ElapsedTime: -1,
 	}
 
+	s.logger.Debug("Adding task to queue",
+		zap.Any("task", t))
 	s.queue.pushTask(&t)
 
+	s.logger.Debug("here")
+
 	w.WriteHeader(http.StatusOK)
+	_, err = w.Write([]byte(id))
+	if err != nil{
+		s.logger.Error("error writing response", zap.Error(err))
+	}
 }
 
 // Handle requests to infer with some datapoints

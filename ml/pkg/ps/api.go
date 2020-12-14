@@ -96,7 +96,7 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 
 	// TODO get a default parallelism
 	// Create the train job and start serving
-	job := newTrainJob(ps.logger, &task, ch)
+	job := newTrainJob(ps.logger, &task, ch, ps.doneChan)
 	go job.serveTrainJob()
 
 	// Add the channel and the id to the map

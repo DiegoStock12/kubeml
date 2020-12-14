@@ -1,18 +1,12 @@
 package ps
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/RedisAI/redisai-go/redisai"
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	"github.com/diegostock12/thesis/ml/pkg/model"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
-	"net/http"
 	"sync"
 	"time"
 )
@@ -37,10 +31,11 @@ type (
 
 		// schedChan receives messages from the PS
 		schedChan <-chan *api.TrainTask
+		doneChan chan<- string
 		// epochChan is to synchronize when receiving all the responses from
 		// the functions
-		// TODO we can just wait until all the functions are ready with a WG
-		epochChan chan struct{}
+		//// TODO we can just wait until all the functions are ready with a WG
+		//epochChan chan struct{}
 
 		// Communicate with the cache
 		redisClient *redisai.Client
@@ -58,7 +53,7 @@ type (
 
 // newTrainJob Creates a new TrainJob that will take care of a specific train request
 func newTrainJob(logger *zap.Logger,
-	task *api.TrainTask, schedChan <-chan *api.TrainTask) *TrainJob {
+	task *api.TrainTask, schedChan <-chan *api.TrainTask, doneChan chan string) *TrainJob {
 
 	logger.Info("Creating new train job")
 
@@ -72,6 +67,7 @@ func newTrainJob(logger *zap.Logger,
 		parallelism: task.Parallelism,
 		epoch:       1,
 		schedChan:   schedChan,
+		doneChan: doneChan,
 		redisClient: client,
 		task:        task,
 		history:     make(map[string][]float32),
@@ -115,9 +111,10 @@ func (job *TrainJob) initializeModel() error {
 // After this the job needs to send a request to the scheduler to get the proper
 // amount of functions to use in the next epoch
 func (job *TrainJob) serveTrainJob() {
-	job.logger.Info("Starting to serve train job")
 
+	job.logger.Info("Starting to serve train job")
 	job.logger.Info("Initializing model")
+
 	err := job.initializeModel()
 	if err != nil {
 		job.logger.Fatal("Could not initialize model",
@@ -125,39 +122,30 @@ func (job *TrainJob) serveTrainJob() {
 	}
 
 	// Loop for as many epochs as required by the request
-	for job.epoch <= job.task.Parameters.Epochs {
+	for ;job.epoch <= job.task.Parameters.Epochs; job.epoch++ {
 
 		job.logger.Info("Started new epoch",
 			zap.Int("epoch", job.epoch))
-
-		// Invoke the functions
-		// The function itself launches multiple
-		// requests and waits until all of them are done, so
-		// we can just block until all of them are fully completed
-		// TODO we could do the thing of adding an extra b funcs to deal with stragglers
-
-		// Get the completion time to send to the scheduler so it can calculate the throughput
 		startTime := time.Now()
 
 		job.invokeTrainFunctions()
 
 		// Get the elapsed time
 		elapsed := time.Now().Sub(startTime)
-		job.logger.Debug("Elapsed time", zap.Any("elapsed", elapsed))
 
-		// The model updates and so on is handled in parallel in the API
-		// Here we just wait for all functions to be done
-		//<-job.epochChan
 
+		job.logger.Debug("Elapsed time",
+			zap.Any("elapsed", elapsed))
 		job.logger.Info("Epoch finished, saving model")
+
+
 		// update the model and invoke the functions
 		err := job.model.Save()
 		if err != nil {
-			job.logger.Error("Could not update model",
+			job.logger.Fatal("Could not update model",
 				zap.Error(err))
 		}
 
-		// TODO handle the response from the val func
 		// Invoke the validation function while we wait for the scheduler
 		job.wgVal.Add(1)
 		go job.invokeValFunction(job.wgVal)
@@ -180,9 +168,6 @@ func (job *TrainJob) serveTrainJob() {
 
 		// Change the new limits
 		job.parallelism = resp.Parallelism
-
-		// Increment the epoch
-		job.epoch++
 	}
 
 	// Wait for the val functions to finish
@@ -194,65 +179,12 @@ func (job *TrainJob) serveTrainJob() {
 	//job.saveTrainingHistory()
 	job.logger.Info("Exiting...", zap.Any("history", job.history))
 
-}
-
-// saveTrainingHistory saves the history in the mongo database
-func (job *TrainJob) saveTrainingHistory() {
-	// get the mongo connection
-	client, err := mongo.NewClient(options.Client().ApplyURI(createMongoURI()))
-	if err != nil {
-		job.logger.Error("Could not create mongo client", zap.Error(err))
-		return
-	}
-
-	// Save the history in the kubeml database in the history collections
-	err = client.Connect(context.TODO())
-	if err != nil {
-		job.logger.Error("Could not connect to mongo", zap.Error(err))
-		return
-	}
-
-	// Create the history and index by id
-	collection := client.Database("kubeml").Collection("history")
-	h := api.History{
-		Id:   job.jobId,
-		Data: job.history,
-	}
-
-	// insert it in the DB
-	resp, err := collection.InsertOne(context.TODO(), h)
-	if err != nil {
-		job.logger.Error("Could not insert the history in the database",
-			zap.Error(err))
-	}
-
-	job.logger.Info("Inserted history", zap.Any("id", resp.InsertedID))
+	// Send the id to the PS so it can delete the
+	// entry in the job index
+	job.doneChan <- job.jobId
 
 }
 
-// sendSchedulerRequest notifies the scheduler about the completion of an epoch and sends the
-// basic information such as elapsed time, number of functions and so on
-func (job *TrainJob) sendSchedulerRequest(elapsed time.Duration) {
 
-	addr := fmt.Sprintf("%s:%d/job", api.DEBUG_URL, api.SCHEDULER_DEBUG_PORT)
-	job.logger.Debug("Built response address", zap.String("url", addr))
 
-	job.task.ElapsedTime = elapsed.Seconds()
 
-	body, err := json.Marshal(job.task)
-	if err != nil {
-		job.logger.Error("Could not marshal trainjob update",
-			zap.Error(err),
-			zap.Any("request", job.task))
-		return
-	}
-
-	_, err = http.Post(addr, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		job.logger.Error("Could not send request to scheduler",
-			zap.Error(err),
-			zap.Any("response", job.task))
-		return
-	}
-
-}

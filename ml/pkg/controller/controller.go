@@ -34,8 +34,8 @@ func (c *Controller) uploadDataset() {
 
 }
 
-// StartController creates and starts a new controller in the specified port
-func StartController(logger *zap.Logger, port int)  {
+// Start starts the controller in the specified port
+func Start(logger *zap.Logger, port int)  {
 
 	c := &Controller{
 		logger: logger.Named("controller"),
