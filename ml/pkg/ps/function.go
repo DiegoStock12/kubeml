@@ -31,7 +31,6 @@ func (job *TrainJob) buildFunctionURL(funcId, numFunc int, task, funcName string
 	return dest
 }
 
-
 // invokeInitFunction calls a single function which initializes the
 // model, saves it to the database and returns the layer names that the job will save
 func (job *TrainJob) invokeInitFunction() ([]string, error) {
@@ -74,14 +73,16 @@ func (job *TrainJob) invokeInitFunction() ([]string, error) {
 }
 
 // invokeTrainFunctions Invokes N functions to start the next epoch
-// TODO see how to handle correctly the fact that the response will not return
-func (job *TrainJob) invokeTrainFunctions() {
-
+// returns the function ids from which it got a response
+func (job *TrainJob) invokeTrainFunctions() []int {
 
 	job.logger.Debug("Invoking functions", zap.Int("N", job.parallelism))
+
+	var funcs []int
+
 	// Create the wait group and the channel
 	wg := &sync.WaitGroup{}
-	respChan := make(chan map[string]float32, job.parallelism)
+	respChan := make(chan *funcResults, job.parallelism)
 
 	for i := 0; i < job.parallelism; i++ {
 		job.logger.Debug("Invoking function", zap.Int("id", i))
@@ -101,15 +102,16 @@ func (job *TrainJob) invokeTrainFunctions() {
 	var loss float32
 	n := len(respChan)
 	if n != job.parallelism {
-		job.logger.Warn("Some of the functions returned without a result", 
+		job.logger.Warn("Some of the functions returned without a result",
 			zap.Int("parallelism", job.parallelism),
 			zap.Int("responses", n))
 	}
-	
+
 	// Compute the average loss reported by the functions
 	for response := range respChan {
 		job.logger.Debug("Got result...", zap.Any("Result", response))
-		loss += response["loss"]
+		loss += response.results["loss"]
+		funcs = append(funcs, response.funcId)
 	}
 	// After all divide by the number of elements and add to the history
 	avgLoss := loss / float32(n)
@@ -125,12 +127,11 @@ func (job *TrainJob) invokeTrainFunctions() {
 
 	job.logger.Debug("History updated", zap.Any("history", job.history))
 
+	return funcs
 }
-
 
 // invokeValFunction After getting all the gradients and publishing the new model invoke
 // the validation function to get the performance of the system, these are returned as a dict
-// TODO this could also be run with many functions
 func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 
 	defer wg.Done()
@@ -150,7 +151,6 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 			zap.Any("request", job.task.Parameters),
 			zap.Error(err))
 	}
-
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -187,8 +187,11 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 
 // launchFunction launches a training function and sends the results to the
 // invokeTrainFunctions function. Which averages the results and adds them to the history
-func (job *TrainJob) launchFunction(funcId int,
-	query string, wg *sync.WaitGroup, respChan chan map[string]float32) {
+func (job *TrainJob) launchFunction(
+	funcId int,
+	query string,
+	wg *sync.WaitGroup,
+	respChan chan *funcResults) {
 
 	job.logger.Info("Starting request for function number", zap.Int("func_id", funcId))
 	defer wg.Done()
@@ -218,10 +221,12 @@ func (job *TrainJob) launchFunction(funcId int,
 	}
 
 	// send the result to the channel and confirm exit
-
 	job.logger.Info("Sending result to channel and exiting",
 		zap.Int("funcId", funcId),
 		zap.Any("results", res))
-	respChan <- res
+	respChan <- &funcResults{
+		funcId:  funcId,
+		results: res,
+	}
 
 }

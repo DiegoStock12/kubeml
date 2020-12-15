@@ -7,6 +7,7 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"go.uber.org/zap"
 	"gorgonia.org/tensor"
+	"strconv"
 	"sync"
 )
 
@@ -19,9 +20,17 @@ type (
 		// Id of the parameter server
 		jobId string
 
-		Name       string
-		LayerNames []string
-		Layers     []*Layer
+		Name string
+
+		// StateDict holds the layer names
+		// and the layers of the model. Each
+		// layer has a bias and a weight
+		StateDict map[string]*Layer
+
+		// layerNames holds the names of the layers
+		// which will be used to build the model for the
+		// first time
+		layerNames []string
 
 		// lr must be float32 to be the same type as the tensors
 		lr      float32
@@ -38,18 +47,18 @@ type (
 	Layer struct {
 		Name string
 
-		Weights     *tensor.Dense
+		Weights *tensor.Dense
 
-		HasBias   bool
-		Bias      *tensor.Dense
+		HasBias bool
+		Bias    *tensor.Dense
 	}
 
 	// Gradient saves the gradients of a layer
 	Gradient struct {
-		Weights     *tensor.Dense
+		Weights *tensor.Dense
 
-		HasBias   bool
-		Bias      *tensor.Dense
+		HasBias bool
+		Bias    *tensor.Dense
 	}
 
 	// Just a learning rate scheduler that multiplies the rate by rate when invoked
@@ -59,13 +68,14 @@ type (
 )
 
 // Creates a new model with the specified layers
-func NewModel(logger *zap.Logger, jobId string , task api.TrainRequest,
+func NewModel(logger *zap.Logger, jobId string, task api.TrainRequest,
 	layerNames []string, client *redisai.Client) *Model {
 	return &Model{
 		logger:      logger.Named("model"),
 		Name:        task.ModelType,
 		jobId:       jobId,
-		LayerNames:  layerNames,
+		layerNames:  layerNames,
+		StateDict:   make(map[string]*Layer),
 		lr:          task.LearningRate,
 		redisClient: client,
 	}
@@ -77,7 +87,7 @@ func (m *Model) Build() error {
 	// For each layer name create a new layer with the tensors from the database
 	m.logger.Debug("Building the model", zap.String("jobId", m.jobId))
 
-	for _, layerName := range m.LayerNames {
+	for _, layerName := range m.layerNames {
 
 		m.logger.Debug("Creating new layer", zap.String("layerName", layerName))
 		l, err := newLayer(m.logger, m.redisClient, layerName, m.jobId)
@@ -87,7 +97,9 @@ func (m *Model) Build() error {
 				zap.Error(err))
 			return err
 		}
-		m.Layers = append(m.Layers, l)
+
+		// Add it to the statedict
+		m.StateDict[layerName] = l
 	}
 
 	return nil
@@ -97,7 +109,7 @@ func (m *Model) Build() error {
 // Simply iterate through the model layers and update each with the gradients
 // Simply use the layer names of the model with the -bias-grad added to them
 // TODO seems like the layers already have a lock so maybe we do not need the mutex here
-func (m *Model) Update(funcId string) error {
+func (m *Model) Update(funcId int) error {
 
 	m.logger.Info("Updating model...")
 
@@ -105,22 +117,22 @@ func (m *Model) Update(funcId string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	for idx, layerName := range m.LayerNames {
+	for name, layer := range m.StateDict {
 
 		// Get the gradients from the database
-		g, err := newGradient(m.redisClient, layerName, m.jobId, funcId)
+		g, err := newGradient(m.redisClient, name, m.jobId, funcId)
 		if err != nil {
 			m.logger.Error("Could not build gradient",
-				zap.String("layer", layerName),
+				zap.String("layer", name),
 				zap.Error(err))
 			return err
 		}
 
 		// update the layer
-		err = m.Layers[idx].update(g, m.lr)
+		err = layer.update(g, m.lr)
 		if err != nil {
 			m.logger.Error("Could not update layer",
-				zap.String("layer", layerName),
+				zap.String("layer", name),
 				zap.Error(err))
 			return err
 		}
@@ -133,11 +145,11 @@ func (m *Model) Update(funcId string) error {
 
 // Summary runs through the layers of a model and prints its info
 func (m *Model) Summary() {
-	for i, n := range m.LayerNames {
+	for name, layer := range m.StateDict {
 		m.logger.Info("Layer",
-			zap.String("name", n),
-			zap.Any("shape", m.Layers[i].Weights.Shape()),
-			zap.Bool("bias", m.Layers[i].HasBias),
+			zap.String("name", name),
+			zap.Any("shape", layer.Weights.Shape()),
+			zap.Bool("bias", layer.HasBias),
 		)
 	}
 
@@ -149,32 +161,32 @@ func (m *Model) Summary() {
 func (m *Model) Save() error {
 	m.logger.Info("Publishing model on the database")
 
-	for i, layerName := range m.LayerNames {
+	for name, layer := range m.StateDict {
 
 		m.logger.Debug("Setting weights",
-			zap.String("layer", layerName),
-			zap.Any("shape", m.Layers[i].Weights))
-		args, _ := makeArgs(m.jobId, layerName, api.WeightSuffix, m.Layers[i].Weights.Shape(), m.Layers[i].Weights.Data())
+			zap.String("layer", name),
+			zap.Any("shape", layer.Weights))
+		args, _ := makeArgs(m.jobId, name, api.WeightSuffix, layer.Weights.Shape(), layer.Weights.Data())
 
 		_, err := m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
 		if err != nil {
 			m.logger.Error("Error setting weights",
-				zap.String("layer", layerName),
+				zap.String("layer", name),
 				zap.Error(err))
 			return err
 		}
 
 		// Set the bias only if it is needed
-		if m.Layers[i].HasBias {
+		if layer.HasBias {
 			m.logger.Debug("Setting bias",
-				zap.String("layer", layerName),
-				zap.Any("shape", m.Layers[i].Bias))
-			args, _ = makeArgs(m.jobId, layerName, api.BiasSuffix, m.Layers[i].Bias.Shape(), m.Layers[i].Bias.Data())
+				zap.String("layer", name),
+				zap.Any("shape", layer.Bias))
+			args, _ = makeArgs(m.jobId, name, api.BiasSuffix, layer.Bias.Shape(), layer.Bias.Data())
 
 			_, err = m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
 			if err != nil {
 				m.logger.Error("Error setting bias",
-					zap.String("layer", layerName),
+					zap.String("layer", name),
 					zap.Error(err))
 				return err
 			}
@@ -227,10 +239,10 @@ func newLayer(logger *zap.Logger, redisClient *redisai.Client, name, psId string
 	}
 
 	return &Layer{
-		Name:        name,
-		Weights:     w,
-		HasBias:     hasBias,
-		Bias:        b,
+		Name:    name,
+		Weights: w,
+		HasBias: hasBias,
+		Bias:    b,
 	}, nil
 
 }
@@ -256,10 +268,12 @@ func (layer *Layer) update(g *Gradient, lr float32) error {
 }
 
 // Reads a gradient from the database
-func newGradient(redisClient *redisai.Client, layerName, psId, funcId string) (*Gradient, error) {
+func newGradient(redisClient *redisai.Client, layerName, psId string, funcId int) (*Gradient, error) {
+
+	fId := strconv.Itoa(funcId)
 
 	// Get the redis keys
-	weightName, biasName := getWeightKeys(layerName, true, psId, funcId)
+	weightName, biasName := getWeightKeys(layerName, true, psId, fId)
 
 	// Build the weight tensor
 	sWeights, weightValues, err := fetchTensor(redisClient, weightName)
@@ -292,9 +306,9 @@ func newGradient(redisClient *redisai.Client, layerName, psId, funcId string) (*
 	}
 
 	return &Gradient{
-		Weights:     w,
-		HasBias:     hasBias,
-		Bias:        b,
+		Weights: w,
+		HasBias: hasBias,
+		Bias:    b,
 	}, nil
 
 }

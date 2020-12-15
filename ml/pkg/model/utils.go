@@ -46,7 +46,6 @@ func blobToFloatArray (blob []byte, shape []int64) ([]float32, error) {
 	return values, nil
 }
 
-
 // fetchTensor abstracts away fetching a tensor from redis in binary format and converting
 // it to a tensor. Returns the dimensions and the values of the tensor
 func fetchTensor(client *redisai.Client, name string) ([]int64, []float32, error) {

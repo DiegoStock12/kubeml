@@ -3,31 +3,59 @@ package main
 import (
 	"fmt"
 	"github.com/RedisAI/redisai-go/redisai"
-	"github.com/gomodule/redigo/redis"
-	"log"
-	"reflect"
+	"github.com/diegostock12/thesis/ml/pkg/api"
+	"github.com/diegostock12/thesis/ml/pkg/model"
+	"go.uber.org/zap"
 )
 
-
-
 func main() {
+
+	logger, _ := zap.NewDevelopment()
 
 	// Connect to the client
 	conn := redisai.Connect(fmt.Sprintf("redis://%s:%d", "192.168.99.101", 31618), nil)
 	defer conn.Close()
 
-	// Get if the key exists
-	res, err := redis.Int(conn.DoOrSend("EXISTS", redis.Args{"example:conv1-weight-grad/0"}, nil))
-	if err != nil {
-		log.Fatal(err)
+
+	task := api.TrainRequest{
+		ModelType:    "resnet",
+		BatchSize:    128,
+		Epochs:       1,
+		Dataset:      "mnist",
+		LearningRate: 0.01,
+		FunctionName: "network",
 	}
 
+	// build the model
+	m := model.NewModel(logger, "example", task, []string{"conv1", "conv2", "fc1", "fc2"}, conn)
+
+	// build the optimizer
+	s := model.SGD{Lr: 0.01}
 
 
-	//for _, layer := range strings.Split(l, " ") {
-	//	fmt.Println(layer)
-	//}
-	fmt.Println(reflect.TypeOf(res), res)
+	err := m.Build()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(m.StateDict["conv2"].Bias)
+
+	//err = m.Update("0")
+	err = s.Step(m, 0, 3)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(m.StateDict["conv2"].Bias)
+	fmt.Println(m.StateDict["fc2"].Bias)
+
+	fmt.Println("built model")
+
+
+	err = m.Save()
+	if err != nil {
+		panic(err)
+	}
 
 
 }

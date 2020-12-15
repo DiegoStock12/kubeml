@@ -58,6 +58,9 @@ def create_model():
     (https://github.com/pytorch/examples/blob/master/mnist/main.py)
     """
 
+    # set the seed for reproducibility
+    torch.manual_seed(42)
+
     def init_weights(m: nn.Module):
         """Initialize the weights of the network"""
         if isinstance(m, nn.Conv2d):
