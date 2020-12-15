@@ -20,9 +20,6 @@ from flask import current_app, jsonify
 # params of the training
 train_params: train_utils.TrainParams = None
 
-# Set some global stuff
-tensor_dict: Dict[str, torch.Tensor] = dict()  # Tensor to accumulate the gradients
-
 
 # Define the network that we'll use to train
 class Net(nn.Module):
@@ -80,7 +77,8 @@ def create_model():
 
 def train(model: nn.Module, device,
           train_loader: tdata.DataLoader,
-          optimizer: torch.optim.Optimizer) -> float:
+          optimizer: torch.optim.Optimizer,
+          tensor_dict: Dict[str, torch.Tensor]) -> float:
     """Loop used to train the network"""
     model.train()
     loss = None
@@ -104,7 +102,9 @@ def train(model: nn.Module, device,
     return loss.item()
 
 
-def validate(model, device, val_loader: tdata.DataLoader) -> (float, float):
+def validate(model,
+             device,
+             val_loader: tdata.DataLoader) -> (float, float):
     """Loop used to validate the network"""
     # model.eval()
     test_loss = 0
@@ -131,9 +131,8 @@ def validate(model, device, val_loader: tdata.DataLoader) -> (float, float):
 def main():
     global train_params
 
-    current_app.logger.info(f'Tensor dict is {len(tensor_dict)}')
-    # Delete previous results from the tensordict
-    tensor_dict.clear()
+    # Create the tensor dict for this model
+    tensor_dict: Dict[str, torch.Tensor] = dict()
 
     start = time.time()
     current_app.logger.info(f'Started serving request')
@@ -190,8 +189,8 @@ def main():
     # matter
     elif train_params.task == 'train':
         # TODO make this lr this also a parameter
-        optimizer = optim.Adam(model.parameters(), lr=train_params.lr)
-        loss = train(model, device, loader, optimizer)
+        optimizer = optim.SGD(model.parameters(), lr=train_params.lr)
+        loss = train(model, device, loader, optimizer, tensor_dict)
 
         # After training save the gradients
         train_utils.save_gradients(tensor_dict, train_params)

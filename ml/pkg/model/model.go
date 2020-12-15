@@ -32,10 +32,6 @@ type (
 		// first time
 		layerNames []string
 
-		// lr must be float32 to be the same type as the tensors
-		lr      float32
-		lrSched LrScheduler
-
 		redisClient *redisai.Client
 
 		// Internal Lock to be applied during the update
@@ -76,7 +72,6 @@ func NewModel(logger *zap.Logger, jobId string, task api.TrainRequest,
 		jobId:       jobId,
 		layerNames:  layerNames,
 		StateDict:   make(map[string]*Layer),
-		lr:          task.LearningRate,
 		redisClient: client,
 	}
 }
@@ -105,43 +100,6 @@ func (m *Model) Build() error {
 	return nil
 }
 
-// Update applies a set of gradients to all the layers
-// Simply iterate through the model layers and update each with the gradients
-// Simply use the layer names of the model with the -bias-grad added to them
-// TODO seems like the layers already have a lock so maybe we do not need the mutex here
-func (m *Model) Update(funcId int) error {
-
-	m.logger.Info("Updating model...")
-
-	// lock the model
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	for name, layer := range m.StateDict {
-
-		// Get the gradients from the database
-		g, err := newGradient(m.redisClient, name, m.jobId, funcId)
-		if err != nil {
-			m.logger.Error("Could not build gradient",
-				zap.String("layer", name),
-				zap.Error(err))
-			return err
-		}
-
-		// update the layer
-		err = layer.update(g, m.lr)
-		if err != nil {
-			m.logger.Error("Could not update layer",
-				zap.String("layer", name),
-				zap.Error(err))
-			return err
-		}
-
-	}
-
-	m.logger.Info("Updated model")
-	return nil
-}
 
 // Summary runs through the layers of a model and prints its info
 func (m *Model) Summary() {
@@ -157,7 +115,6 @@ func (m *Model) Summary() {
 
 // Save saves the new updated weights and bias in the database so it can be retrieved
 // by the following functions
-// TODO we could use pipeline to speed it up
 func (m *Model) Save() error {
 	m.logger.Info("Publishing model on the database")
 
@@ -247,25 +204,6 @@ func newLayer(logger *zap.Logger, redisClient *redisai.Client, name, psId string
 
 }
 
-// update the layer given a particular gradient using SGD and the given learning rate
-func (layer *Layer) update(g *Gradient, lr float32) error {
-
-	// update the gradients with the learning rate
-	err := g.applyLR(lr)
-	if err != nil {
-		return err
-	}
-
-	// Subtract the gradients from the layer
-	layer.Weights, _ = layer.Weights.Sub(g.Weights)
-
-	// Just update if the bias is set
-	if layer.HasBias {
-		layer.Bias, _ = layer.Bias.Sub(g.Bias)
-	}
-
-	return nil
-}
 
 // Reads a gradient from the database
 func newGradient(redisClient *redisai.Client, layerName, psId string, funcId int) (*Gradient, error) {
@@ -313,27 +251,14 @@ func newGradient(redisClient *redisai.Client, layerName, psId string, funcId int
 
 }
 
-// Multiplies the weights and bias by the learning rate before applying it to a Layer in an update
-func (g *Gradient) applyLR(lr float32) error {
-
-	var err error
-	g.Weights, err = g.Weights.MulScalar(lr, false)
-	g.Bias, err = g.Bias.MulScalar(lr, false)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
 
 // Sets the model learning rate to the new value
-func (lrs LrScheduler) updateLr(m *Model) {
-	m.logger.Info("Updating the LR",
-		zap.Float32("Rate", lrs.rate),
-		zap.Float32("Current rate", m.lr))
-	m.lr *= lrs.rate
-}
+//func (lrs LrScheduler) updateLr(m *Model) {
+//	m.logger.Info("Updating the LR",
+//		zap.Float32("Rate", lrs.rate),
+//		zap.Float32("Current rate", m.lr))
+//	m.lr *= lrs.rate
+//}
 
 // tensorExists simply returns whether the tensor is present in the cache
 // In some networks (i.e resnets) the bias of the layers is not used, so in those

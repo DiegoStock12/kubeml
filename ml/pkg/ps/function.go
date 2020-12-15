@@ -109,7 +109,7 @@ func (job *TrainJob) invokeTrainFunctions() []int {
 
 	// Compute the average loss reported by the functions
 	for response := range respChan {
-		job.logger.Debug("Got result...", zap.Any("Result", response))
+		job.logger.Debug("Got result...", zap.Any("Result", response.results))
 		loss += response.results["loss"]
 		funcs = append(funcs, response.funcId)
 	}

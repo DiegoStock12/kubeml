@@ -24,7 +24,6 @@ type (
 		parallelism int
 
 		// parameters of the trainjob
-		toFinish int32
 		epoch    int
 
 		// reference model
@@ -185,6 +184,8 @@ func (job *TrainJob) initializeModel() error {
 // updateModel optimizes the model's weights and biases with the gradients
 // saved by the functions in the previous epoch
 func (job *TrainJob) updateModel(funcs ...int) error {
+	job.logger.Info("Updating model",
+		zap.Any("funcs", funcs))
 
 	var result *multierror.Error
 	N := len(funcs)
