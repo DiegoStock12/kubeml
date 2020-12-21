@@ -34,7 +34,7 @@ type (
 		model *model.Model
 
 		// optimizer for the model
-		optimizer model.Optimizer
+		optimizer model.ParallelSGD
 
 		// schedChan receives messages from the PS
 		schedChan <-chan *api.TrainTask
@@ -84,12 +84,13 @@ func newTrainJob(logger *zap.Logger,
 		epoch:       1,
 		schedChan:   schedChan,
 		doneChan:    doneChan,
-		optimizer:   model.SGD{Lr: task.Parameters.LearningRate},
 		redisClient: redisClient,
 		task:        task,
 		history:     make(map[string][]float32),
 		wgVal:       &sync.WaitGroup{},
 	}
+
+	job.optimizer = model.MakeParallelSGD(job.logger)
 
 	return job
 
@@ -196,23 +197,23 @@ func (job *TrainJob) initializeModel() error {
 
 // updateModel optimizes the model's weights and biases with the gradients
 // saved by the functions in the previous epoch
-func (job *TrainJob) updateModel(funcs ...int) error {
-	job.logger.Info("Updating model",
-		zap.Any("funcs", funcs))
-
-	var result *multierror.Error
-	N := len(funcs)
-
-	// For each of the functions call the optimizer step
-	// function to fetch the gradients and update the model weights
-	for _, id := range funcs {
-		err := job.optimizer.Step(job.model, id, N)
-		result = multierror.Append(result, err)
-	}
-
-	return result.ErrorOrNil()
-
-}
+//func (job *TrainJob) updateModel(funcs ...int) error {
+//	job.logger.Info("Updating model",
+//		zap.Any("funcs", funcs))
+//
+//	var result *multierror.Error
+//	N := len(funcs)
+//
+//	// For each of the functions call the optimizer step
+//	// function to fetch the gradients and update the model weights
+//	for _, id := range funcs {
+//		err := job.optimizer.Step(job.model, id, N)
+//		result = multierror.Append(result, err)
+//	}
+//
+//	return result.ErrorOrNil()
+//
+//}
 
 // train invokes the functions in each train stage and
 // returns the total time that the model spent training
@@ -231,10 +232,13 @@ func (job *TrainJob) train() (time.Duration, error) {
 	elapsed := time.Now().Sub(startTime)
 
 	// Update the model
-	err := job.updateModel(funcs...)
-	result = multierror.Append(result, err)
+	//err := job.updateModel(funcs...)
+	//result = multierror.Append(result, err)
+
+	// Merge the results from the functions
+	job.optimizer.Merge(job.model, funcs...)
 	// update the model and invoke the functions
-	err = job.model.Save()
+	err := job.model.Save()
 	result = multierror.Append(result, err)
 
 	job.logger.Info("Epoch finished, saving model")

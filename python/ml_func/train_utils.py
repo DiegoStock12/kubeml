@@ -181,10 +181,10 @@ def _get_model_dict(model: nn.Module, ps_id: str) -> Dict[str, torch.Tensor]:
 #     current_app.logger.info('Saved model to the database')
 
 def save_model_weights(model: nn.Module, params: TrainParams):
-    r"""After the init task we should save the model gradients to the database
-
-    Instead of looking if a layer has a bias term (some of the batch norm can have it,
-    look if the layer is of type conv or not"""
+    """Save the model weights to the database after each epoch
+    If it is the init task we save the model as is without function
+    identifier. In other cases we save the statedict of the function
+    identified by its function ID"""
     current_app.logger.info('Saving model to the database')
     with torch.no_grad():
         for name, layer in model.named_modules():
@@ -192,13 +192,17 @@ def save_model_weights(model: nn.Module, params: TrainParams):
 
                 # Save the weights
                 current_app.logger.info(f'Setting weights for layer {name}')
-                weight_key = f'{params.ps_id}:{name}.weight'
+                weight_key = f'{params.ps_id}:{name}.weight' \
+                    if params.task == 'init' \
+                    else f'{params.ps_id}:{name}.weight/{params.func_id}'
                 redis_con.tensorset(weight_key, layer.weight.cpu().detach().numpy(), dtype='float32')
 
                 # Save the bias if not None
                 if layer.bias is not None:
                     current_app.logger.info(f'Setting bias for layer {name}')
-                    bias_key = f'{params.ps_id}:{name}.bias'
+                    bias_key = f'{params.ps_id}:{name}.bias' \
+                        if params.task == 'init' \
+                        else f'{params.ps_id}:{name}.bias/{params.func_id}'
                     redis_con.tensorset(bias_key, layer.bias.cpu().detach().numpy(), dtype='float32')
 
     current_app.logger.info('Saved model to the database')
@@ -219,7 +223,6 @@ def save_gradients(tensor_dict: dict, params: TrainParams):
     for grad_name, tensor in tensor_dict.items():
         current_app.logger.info(f'Setting the gradients for {params.ps_id}:{grad_name}/{params.func_id}')
         redis_con.tensorset(f'{params.ps_id}:{grad_name}/{params.func_id}', tensor.cpu().numpy())
-
 
     current_app.logger.info('All the gradients were set in the db')
 

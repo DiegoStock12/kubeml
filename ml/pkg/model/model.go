@@ -7,7 +7,6 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"go.uber.org/zap"
 	"gorgonia.org/tensor"
-	"strconv"
 	"sync"
 )
 
@@ -85,7 +84,7 @@ func (m *Model) Build() error {
 	for _, layerName := range m.layerNames {
 
 		m.logger.Debug("Creating new layer", zap.String("layerName", layerName))
-		l, err := newLayer(m.logger, m.redisClient, layerName, m.jobId)
+		l, err := newLayer(m.logger, m.redisClient, layerName, m.jobId, -1)
 		if err != nil {
 			m.logger.Error("Error building layer",
 				zap.String("layer", layerName),
@@ -157,10 +156,11 @@ func (m *Model) Save() error {
 }
 
 // Build a new layer by getting it from the database already initialized
-func newLayer(logger *zap.Logger, redisClient *redisai.Client, name, psId string) (*Layer, error) {
+// TODO get the logger out of here
+func newLayer(logger *zap.Logger, redisClient *redisai.Client, name, psId string, funcId int) (*Layer, error) {
 
 	// Get the redis keys
-	weightName, biasName := getWeightKeys(name, false, psId, "")
+	weightName, biasName := getWeightKeys(name, false, psId, funcId)
 
 	// Build the weight tensor
 	logger.Debug("Loading the weights...")
@@ -208,10 +208,8 @@ func newLayer(logger *zap.Logger, redisClient *redisai.Client, name, psId string
 // Reads a gradient from the database
 func newGradient(redisClient *redisai.Client, layerName, psId string, funcId int) (*Gradient, error) {
 
-	fId := strconv.Itoa(funcId)
-
 	// Get the redis keys
-	weightName, biasName := getWeightKeys(layerName, true, psId, fId)
+	weightName, biasName := getWeightKeys(layerName, true, psId, funcId)
 
 	// Build the weight tensor
 	sWeights, weightValues, err := fetchTensor(redisClient, weightName)

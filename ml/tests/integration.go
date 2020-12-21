@@ -17,6 +17,8 @@ func main(){
 		log.Fatal("Error building zap logger")
 	}
 
+
+
 	psUrl := fmt.Sprintf("http://localhost:%d", api.PS_DEBUG_PORT)
 	schedulerUrl := fmt.Sprintf("http://localhost:%d", api.SCHEDULER_DEBUG_PORT)
 

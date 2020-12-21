@@ -84,18 +84,25 @@ func makeArgs(id, name, suffix string, shape tensor.Shape, values interface{}) (
 	return &args, nil
 }
 
-func getWeightKeys(layerName string, grad bool, psId, funcId string) (string, string){
+func getWeightKeys(layerName string, grad bool, psId string, funcId int) (string, string){
 
 	var weightName, biasName string
 	// If it is a gradient and not the initial model we get one for each function
 	// We get to index by functionID
 	if grad {
 		// Get the name of the gradients according to the layerName
-		weightName = fmt.Sprintf("%s:%s%s%s/%s", psId, layerName, api.WeightSuffix, api.GradientSuffix, funcId)
-		biasName = fmt.Sprintf("%s:%s%s%s/%s", psId, layerName, api.BiasSuffix, api.GradientSuffix, funcId)
+		weightName = fmt.Sprintf("%s:%s%s%s/%d", psId, layerName, api.WeightSuffix, api.GradientSuffix, funcId)
+		biasName = fmt.Sprintf("%s:%s%s%s/%d", psId, layerName, api.BiasSuffix, api.GradientSuffix, funcId)
 	} else {
-		weightName = fmt.Sprintf("%s:%s%s", psId, layerName, api.WeightSuffix)
-		biasName = fmt.Sprintf("%s:%s%s", psId, layerName, api.BiasSuffix)
+
+		// If we have a function Id is because it is not the init model
+		if funcId > 0 {
+			weightName = fmt.Sprintf("%s:%s%s/%d", psId, layerName, api.WeightSuffix, funcId)
+			biasName = fmt.Sprintf("%s:%s%s/%d", psId, layerName, api.BiasSuffix, funcId)
+		} else {
+			weightName = fmt.Sprintf("%s:%s%s", psId, layerName, api.WeightSuffix)
+			biasName = fmt.Sprintf("%s:%s%s", psId, layerName, api.BiasSuffix)
+		}
 	}
 
 	return weightName, biasName

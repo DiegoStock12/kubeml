@@ -180,7 +180,6 @@ def main():
                 psId={train_params.ps_id},
                 completed in {time.time() - start}""")
         current_app.logger.info(f'Loaded model bias {model.fc2.bias}')
-        train_utils.clean(dataset, model)
         return jsonify(res)
 
 
@@ -188,16 +187,14 @@ def main():
     # Create an optimizer and do a full epoch on the parts of the data that
     # matter
     elif train_params.task == 'train':
-        # TODO make this lr this also a parameter
-        optimizer = optim.SGD(model.parameters(), lr=train_params.lr)
+        optimizer = optim.Adam(model.parameters(), lr=train_params.lr)
         loss = train(model, device, loader, optimizer, tensor_dict)
 
-        # After training save the gradients
-        train_utils.save_gradients(tensor_dict, train_params)
+        # After training save the weights in the database
+        train_utils.save_model_weights(model, train_params)
         res = train_utils.send_train_finish(train_params, loss=loss)
         current_app.logger.info(f"""Task is training, received parameters are 
                 funcId={train_params.func_id}, N={train_params.N}, task={train_params.task}, 
                 psId={train_params.ps_id},
                 completed in {time.time() - start}, res={res}""")
-        train_utils.clean(dataset, model)
         return jsonify(res)
