@@ -6,6 +6,7 @@ import (
 	"github.com/RedisAI/redisai-go/redisai"
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	"github.com/diegostock12/thesis/ml/pkg/model"
+	schedulerClient "github.com/diegostock12/thesis/ml/pkg/scheduler/client"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"sync"
@@ -20,11 +21,14 @@ type (
 	TrainJob struct {
 		logger *zap.Logger
 
+		// client for the scheduler (shared by all trainjobs)
+		scheduler *schedulerClient.Client
+
 		jobId       string
 		parallelism int
 
 		// parameters of the trainjob
-		epoch    int
+		epoch int
 
 		// reference model
 		model *model.Model
@@ -59,24 +63,29 @@ type (
 
 // newTrainJob Creates a new TrainJob that will take care of a specific train request
 func newTrainJob(logger *zap.Logger,
-	task *api.TrainTask, schedChan <-chan *api.TrainTask, doneChan chan string) *TrainJob {
+	task *api.TrainTask,
+	schedChan <-chan *api.TrainTask,
+	doneChan chan string,
+	client *schedulerClient.Client) *TrainJob {
 
 	logger.Info("Creating new train job")
 
 	// Create the connection to the REDIS api that we'll pass through to the PS
-	client := redisai.Connect(fmt.Sprintf("redis://%s:%d", api.REDIS_ADDRESS_DEBUG, api.REDIS_PORT_DEBUG), nil)
+	redisClient := redisai.Connect(fmt.Sprintf(
+		"redis://%s:%d", api.REDIS_ADDRESS_DEBUG, api.REDIS_PORT_DEBUG), nil)
 
 	// Create the PS struct
 	// TODO allow for more optimizers than the SGD
 	job := &TrainJob{
 		logger:      logger.Named(fmt.Sprintf("trainJob-%s", task.JobId)),
+		scheduler:   client,
 		jobId:       task.JobId,
 		parallelism: task.Parallelism,
 		epoch:       1,
 		schedChan:   schedChan,
 		doneChan:    doneChan,
 		optimizer:   model.SGD{Lr: task.Parameters.LearningRate},
-		redisClient: client,
+		redisClient: redisClient,
 		task:        task,
 		history:     make(map[string][]float32),
 		wgVal:       &sync.WaitGroup{},
@@ -85,7 +94,6 @@ func newTrainJob(logger *zap.Logger,
 	return job
 
 }
-
 
 // serveTrainJob is the main Waits for the API to receive all the requests for starting the next epoch
 // After this the job needs to send a request to the scheduler to get the proper
@@ -118,8 +126,14 @@ func (job *TrainJob) serveTrainJob() {
 		// If it is not our last epoch send the request to
 		// the scheduler so we can get the new parameters
 		if job.epoch < job.task.Parameters.Epochs {
-			// TODO send request to the scheduler through the API
-			job.sendSchedulerRequest(elapsed)
+
+			job.task.ElapsedTime = elapsed.Seconds()
+			err = job.scheduler.UpdateJob(job.task)
+			if err != nil {
+				job.logger.Error("Error updating parallelism",
+					zap.Error(err))
+				continue
+			}
 
 			job.logger.Debug("Waiting for scheduler response")
 			resp := <-job.schedChan
@@ -150,7 +164,6 @@ func (job *TrainJob) serveTrainJob() {
 	job.doneChan <- job.jobId
 
 }
-
 
 // initializeModel launches the function and creates the model used by the TrainJob
 func (job *TrainJob) initializeModel() error {

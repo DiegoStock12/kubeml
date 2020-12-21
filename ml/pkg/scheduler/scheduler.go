@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"github.com/diegostock12/thesis/ml/pkg/api"
+	psClient "github.com/diegostock12/thesis/ml/pkg/ps/client"
 	"go.uber.org/zap"
 	"time"
 )
@@ -15,6 +16,10 @@ type (
 
 		// queue that will hold the tasks
 		queue SchedulerQueue
+
+		// ps is the client to send requests
+		// and updates to the parameter server
+		ps *psClient.Client
 
 		// cache holds the time taken by the functions to complete
 		// in their previous epoch. We will use this time to increase
@@ -45,7 +50,7 @@ func (s *Scheduler) scheduleTasks() {
 			//s.logger.Warn("Schedule queue is empty, sleeping...")
 			// If there is no element sleep
 			// TODO see if the lock is a bottleneck
-			time.Sleep(1 * time.Second)
+			time.Sleep(50 * time.Millisecond)
 			continue
 		}
 
@@ -84,7 +89,11 @@ func (s *Scheduler) scheduleTasks() {
 				}
 			}
 
-			s.updateTask(t)
+			err = s.ps.UpdateTask(t)
+			if err != nil {
+				s.logger.Error("Error updating task",
+					zap.Any("task", t))
+			}
 		}
 
 	}
@@ -97,7 +106,7 @@ func (s *Scheduler) scheduleTasks() {
 // 3) **maybe look for the failed tasks queue? If the router fails
 // keep the task there and retry
 // 4) API so the scheduler is reachable from the other components
-func Start(logger *zap.Logger, port int) {
+func Start(logger *zap.Logger, port int, psUrl string) {
 
 	// Create the scheduler
 	s := &Scheduler{
@@ -106,26 +115,14 @@ func Start(logger *zap.Logger, port int) {
 		cache:  make(map[string]float64),
 	}
 
+	// set the ps client
+	s.ps = psClient.MakeClient(s.logger, psUrl)
+
 	// Start consuming metrics and also listening for requests
 	go s.consumeMetrics()
 	go s.scheduleTasks()
 
 	// Finally start the API
 	go s.Serve(port)
-
-	// Sleep for a couple of second
-	//s.logger.Debug("sleeping")
-	//time.Sleep(2 * time.Second)
-
-	// Send a request into our own channel so we can create a PS
-	//s.logger.Debug("Sending random trainrequest")
-	//s.queue.pushRequest(&api.TrainRequest{
-	//	ModelType:    "resnet",
-	//	BatchSize:    128,
-	//	Epochs:       3,
-	//	Dataset:      "MNIST",
-	//	LearningRate: 0.01,
-	//	FunctionName: "network",
-	//})
 
 }

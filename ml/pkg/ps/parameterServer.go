@@ -2,6 +2,7 @@ package ps
 
 import (
 	"github.com/diegostock12/thesis/ml/pkg/api"
+	schedulerClient "github.com/diegostock12/thesis/ml/pkg/scheduler/client"
 	"go.uber.org/zap"
 	"sync"
 )
@@ -21,6 +22,10 @@ type (
 		logger *zap.Logger
 
 		port int
+
+		// scheduler is the client used by the PS and all
+		// its train jobs to send requests to the scheduler
+		scheduler *schedulerClient.Client
 
 		// jobIndex with all the train jobs
 		// when receiving a response from the scheduler the
@@ -72,7 +77,7 @@ func (ps *ParameterServer) receiveFinish()  {
 //2) receive the notifications from the PS API about functions that have finished processing
 //which will trigger the execution retrieval of gradients and the update of the model
 //3) Start the API to get the requests from the functions
-func  Start(logger *zap.Logger, port int) {
+func  Start(logger *zap.Logger, port int, executorUrl string) {
 
 	// build the PS
 	ps := &ParameterServer{
@@ -81,6 +86,9 @@ func  Start(logger *zap.Logger, port int) {
 		jobIndex:  make(map[string]chan *api.TrainTask),
 		doneChan: make(chan string),
 	}
+
+	// set the scheduler client
+	ps.scheduler = schedulerClient.MakeClient(ps.logger, executorUrl)
 
 	ps.logger.Info("Started new parameter server")
 
