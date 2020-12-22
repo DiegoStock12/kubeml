@@ -98,6 +98,11 @@ func (s *Scheduler) infer(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// taskFinished simply deletes the entry from the scheduler index
+func (s *Scheduler) taskFinished()  {
+
+}
+
 // Handle heartbeats from Kubernetes
 func (s *Scheduler) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)

@@ -146,7 +146,7 @@ def _get_model_dict(model: nn.Module, ps_id: str) -> Dict[str, torch.Tensor]:
             weight_key = f'{ps_id}:{name}.weight'
             w = redis_con.tensorget(weight_key)
             # set the weight
-            state[weight_key[9:]] = torch.from_numpy(w)
+            state[weight_key[len(ps_id)+1:]] = torch.from_numpy(w)
 
             # If the layer has an active bias retrieve it
             # Some of the layers in resnet do not have bias
@@ -156,9 +156,9 @@ def _get_model_dict(model: nn.Module, ps_id: str) -> Dict[str, torch.Tensor]:
                 bias_key = f'{ps_id}:{name}.bias'
                 w = redis_con.tensorget(bias_key)
                 # set the bias
-                state[bias_key[9:]] = torch.from_numpy(w)
+                state[bias_key[len(ps_id)+1:]] = torch.from_numpy(w)
 
-    current_app.logger.debug(f'Bias layer is {state["fc2.bias"]}')
+    current_app.logger.debug(f'Layers are {state.keys()}')
 
     return state
 

@@ -91,7 +91,7 @@ def train(model: nn.Module, device,
         loss.backward()
 
         # Here save the gradients to publish on the database
-        train_utils.update_tensor_dict(model, tensor_dict)
+        # train_utils.update_tensor_dict(model, tensor_dict)
         optimizer.step()
 
         if batch_idx % 4 == 0:

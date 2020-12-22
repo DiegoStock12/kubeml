@@ -4,7 +4,13 @@ import (
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	psClient "github.com/diegostock12/thesis/ml/pkg/ps/client"
 	"go.uber.org/zap"
+	"sync"
 	"time"
+)
+
+const (
+	scaleDownLimit = 1.2
+	scaleUpLimit   = 1.05
 )
 
 type (
@@ -23,6 +29,9 @@ type (
 		// or decrease the number of functions for a specific job
 		// todo also allow to delete cache items
 		cache map[string]float64
+
+		// lock to read and write the map
+		mu sync.RWMutex
 	}
 )
 
@@ -57,9 +66,15 @@ func (s *Scheduler) scheduleTasks() {
 		// a new parallelism setting.
 		// if first time give a -1, if there is a -1
 		// it just ran 1 epoch so give same parallelism
+		s.mu.RLock()
+		threshold, exists := s.cache[t.JobId]
+		s.mu.RUnlock()
 
-		if elapsed, exists := s.cache[t.JobId]; !exists {
+		if !exists {
+			s.mu.Lock()
 			s.cache[t.JobId] = -1
+			s.mu.Unlock()
+
 			t.Parallelism = api.DEBUG_PARALLELISM
 
 			err = s.ps.StartTask(t)
@@ -70,21 +85,7 @@ func (s *Scheduler) scheduleTasks() {
 			}
 
 		} else {
-			if elapsed == -1 {
-				s.cache[t.JobId] = t.ElapsedTime
-				// keep the parallelism untouched
-			} else {
-				// from epoch 3 we have the results already and we can scale
-				// if the most recent time is not worse, increase parallelism
-				// if the response time got worse decrease the parallelism
-				if t.ElapsedTime <= elapsed {
-					t.Parallelism++
-				} else {
-					if t.Parallelism > 1 {
-						t.Parallelism--
-					}
-				}
-			}
+			s.calculateParallelism(t, threshold)
 
 			err = s.ps.UpdateTask(t)
 			if err != nil {
@@ -94,6 +95,46 @@ func (s *Scheduler) scheduleTasks() {
 		}
 
 	}
+}
+
+// calculateParallelism receives a task and retu
+func (s *Scheduler) calculateParallelism(task *api.TrainTask, threshold float64) {
+	// If it is the first epoch we still do not have a previous time
+	// so just set it and keep it untouched
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	// by default scale up even if the time is a bit worse than before
+	// (allow 5% worse results to still scale up)
+	// if the result is more than 20% worse, downscale for the next epoch
+
+	switch {
+	// increase the parallelism by 1 to compare with the previous
+	// if it is worse, downscale
+	case threshold == -1:
+		s.logger.Debug("No previous time, increasing parallelism")
+		task.Parallelism++
+		s.cache[task.JobId] = task.ElapsedTime
+
+	// If the new time is better than the threshold
+	// always scale up and set a new reference time
+	case task.ElapsedTime <= threshold*scaleUpLimit:
+		s.logger.Debug("Time is better, scaling up")
+		task.Parallelism++
+		s.cache[task.JobId] = task.ElapsedTime
+
+	// If the performance is much worse (20%) than the reference
+	// time, downscale and set a new reference time
+	case task.ElapsedTime >= threshold*scaleDownLimit:
+		s.logger.Debug("Time is worse, scaling down")
+		task.Parallelism--
+		s.cache[task.JobId] = task.ElapsedTime
+
+	// In other cases keep the same parallelism and reference time,
+	// even though the time might be worse
+	default:
+		s.logger.Debug("Time is worse within the limits, keeping parallelism")
+	}
+
 }
 
 // Start starts all of the goroutines that will take care of the proper
@@ -121,7 +162,5 @@ func Start(logger *zap.Logger, port int, psUrl string) {
 
 	// Finally start the API
 	s.Serve(port)
-
-
 
 }

@@ -27,10 +27,10 @@ func main() {
 
 	start := time.Now()
 	values := url.Values{}
-	values.Set("task", "init")
+	values.Set("task", "train")
 	values.Set("psId", "example")
 	values.Set("psPort", "34523")
-	values.Set("N", "20")
+	values.Set("N", "1")
 	values.Set("funcId", strconv.Itoa(0))
 	values.Set("batchSize", strconv.Itoa(128))
 	values.Set("lr", strconv.FormatFloat(0.01, 'f', -1, 32))
