@@ -99,7 +99,7 @@ func (s *Scheduler) infer(w http.ResponseWriter, r *http.Request) {
 }
 
 // Handle heartbeats from Kubernetes
-func (s *Scheduler) healthHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Scheduler) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -109,7 +109,7 @@ func (s *Scheduler) GetHandler() http.Handler {
 	r.HandleFunc("/job", s.newParallelism).Methods("POST")
 	r.HandleFunc("/train", s.train).Methods("POST")
 	r.HandleFunc("/infer", s.infer).Methods("POST")
-	r.HandleFunc("/health", s.healthHandler).Methods("GET")
+	r.HandleFunc("/health", s.handleHealth).Methods("GET")
 	return r
 }
 

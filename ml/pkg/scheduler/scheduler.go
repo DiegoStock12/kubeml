@@ -11,9 +11,6 @@ type (
 	Scheduler struct {
 		logger *zap.Logger
 
-		// TODO see how we'll handle multiple requests coming from multiple parameter servers
-		// TODO how to decide how many functions each PS will invoke (we need metrics for this, start with constant)
-
 		// queue that will hold the tasks
 		queue SchedulerQueue
 
@@ -65,7 +62,7 @@ func (s *Scheduler) scheduleTasks() {
 			s.cache[t.JobId] = -1
 			t.Parallelism = api.DEBUG_PARALLELISM
 
-			err = s.startTask(t)
+			err = s.ps.StartTask(t)
 			if err != nil {
 				s.logger.Error("Error starting task",
 					zap.Any("task", t),

@@ -67,7 +67,6 @@ func (ps *ParameterServer) updateTask(w http.ResponseWriter, r *http.Request) {
 // startTask Handles the request of the scheduler to create a
 // new training job. It creates a new parameter server thread and returns the id
 // of the created parameeter server
-// TODO the code for this is basically the code that is now present in the scheduler.go file
 func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 	ps.logger.Debug("Processing request from the Scheduler")
 
@@ -105,58 +104,12 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// Invoked by the serverless functions when they finish an epoch, should update the model
-//func (ps *ParameterServer) handleFinish(w http.ResponseWriter, r *http.Request) {
-//	vars := mux.Vars(r)
-//	funcId := vars["funcId"]
-//
-//	ps.logger.Info("Received finish signal from function, updating model",
-//		zap.String("funcId", funcId))
-//
-//	w.WriteHeader(http.StatusOK)
-//
-//	// update the model with the new gradients
-//	err := ps.model.Update(funcId)
-//	if err != nil {
-//		ps.logger.Error("Error while updating model",
-//			zap.Error(err))
-//		w.WriteHeader(http.StatusInternalServerError)
-//		return
-//	}
-//
-//	// we have the json with the results in the body
-//	var results map[string]float32
-//	body, err := ioutil.ReadAll(r.Body)
-//	if err != nil {
-//		ps.logger.Error("Could not read the results from the training process",
-//			zap.Error(err))
-//		w.WriteHeader(http.StatusBadRequest)
-//		return
-//	}
-//
-//	err = json.Unmarshal(body, &results)
-//	if err != nil {
-//		ps.logger.Error("Could not unmarshal JSON",
-//			zap.Error(err))
-//		w.WriteHeader(http.StatusInternalServerError)
-//		return
-//	}
-//
-//	ps.logger.Debug("Received results", zap.Any("res", results))
-//
-//	ps.logger.Info("Updated model weights")
-//
-//	// Change atomically the number of tasks to finish
-//	// If there are no other tasks tell to the PS that it should
-//	// Start the next epoch
-//	ps.numLock.Lock()
-//	defer ps.numLock.Unlock()
-//	ps.toFinish -=1
-//	if ps.toFinish == 0{
-//		ps.epochChan <- struct{}{}
-//	}
-//
-//}
+
+
+// Handle Kubernetes heartbeats
+func (ps *ParameterServer) handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+}
 
 // Returns the handler for calls from the functions
 func (ps *ParameterServer) GetHandler() http.Handler {
@@ -164,6 +117,7 @@ func (ps *ParameterServer) GetHandler() http.Handler {
 	//r.HandleFunc("/finish/{funcId}", ps.handleFinish).Methods("POST")
 	r.HandleFunc("/start", ps.startTask).Methods("POST")
 	r.HandleFunc("/update/{jobId}", ps.updateTask).Methods("POST")
+	r.HandleFunc("/health",ps.handleHealth).Methods("GET")
 
 	return r
 }

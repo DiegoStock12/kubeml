@@ -10,17 +10,7 @@ import (
 	"net/http"
 )
 
-//const (
-//	schedulerURL = "http://scheduler.default"
-//)
 
-// Task types to send to the scheduler
-const (
-	TrainTask TaskType = iota
-	InferenceTask
-)
-
-type TaskType int
 
 // TODO this should generate a train ID similar to pods (resnet-uid) that could be used to acces the results layer
 // TODO this could be related to the ID of the parameter server
@@ -47,7 +37,7 @@ func (c *Controller) handleTrainRequest(w http.ResponseWriter, r *http.Request) 
 
 
 	// Forward the request to the scheduler
-	id, err := c.scheduleRequest(req, TrainTask)
+	id, err := c.scheduler.SubmitTrainTask(req)
 	if err != nil {
 		c.logger.Error("Could not get job id",
 			zap.Error(err))

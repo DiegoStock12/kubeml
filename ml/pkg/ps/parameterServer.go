@@ -77,7 +77,7 @@ func (ps *ParameterServer) receiveFinish()  {
 //2) receive the notifications from the PS API about functions that have finished processing
 //which will trigger the execution retrieval of gradients and the update of the model
 //3) Start the API to get the requests from the functions
-func  Start(logger *zap.Logger, port int, executorUrl string) {
+func  Start(logger *zap.Logger, port int, schedulerUrl string) {
 
 	// build the PS
 	ps := &ParameterServer{
@@ -88,7 +88,7 @@ func  Start(logger *zap.Logger, port int, executorUrl string) {
 	}
 
 	// set the scheduler client
-	ps.scheduler = schedulerClient.MakeClient(ps.logger, executorUrl)
+	ps.scheduler = schedulerClient.MakeClient(ps.logger, schedulerUrl)
 
 	ps.logger.Info("Started new parameter server")
 

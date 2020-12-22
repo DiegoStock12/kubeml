@@ -1,6 +1,8 @@
 package model
 
-import "go.uber.org/zap"
+import (
+	"go.uber.org/zap"
+)
 
 type (
 
@@ -17,7 +19,7 @@ type (
 
 
 func MakeParallelSGD(logger *zap.Logger) ParallelSGD {
-	return ParallelSGD{logger: logger}
+	return ParallelSGD{logger: logger.Named("parallel-sgd")}
 }
 
 // Merge fetches weights from the database and averages them to create a new

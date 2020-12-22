@@ -33,7 +33,7 @@ func MakeClient(logger *zap.Logger, schedulerUrl string) *Client {
 // UpdateJob sends a request to the scheduler to determine the new level
 // of parallelism that should be given to a job based on metrics and
 // previous epochs
-func (c Client) UpdateJob(task *api.TrainTask) error {
+func (c *Client) UpdateJob(task *api.TrainTask) error {
 	url := c.schedulerUrl + "/job"
 
 	body, err := json.Marshal(task)

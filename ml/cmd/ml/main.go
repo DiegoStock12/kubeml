@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/diegostock12/thesis/ml/pkg/controller"
 	"github.com/diegostock12/thesis/ml/pkg/ps"
 	"github.com/diegostock12/thesis/ml/pkg/scheduler"
 
@@ -9,6 +10,15 @@ import (
 	"log"
 	"strconv"
 )
+
+
+func getStringArgWithDefault(arg interface{}, defaultValue string) string {
+	if arg != nil {
+		return arg.(string)
+	} else {
+		return defaultValue
+	}
+}
 
 // Gets the port from the argument string
 func getPort(logger *zap.Logger, portArg interface{}) int {
@@ -20,20 +30,21 @@ func getPort(logger *zap.Logger, portArg interface{}) int {
 }
 
 // Run the controller
-// TODO implement controller
-func runController(logger *zap.Logger, port int) {
+func runController(logger *zap.Logger, port int, schedulerUrl string) {
+	controller.Start(logger, port, schedulerUrl)
+	logger.Fatal("Controller exited")
 
 }
 
 // Run the scheduler
-func runScheduler(logger *zap.Logger, port int) {
-	scheduler.Start(logger, port)
+func runScheduler(logger *zap.Logger, port int, psUrl string) {
+	scheduler.Start(logger, port, psUrl)
 	logger.Fatal("Scheduler exited")
 }
 
 // Run the parameter server
-func runParameterServer(logger *zap.Logger, port int) {
-	ps.Start(logger,port)
+func runParameterServer(logger *zap.Logger, port int, schedulerUrl string) {
+	ps.Start(logger,port, schedulerUrl)
 	logger.Fatal("Parameter Server exited")
 }
 
@@ -80,6 +91,11 @@ Options:
 		log.Fatalf("Could not build zap logger: %v", err)
 	}
 
+
+	// for now set the default urls
+	schedulerUrl := "http://scheduler.ml"
+	psUrl := "http://ps.ml"
+
 	// parse the arguments
 	args, err := docopt.ParseDoc(usage)
 	if err != nil {
@@ -89,19 +105,19 @@ Options:
 	// Invoke a specific function depending on what we want to run
 	if args["--controllerport"] != nil {
 		port := getPort(logger, args["--controllerPort"])
-		runController(logger, port)
+		runController(logger, port, schedulerUrl)
 	}
 
 	// Run ps if it is the passed argument
 	if args["--psPort"] != nil {
 		port := getPort(logger, args["--psPort"])
-		runParameterServer(logger, port)
+		runParameterServer(logger, port, schedulerUrl)
 	}
 
 	// Run scheduler if it is the passed argument
 	if args["--schedulerPort"] != nil {
 		port := getPort(logger, args["--schedulerPort"])
-		runScheduler(logger, port)
+		runScheduler(logger, port, psUrl)
 	}
 
 	// Run the storage service
