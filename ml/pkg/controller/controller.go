@@ -27,7 +27,7 @@ func Start(logger *zap.Logger, port int, schedulerUrl string)  {
 
 	c.scheduler = schedulerClient.MakeClient(c.logger, schedulerUrl)
 
-	go c.Serve(port)
+	c.Serve(port)
 
 }
 

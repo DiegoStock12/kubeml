@@ -103,7 +103,7 @@ Options:
 	}
 
 	// Invoke a specific function depending on what we want to run
-	if args["--controllerport"] != nil {
+	if args["--controllerPort"] != nil {
 		port := getPort(logger, args["--controllerPort"])
 		runController(logger, port, schedulerUrl)
 	}

@@ -120,6 +120,8 @@ func Start(logger *zap.Logger, port int, psUrl string) {
 	go s.scheduleTasks()
 
 	// Finally start the API
-	go s.Serve(port)
+	s.Serve(port)
+
+
 
 }
