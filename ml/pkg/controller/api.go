@@ -10,10 +10,6 @@ import (
 	"net/http"
 )
 
-
-
-// TODO this should generate a train ID similar to pods (resnet-uid) that could be used to acces the results layer
-// TODO this could be related to the ID of the parameter server
 // Handle a train request and forward it to the scheduler
 func (c *Controller) handleTrainRequest(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
@@ -71,6 +67,7 @@ func (c *Controller) getHandler() http.Handler {
 	r.HandleFunc("/infer", c.handleInferenceRequest).Methods("POST")
 	r.HandleFunc("/dataset", c.handleDatasetRequest).Methods("POST")
 	r.HandleFunc("/health", c.handleHealth).Methods("GET")
+	r.HandleFunc("/dataset/{name}", c.StorageServiceProxy)
 
 	return r
 }

@@ -17,6 +17,7 @@ const (
 const (
 
 	// Address to access the fission router
+	STORAGE_ADDRESS = "http://storagesvc"
 	ROUTER_ADDRESS = "http://router.fission"
 	MONGO_ADDRESS  = "mongo.default"
 	MONGO_PORT     = 27017
@@ -25,6 +26,7 @@ const (
 
 // Debug
 const (
+	STORAGE_ADDRESS_DEBUG = "http://192.168.99.102:80"
 	ROUTER_ADDRESS_DEBUG = "http://192.168.99.101:32422"
 	REDIS_ADDRESS_DEBUG  = "192.168.99.101"
 	REDIS_PORT_DEBUG     = 31618

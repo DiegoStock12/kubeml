@@ -1,3 +1,5 @@
+name: "Build storage service"
+
 on:
   push:
     branches:

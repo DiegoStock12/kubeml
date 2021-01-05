@@ -2,6 +2,7 @@
 FROM python:3.6-slim-buster as builder
 
 RUN mkdir -p /app
+RUN mkdir -p /app/uploads
 WORKDIR /app
 
 COPY requirements.txt /app

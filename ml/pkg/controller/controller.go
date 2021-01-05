@@ -14,6 +14,7 @@ type (
 	Controller struct {
 		logger *zap.Logger
 		scheduler *schedulerClient.Client
+
 	}
 )
 
