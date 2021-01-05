@@ -2,3 +2,6 @@
 venv
 data
 buildtest
+
+*.npy
+__pycache__
