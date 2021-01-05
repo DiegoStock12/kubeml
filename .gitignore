@@ -5,3 +5,4 @@ buildtest
 
 *.npy
 __pycache__
+uploads

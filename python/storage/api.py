@@ -110,12 +110,20 @@ def _process_datasets(dataset_name: str, extension: str):
         os.remove(x_path)
         os.remove(y_path)
 
-    return '', 200
+    return jsonify(result='Dataset created'), 200
 
 
-def delete_dataset():
-    pass
+def delete_dataset(dataset_name: str):
+    # Simply check that the dataset exists, and if so, delete it
+    db_names = set(client.list_database_names())
+    app.logger.debug(f'Datasets {db_names}')
 
+    if dataset_name in db_names:
+        app.logger.debug('Deleting dataset')
+        client.drop_database(dataset_name)
+        return jsonify(result='Dataset deleted'), 200
+
+    return jsonify(error='Dataset does not exist'), 404
 
 if __name__ == '__main__':
     app.run(debug=True)
