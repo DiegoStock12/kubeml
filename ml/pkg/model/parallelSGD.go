@@ -16,8 +16,6 @@ type (
 	}
 )
 
-
-
 func MakeParallelSGD(logger *zap.Logger) ParallelSGD {
 	return ParallelSGD{logger: logger.Named("parallel-sgd")}
 }
@@ -25,9 +23,8 @@ func MakeParallelSGD(logger *zap.Logger) ParallelSGD {
 // Merge fetches weights from the database and averages them to create a new
 // reference model for the training job
 // TODO we can parallelize fetching and averaging each layer
-func (psgd ParallelSGD) Merge(m *Model, funcs ...int)  {
+func (psgd ParallelSGD) Merge(m *Model, funcs ...int) {
 	psgd.logger.Debug("Merging layers...", zap.Any("funcs", funcs))
-
 
 	sd := make(map[string]*Layer)
 
@@ -54,15 +51,17 @@ func (psgd ParallelSGD) Merge(m *Model, funcs ...int)  {
 			if !exists {
 				sd[layerName] = layer
 			} else {
-				total.Weights, err  = total.Weights.Add(layer.Weights)
+				total.Weights, err = total.Weights.Add(layer.Weights)
 				if err != nil {
 					psgd.logger.Error("Error adding weights",
 						zap.Error(err))
 				}
-				total.Bias, err = total.Bias.Add(layer.Bias)
-				if err != nil {
-					psgd.logger.Error("Error adding bias",
-						zap.Error(err))
+				if layer.HasBias {
+					total.Bias, err = total.Bias.Add(layer.Bias)
+					if err != nil {
+						psgd.logger.Error("Error adding bias",
+							zap.Error(err))
+					}
 				}
 			}
 
@@ -79,10 +78,14 @@ func (psgd ParallelSGD) Merge(m *Model, funcs ...int)  {
 			psgd.logger.Error("Error dividing weights",
 				zap.Error(err))
 		}
-		layer.Bias, err = layer.Bias.DivScalar(float32(num), true)
-		if err != nil {
-			psgd.logger.Error("Error dividing bias",
-				zap.Error(err))
+
+		if layer.HasBias {
+			layer.Bias, err = layer.Bias.DivScalar(float32(num), true)
+			if err != nil {
+				psgd.logger.Error("Error dividing bias",
+					zap.Error(err))
+			}
+
 		}
 
 	}
@@ -90,4 +93,3 @@ func (psgd ParallelSGD) Merge(m *Model, funcs ...int)  {
 	// in the end simply apply the statedict to the model
 	m.StateDict = sd
 }
-

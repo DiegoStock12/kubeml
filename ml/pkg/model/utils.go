@@ -10,7 +10,7 @@ import (
 	"gorgonia.org/tensor"
 )
 
-func shapeToIntArray(shape64 ...int64)  []int {
+func shapeToIntArray(shape64 ...int64) []int {
 	shape := make([]int, len(shape64))
 	for i, d := range shape64 {
 		shape[i] = int(d)
@@ -33,7 +33,7 @@ func dimsToLength(dims ...int64) int64 {
 //blobToFloatArray takes the blob returned by Redis (needed to make the tensor loading
 // far faster) and translates into a float array that can then be used to build
 // a gorgonia tensor
-func blobToFloatArray (blob []byte, shape []int64) ([]float32, error) {
+func blobToFloatArray(blob []byte, shape []int64) ([]float32, error) {
 	// Get the total number of components of the tensor
 	length := dimsToLength(shape...)
 	// allocate the slice
@@ -42,7 +42,9 @@ func blobToFloatArray (blob []byte, shape []int64) ([]float32, error) {
 	// read the blob and extract it to the slice
 	r := bytes.NewReader(blob)
 	err := binary.Read(r, binary.LittleEndian, &values)
-	if err != nil { return nil, err}
+	if err != nil {
+		return nil, err
+	}
 	return values, nil
 }
 
@@ -51,19 +53,22 @@ func blobToFloatArray (blob []byte, shape []int64) ([]float32, error) {
 func fetchTensor(client *redisai.Client, name string) ([]int64, []float32, error) {
 	// Get the tensor from redis
 	_, shape, blob, err := client.TensorGetBlob(name)
-	if err != nil {return nil, nil, err}
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// Convert the tensor to []float32
 	values, err := blobToFloatArray(blob, shape)
 	if err != nil {
-		return nil, nil, err}
+		return nil, nil, err
+	}
 
 	return shape, values, nil
 }
 
 // REDIS gives an error if the layer is too big, we must save the
 // layer as a blob directly
-func makeArgs(id, name, suffix string, shape tensor.Shape, values interface{}) (*redis.Args, error){
+func makeArgs(id, name, suffix string, shape tensor.Shape, values interface{}) (*redis.Args, error) {
 
 	// Need to get the blob
 	valBlob := new(bytes.Buffer)
@@ -84,7 +89,7 @@ func makeArgs(id, name, suffix string, shape tensor.Shape, values interface{}) (
 	return &args, nil
 }
 
-func getWeightKeys(layerName string, grad bool, psId string, funcId int) (string, string){
+func getWeightKeys(layerName string, grad bool, psId string, funcId int) (string, string) {
 
 	var weightName, biasName string
 	// If it is a gradient and not the initial model we get one for each function
@@ -93,10 +98,17 @@ func getWeightKeys(layerName string, grad bool, psId string, funcId int) (string
 		// Get the name of the gradients according to the layerName
 		weightName = fmt.Sprintf("%s:%s%s%s/%d", psId, layerName, api.WeightSuffix, api.GradientSuffix, funcId)
 		biasName = fmt.Sprintf("%s:%s%s%s/%d", psId, layerName, api.BiasSuffix, api.GradientSuffix, funcId)
+
 	} else {
 
 		// If we have a function Id is because it is not the init model
-		if funcId > 0 {
+		// When creating the init model or saving the reference model the tags
+		// are like `modelId:conv1.weight` however if it is the model resulting from
+		// a training function it will be `modelId:conv1.weight/funcId`
+		//
+		// For times in which we want to load the init or reference model, we pass
+		// -1 in the functionId field
+		if funcId >= 0 {
 			weightName = fmt.Sprintf("%s:%s%s/%d", psId, layerName, api.WeightSuffix, funcId)
 			biasName = fmt.Sprintf("%s:%s%s/%d", psId, layerName, api.BiasSuffix, funcId)
 		} else {
@@ -107,5 +119,3 @@ func getWeightKeys(layerName string, grad bool, psId string, funcId int) (string
 
 	return weightName, biasName
 }
-
-
