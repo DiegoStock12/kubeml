@@ -50,10 +50,6 @@ func (c Controller) handleInferenceRequest(w http.ResponseWriter, r *http.Reques
 
 }
 
-// Handles the request to
-func (c *Controller) handleDatasetRequest(w http.ResponseWriter, r *http.Request) {
-
-}
 
 // Handle Kubernetes heartbeats
 func (c *Controller) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +61,6 @@ func (c *Controller) getHandler() http.Handler {
 	r := mux.NewRouter()
 	r.HandleFunc("/train", c.handleTrainRequest).Methods("POST")
 	r.HandleFunc("/infer", c.handleInferenceRequest).Methods("POST")
-	r.HandleFunc("/dataset", c.handleDatasetRequest).Methods("POST")
 	r.HandleFunc("/health", c.handleHealth).Methods("GET")
 	r.HandleFunc("/dataset/{name}", c.StorageServiceProxy)
 

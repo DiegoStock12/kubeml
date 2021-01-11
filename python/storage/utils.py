@@ -23,4 +23,3 @@ def save_batches(col: collection.Collection, batches):
         for i, (data, labels) in enumerate(batches)
     ]).inserted_ids
     logging.debug(f'Inserted {len(ids)} documents')
-    logging.basicConfig(logging.BASIC_FORMAT)

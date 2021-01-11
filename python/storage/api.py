@@ -95,7 +95,7 @@ def _process_datasets(dataset_name: str, extension: str):
             data, targets = np.load(x_path), np.load(y_path)
 
         elif extension == 'pkl':
-            logging.debig('Loading pickle files')
+            logging.debug('Loading pickle files')
             with open(x_path, 'rb') as f:
                 data = pickle.load(f)
             with open(y_path, 'rb') as f:

@@ -34,7 +34,6 @@ type (
 	// A single datapoint plus label
 	Datapoint struct {
 		Features []float32 `json:"features"`
-		Label    float32   `json:"label"`
 	}
 
 	// History is the train and validation history of a
