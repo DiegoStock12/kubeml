@@ -1,10 +1,12 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
@@ -50,6 +52,36 @@ func (c Controller) handleInferenceRequest(w http.ResponseWriter, r *http.Reques
 
 }
 
+// historyRequest gets a history from mongoDB
+func (c *Controller) historyRequest(w http.ResponseWriter, r *http.Request)  {
+	vars := mux.Vars(r)
+	taskId := vars["taskId"]
+
+	c.logger.Debug("Getting history", zap.String("taskId", taskId))
+
+	// Use the mongo client to get the history
+	var history api.History
+	collection := c.mongoClient.Database("kubeml").Collection("history")
+	err := collection.FindOne(context.TODO(), bson.M{"_id":taskId}).Decode(&history)
+	if err != nil {
+		c.logger.Error("Could not find history",
+			zap.Error(err))
+		http.Error(w, "Could not find history for request" ,http.StatusNotFound)
+		return
+	}
+
+	resp, err := json.Marshal(history)
+	if err != nil {
+		c.logger.Error("Could not marshal history",
+			zap.Error(err))
+		http.Error(w, "Error marshaling request" ,http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(resp)
+}
+
 
 // Handle Kubernetes heartbeats
 func (c *Controller) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -63,6 +95,7 @@ func (c *Controller) getHandler() http.Handler {
 	r.HandleFunc("/infer", c.handleInferenceRequest).Methods("POST")
 	r.HandleFunc("/health", c.handleHealth).Methods("GET")
 	r.HandleFunc("/dataset/{name}", c.StorageServiceProxy)
+	r.HandleFunc("/history/{taskId}", c.historyRequest).Methods("GET")
 
 	return r
 }

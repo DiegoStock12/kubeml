@@ -47,7 +47,7 @@ type (
 		task *api.TrainTask
 
 		// history of the train job
-		history map[string][]float32
+		history map[string][]interface{}
 
 		// to avoid exiting without the validation tasks finish
 		wgVal *sync.WaitGroup
@@ -86,7 +86,7 @@ func newTrainJob(logger *zap.Logger,
 		doneChan:    doneChan,
 		redisClient: redisClient,
 		task:        task,
-		history:     make(map[string][]float32),
+		history:     make(map[string][]interface{}),
 		wgVal:       &sync.WaitGroup{},
 	}
 
@@ -109,6 +109,9 @@ func (job *TrainJob) serveTrainJob() {
 		job.logger.Fatal("Could not initialize model",
 			zap.Error(err))
 	}
+
+	// Set the initial parallelism
+	job.history["parallelism"] = []interface{}{job.parallelism}
 
 	// Loop for as many epochs as required by the request
 	for ; job.epoch <= job.task.Parameters.Epochs; job.epoch++ {
@@ -146,8 +149,11 @@ func (job *TrainJob) serveTrainJob() {
 					zap.Int("parallelism", resp.Parallelism))
 			}
 
+			// Get the new parallelism and update it in the history
 			job.task = resp
 			job.parallelism = resp.Parallelism
+			job.history["parallelism"] = append(job.history["parallelism"], resp.Parallelism)
+
 		}
 	}
 
@@ -156,8 +162,8 @@ func (job *TrainJob) serveTrainJob() {
 
 	job.logger.Info(fmt.Sprintf("Training finished after %d epochs", job.epoch-1))
 
-	// TODO should save results of the training in the database
-	//job.saveTrainingHistory()
+
+	job.saveTrainingHistory()
 	job.logger.Info("Exiting...", zap.Any("history", job.history))
 
 	// Send the id to the PS so it can delete the

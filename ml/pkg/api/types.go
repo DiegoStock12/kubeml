@@ -39,8 +39,7 @@ type (
 	// History is the train and validation history of a
 	// specific training job
 	History struct {
-		Id   string               `json:"_id"`
-		Data map[string][]float32 `json:"data"`
+		Id   string                   `bson:"_id" json:"id"`
+		Data map[string][]interface{} `json:"data"`
 	}
-
 )

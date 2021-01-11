@@ -122,7 +122,7 @@ func (job *TrainJob) invokeTrainFunctions() []int {
 	if exists {
 		job.history["trainLoss"] = append(values, avgLoss)
 	} else {
-		job.history["trainLoss"] = []float32{avgLoss}
+		job.history["trainLoss"] = []interface{}{avgLoss}
 	}
 
 	job.logger.Debug("History updated", zap.Any("history", job.history))
@@ -142,7 +142,6 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 
 	query := job.buildFunctionURL(0, 1, "val", job.task.Parameters.FunctionName)
 	resp, err := http.Get(query)
-	defer resp.Body.Close()
 	if err != nil {
 		// TODO here we should implement retries like in the fetcher specialize in fission
 		// TODO maybe create a special function called execute with retries
@@ -151,6 +150,7 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 			zap.Any("request", job.task.Parameters),
 			zap.Error(err))
 	}
+	defer resp.Body.Close()
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -177,7 +177,7 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 		if exists {
 			job.history[metric] = append(value, results[metric])
 		} else {
-			job.history[metric] = []float32{results[metric]}
+			job.history[metric] = []interface{}{results[metric]}
 		}
 	}
 
@@ -198,13 +198,13 @@ func (job *TrainJob) launchFunction(
 
 	// do the request
 	resp, err := http.Get(query)
-	defer resp.Body.Close()
 	if err != nil {
 		job.logger.Error("Error when performing request",
 			zap.Int("funcId", funcId),
 			zap.Error(err))
 		return
 	}
+	defer resp.Body.Close()
 
 	var res map[string]float32
 	// We get a json with {loss: float32} so parse the json and so on

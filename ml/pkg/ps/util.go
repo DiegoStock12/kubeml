@@ -2,15 +2,16 @@ package ps
 
 import (
 	"context"
-	"fmt"
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 )
 
+// TODO make sure to change this to the actual address
 func createMongoURI() string {
-	return fmt.Sprintf("mongodb://%s:%d", api.MONGO_ADDRESS, api.MONGO_PORT)
+	//return fmt.Sprintf("mongodb://%s:%d", api.MONGO_ADDRESS, api.MONGO_PORT)
+	return api.MONGO_ADDRESS_DEBUG
 }
 
 // saveTrainingHistory saves the history in the mongo database

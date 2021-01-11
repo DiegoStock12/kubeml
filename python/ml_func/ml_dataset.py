@@ -79,7 +79,7 @@ class MnistDataset(tdata.Dataset):
                 data, labels = d, l
             else:
                 data = np.vstack([data, d])
-                labels = np.vstack([labels, l])
+                labels = np.hstack([labels, l])
 
         return data, labels.flatten()
 

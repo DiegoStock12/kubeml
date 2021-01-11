@@ -2,9 +2,11 @@ package client
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
 	"io"
+	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -29,11 +31,10 @@ func (c *Client) CreateDataset(name, trainData, trainLabels, testData, testLabel
 	// with the specific filename and its contents
 	for i, name := range files {
 		file, err := os.Open(name)
-		defer file.Close()
-
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("could not open file %s", name))
 		}
+		defer file.Close()
 
 		part, err := writer.CreateFormFile(filenames[i], file.Name())
 		if err != nil {
@@ -49,16 +50,26 @@ func (c *Client) CreateDataset(name, trainData, trainLabels, testData, testLabel
 
 	}
 
+	err := writer.Close()
+	if err != nil { return errors.Wrap(err, "could not close writer")}
+
+
 	resp, err := c.httpClient.Post(url, writer.FormDataContentType(), body)
 	if err != nil {
 		return errors.Wrap(err, "could not process creation request")
 	}
+	defer resp.Body.Close()
+
+	var result map[string]string
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {return err}
+	err = json.Unmarshal(respBody, &result)
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.New(fmt.Sprintf("Could not complete task, result code is %v", resp.StatusCode))
+		return errors.New(fmt.Sprintf("Could not complete task: %s", result["error"]))
 	}
 
-	fmt.Println("Dataset", name, "created succesfully")
+	fmt.Println(result["result"])
 	return nil
 
 }
@@ -67,7 +78,7 @@ func (c *Client) CreateDataset(name, trainData, trainLabels, testData, testLabel
 func (c *Client) DeleteDataset(name string) error {
 	url := c.controllerUrl + "/dataset/" + name
 
-	req, err := http.NewRequest("DELETE", url, nil)
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		return errors.Wrap(err, "could not create request body")
 	}
@@ -76,10 +87,17 @@ func (c *Client) DeleteDataset(name string) error {
 	if err != nil {
 		return errors.Wrap(err, "could not handle request")
 	}
+	defer resp.Body.Close()
+
+	var result map[string]string
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {return err}
+	err = json.Unmarshal(respBody, &result)
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.New(fmt.Sprintf("Status code is not OK: %v", resp.StatusCode))
+		return errors.New(fmt.Sprintf("Status code is not OK: %s", result["error"]))
 	}
 
+	fmt.Println(result["result"])
 	return nil
 }

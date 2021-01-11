@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/diegostock12/thesis/ml/pkg/api"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -10,16 +12,15 @@ import (
 
 // Mongo address in minikube
 const (
-	MONGO_IP = "192.168.99.101"
+	MONGO_IP   = "192.168.99.101"
 	MONGO_PORT = 30933
-	DB_NAME = "test"
+	DB_NAME    = "test"
 )
 
 type Person struct {
 	Name string
-	Age int
+	Age  int
 }
-
 
 func panicIf(err error) {
 	if err != nil {
@@ -44,34 +45,28 @@ func main() {
 	err = client.Ping(context.TODO(), nil)
 	panicIf(err)
 
-	collection := client.Database("test").Collection("example")
-	_, err = collection.DeleteMany(context.TODO(), bson.M{})
-	fmt.Println(collection.EstimatedDocumentCount(context.TODO(), nil))
-
-	d := Person{
-		Name: "Diego",
-		Age:  22,
+	// try to create a history with data and so on
+	history := map[string][]interface{}{
+		"parallelism": {1, 2, 3},
+		"loss":        {1.0, 0.999, 7.89},
+		"accuracy":    {0.99, 0.76, 0.87},
 	}
-	//t := Person{
-	//	Name: "Tomasz",
-	//	Age:  25,
-	//}
-	//a := Person{
-	//	name: "Alvaro",
-	//	age:  22,
-	//}
 
-	_, err= collection.InsertOne(context.TODO(), d)
+	fmt.Println(history)
+
+	history["loss"] = append(history["loss"], 1.87, 6.87)
+
+	fmt.Println(history)
+
+	collection := client.Database("kubeml").Collection("history")
+	//_, err= collection.InsertOne(context.TODO(), history)
+	//panicIf(err)
+	//
+	var h api.History
+	err = collection.FindOne(context.TODO(), bson.M{"_id": "d5f366cb"}).Decode(&h)
 	panicIf(err)
 
-
-	var list []Person
-	cursor, err := collection.Find(context.TODO(), bson.M{})
-	err = cursor.All(context.TODO(), &list)
-	panicIf(err)
-	fmt.Println(list)
-
-
-
+	pretty, _ := json.MarshalIndent(h, "", " ")
+	fmt.Println(string(pretty))
 
 }

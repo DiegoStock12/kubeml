@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import pymongo
 from flask import Flask, request, jsonify
+import uuid
 
 from utils import *
 
@@ -50,10 +51,16 @@ def upload_dataset(dataset_name: str):
     db_names = set(client.list_database_names())
     logging.debug(f'Db names {db_names}')
     if dataset_name in db_names:
+        logging.error(f"Dataset {dataset_name} already exists")
         return jsonify(error=f'Dataset {dataset_name} already exists'), 400
 
     file_names = list(request.files.keys())
     logging.debug(f'Files {file_names}')
+
+    # create the unique identifier for the upload task
+    # this prevents multiple concurrent uploads from overwriting each other
+    upload_id = str(uuid.uuid4())[:8]
+    logging.debug(f"Created upload id {upload_id}")
 
     # for each of the files (should be 4), load them
     # and save them to the database.
@@ -71,15 +78,15 @@ def upload_dataset(dataset_name: str):
 
         # save the files to disk
         # save the data as x-train.ext, y-train.ext and so on
-        x.save(os.path.join(app.config['UPLOAD_FOLDER'], f'x-{datatype}.{extension}'))
-        y.save(os.path.join(app.config['UPLOAD_FOLDER'], f'y-{datatype}.{extension}'))
+        x.save(os.path.join(app.config['UPLOAD_FOLDER'], f'x-{datatype}-{upload_id}.{extension}'))
+        y.save(os.path.join(app.config['UPLOAD_FOLDER'], f'y-{datatype}-{upload_id}.{extension}'))
         logging.debug(f'Saved the {datatype} datasets to internal storage')
 
     # Process the datasets
-    return _process_datasets(dataset_name, extension)
+    return _process_datasets(dataset_name, extension, upload_id)
 
 
-def _process_datasets(dataset_name: str, extension: str):
+def _process_datasets(dataset_name: str, extension: str, upload_id: str):
     if extension not in ['npy', 'pkl']:
         return jsonify(error='File extension not supported, must be one of [npy, pkl]'), 400
 
@@ -87,8 +94,8 @@ def _process_datasets(dataset_name: str, extension: str):
 
     for datatype in ['train', 'test']:
 
-        x_path = os.path.join(app.config['UPLOAD_FOLDER'], f'x-{datatype}.{extension}')
-        y_path = os.path.join(app.config['UPLOAD_FOLDER'], f'y-{datatype}.{extension}')
+        x_path = os.path.join(app.config['UPLOAD_FOLDER'], f'x-{datatype}-{upload_id}.{extension}')
+        y_path = os.path.join(app.config['UPLOAD_FOLDER'], f'y-{datatype}-{upload_id}.{extension}')
 
         if extension == 'npy':
             logging.debug('Loading npy files')
@@ -129,6 +136,7 @@ def delete_dataset(dataset_name: str):
         client.drop_database(dataset_name)
         return jsonify(result='Dataset deleted'), 200
 
+    logging.error("Dataset does not exist")
     return jsonify(error='Dataset does not exist'), 404
 
 if __name__ == '__main__':
