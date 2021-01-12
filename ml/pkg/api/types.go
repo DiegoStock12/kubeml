@@ -17,8 +17,8 @@ type (
 
 	// InferRequest is sent when wanting to get a result back from a trained network
 	InferRequest struct {
-		ModelId string      `json:"model_id"`
-		Data    []Datapoint `json:"data"`
+		ModelId string `json:"model_id"`
+		Data    []interface{} `json:"data"`
 	}
 
 	// TrainTask is sent from the scheduler to the PS

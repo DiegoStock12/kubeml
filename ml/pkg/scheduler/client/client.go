@@ -82,20 +82,31 @@ func (c *Client) SubmitTrainTask(req api.TrainRequest) (string, error) {
 }
 
 // SubmitInferenceTask submits an inference task to the scheduler
-// TODO this instead of the ID should return the results of the inference
-func (c *Client) SubmitInferenceTask(req api.InferRequest) (string, error) {
+// and returns the response from the inference task as a byte array
+func (c *Client) SubmitInferenceTask(req api.InferRequest) ([]byte, error) {
 	url := c.schedulerUrl + "/infer"
 
 	c.logger.Debug("Sending train request to scheduler at", zap.String("url", url))
 	// Create the request body
 	reqBody, err := json.Marshal(req)
 	if err != nil {
-		return "", errors.Wrap(err, "could not send train request to scheduler")
+		return nil, errors.Wrap(err, "could not send train request to scheduler")
 	}
 	// Send the request and return the id
-	id, err := c.sendTask(reqBody, url)
-	return id, err
+	resp, err := c.httpClient.Post(url, "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read response body")
+	}
+
+	return body, nil
 }
+
 
 // sendTask submits the request to the scheduler
 // and returns the response as a string and an error if needed

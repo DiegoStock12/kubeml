@@ -14,10 +14,10 @@ import torch.optim as optim
 import torch.utils.data as tdata
 import torchvision.transforms as transforms
 # Flask and logging
-from flask import current_app, jsonify
+from flask import current_app, jsonify, request
 
 # import the utils and dataset
-from . import train_utils
+import train_utils
 
 # params of the training
 train_params: train_utils.TrainParams = None
@@ -167,10 +167,34 @@ def main():
     model: nn.Module = create_model()
 
     # If we just want to init save the model and return
+    # TODO should only parse all train_params if we don't have inference
     if train_params.task == 'init':
         # Save the models and return the weights
         train_utils.save_model_weights(model, train_params)
         return jsonify([name for name, layer in model.named_children() if hasattr(layer, "bias")])
+
+    # Perform an inference task
+    # In these cases we will extract the data from the request body and
+    # pass it to the model
+    # TODO check how feasible it is to do everything from JSON
+    elif train_params.task == 'infer':
+        # get the requests
+        # the predictions will have the shape of
+        # a json object with an array of datapoints, these
+        # datapoints can be of any shape
+        data_json = request.json
+        if not data_json:
+            current_app.logger.error('JSON not found in request')
+            return jsonify(error="Not found"), 400
+
+        # Load the model with the latest weights
+        train_utils.load_final_model(model, train_params)
+
+        # parse the numpy array from the request
+        data = np.array(data_json["data"], dtype='uint8')
+        current_app.logger.debug(f'Shape of the data is {data.shape}')
+        preds = infer(model, device, data, transf)
+        return jsonify(predictions=preds.tolist()), 200
 
     # For training or validation we need to
     # 1) create the dataset

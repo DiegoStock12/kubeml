@@ -34,8 +34,10 @@ func (c *Client) Train(req *api.TrainRequest) (string, error) {
 	return string(id), nil
 }
 
-// Infer submits an inference task to the scheduler
-func (c *Client) Infer(req *api.InferRequest) ([]interface{}, error) {
+// Infer submits an inference task to the scheduler and returns the response
+// untouched as a byte array. This response will be a json object with the
+// predictions from the inference task
+func (c *Client) Infer(req *api.InferRequest) ([]byte, error) {
 	url := c.controllerUrl + "/infer"
 
 	// Create the request body
@@ -56,11 +58,5 @@ func (c *Client) Infer(req *api.InferRequest) ([]interface{}, error) {
 		return nil, errors.Wrap(err, "could not read response body")
 	}
 
-	var res []interface{}
-	err = json.Unmarshal(body, &res)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not unmarshal response json")
-	}
-
-	return res, nil
+	return body, nil
 }

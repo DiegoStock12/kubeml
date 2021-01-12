@@ -1,5 +1,6 @@
 """Utils to work with saving and loading gradients"""
 
+import pickle
 from typing import Dict
 
 import redisai as rai
@@ -7,12 +8,19 @@ import torch
 import torch.nn as nn
 from dataclasses import dataclass
 from flask import request, current_app
+from pymongo import MongoClient
 
 # some constants for testing
 redis_addr = 'redisai.default'
 redis_port = 6379
 ps_url = 'http://scheduler.default'
 ps_local = 'http://127.0.0.1'
+
+# Constants to access the mongo database
+KUBEML_DATABASE = "kubeml"
+NETWORK_COLLECTION = 'network'
+MONGO_IP = 'mongodb.default'
+MONGO_PORT = 27017
 
 redis_con = rai.Client(host=redis_addr, port=redis_port)
 
@@ -119,6 +127,23 @@ def parse_url_args() -> TrainParams:
 #
 #     current_app.logger.info('Model loaded from database')
 
+def load_final_model(model: nn.Module, params: TrainParams):
+    """Based on the parameters (taskId or id of the trained model),
+    load the weights
+    """
+    # get the mongo client
+    client = MongoClient(MONGO_IP, MONGO_PORT)
+    db = client[KUBEML_DATABASE]
+    result = db[NETWORK_COLLECTION].find_one({"_id": params.ps_id})
+    if result is None:
+        raise FileNotFoundError
+
+    # load the statedict and pass to the model
+    # make the loading in place so we do not return anything
+    state = pickle.loads(result['state_dict'])
+    model.load_state_dict(state)
+
+
 def load_model_weights(model: nn.Module, params: TrainParams):
     """Load the model weights saved in the database to start the new epoch"""
     # Get the tensors as a state dict from the database
@@ -146,7 +171,7 @@ def _get_model_dict(model: nn.Module, ps_id: str) -> Dict[str, torch.Tensor]:
             weight_key = f'{ps_id}:{name}.weight'
             w = redis_con.tensorget(weight_key)
             # set the weight
-            state[weight_key[len(ps_id)+1:]] = torch.from_numpy(w)
+            state[weight_key[len(ps_id) + 1:]] = torch.from_numpy(w)
 
             # If the layer has an active bias retrieve it
             # Some of the layers in resnet do not have bias
@@ -156,7 +181,7 @@ def _get_model_dict(model: nn.Module, ps_id: str) -> Dict[str, torch.Tensor]:
                 bias_key = f'{ps_id}:{name}.bias'
                 w = redis_con.tensorget(bias_key)
                 # set the bias
-                state[bias_key[len(ps_id)+1:]] = torch.from_numpy(w)
+                state[bias_key[len(ps_id) + 1:]] = torch.from_numpy(w)
 
     current_app.logger.debug(f'Layers are {state.keys()}')
 
