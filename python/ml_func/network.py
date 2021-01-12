@@ -5,6 +5,7 @@ import time
 from typing import Dict
 
 import ml_dataset
+import numpy as np
 # Torch imports
 import torch
 import torch.nn as nn
@@ -12,10 +13,11 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data as tdata
 import torchvision.transforms as transforms
-# import the utils and dataset
-import train_utils
 # Flask and logging
 from flask import current_app, jsonify
+
+# import the utils and dataset
+from . import train_utils
 
 # params of the training
 train_params: train_utils.TrainParams = None
@@ -124,6 +126,17 @@ def validate(model,
         test_loss, correct, len(val_loader.dataset),
         100. * correct / len(val_loader.dataset)))
     return accuracy, test_loss
+
+
+def infer(model, device, data: np.array, transform):
+    """ Return the predictions for the sent datapoints"""
+    model.eval()
+    data = transform(data).to(device)
+    data = data.permute(1, 2, 0).view(-1, 1, 28, 28)
+    out = model(data)
+
+    preds = torch.argmax(out, axis=1)
+    return preds.cpu().numpy()
 
 
 # The function that will be run by default when the fission func is invoked

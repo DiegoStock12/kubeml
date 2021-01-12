@@ -1,5 +1,4 @@
 import pickle
-
 import numpy as np
 import pymongo
 import torch.utils.data as tdata
@@ -7,6 +6,7 @@ import torch.utils.data as tdata
 
 MONGO_IP = 'mongodb.default'
 MONGO_PORT = 27017
+# TODO database should be passed as a parameter
 DATABASE = 'mnist'
 
 
