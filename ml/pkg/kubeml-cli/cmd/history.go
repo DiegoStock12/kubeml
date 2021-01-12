@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
+	controllerClient "github.com/diegostock12/thesis/ml/pkg/controller/client"
 )
 
 var (
@@ -19,10 +21,14 @@ var (
 // getHistory gets a training history based on the taskId and pretty
 // prints it for easy reference
 func getHistory(_ *cobra.Command, _ []string) error {
+	controller := controllerClient.MakeClient()
 
-	// TODO finish this
+	history, err := controller.GetHistory(taskId)
+	if err != nil {
+		return err
+	}
+	fmt.Println(history)
 	return nil
-
 }
 
 func init()  {

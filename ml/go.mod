@@ -18,4 +18,6 @@ require (
 	gorgonia.org/tensor v0.9.14
 )
 
+// replace needed because of gonum 0.7.0 used in
+// gorgonia incompatible with go 1.12
 replace gonum.org/v1/gonum v0.7.0 => gonum.org/v1/gonum v0.6.2

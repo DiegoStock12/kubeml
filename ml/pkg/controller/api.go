@@ -70,7 +70,7 @@ func (c *Controller) historyRequest(w http.ResponseWriter, r *http.Request)  {
 		return
 	}
 
-	resp, err := json.Marshal(history)
+	resp, err := json.MarshalIndent(history, "", "  ")
 	if err != nil {
 		c.logger.Error("Could not marshal history",
 			zap.Error(err))

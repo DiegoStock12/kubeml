@@ -60,6 +60,14 @@ func (ps *ParameterServer) receiveFinish()  {
 			ps.logger.Debug("Received finish message", zap.String("jobId", id))
 			delete(ps.jobIndex, id)
 
+			// delete it as well from the scheduler cache
+			err := ps.scheduler.FinishJob(id)
+			if err != nil {
+				ps.logger.Error("Error deleting the job from the scheduler cache",
+					zap.Error(err),
+					zap.String("jobId", id))
+			}
+
 		} else {
 			ps.logger.Warn("Received finish message from unknown job",
 				zap.String("jobId", id))

@@ -159,10 +159,7 @@ func (job *TrainJob) serveTrainJob() {
 
 	// Wait for the val functions to finish
 	job.wgVal.Wait()
-
 	job.logger.Info(fmt.Sprintf("Training finished after %d epochs", job.epoch-1))
-
-
 	job.saveTrainingHistory()
 	job.logger.Info("Exiting...", zap.Any("history", job.history))
 

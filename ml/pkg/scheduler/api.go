@@ -99,8 +99,19 @@ func (s *Scheduler) infer(w http.ResponseWriter, r *http.Request) {
 }
 
 // taskFinished simply deletes the entry from the scheduler index
-func (s *Scheduler) taskFinished()  {
+func (s *Scheduler) taskFinished(w http.ResponseWriter, r*http.Request)  {
+	vars := mux.Vars(r)
+	task := vars["taskId"]
 
+	s.logger.Debug("Deleting task from the cache",
+		zap.String("task", task))
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.cache, task)
+
+	w.WriteHeader(http.StatusOK)
+	return
 }
 
 // Handle heartbeats from Kubernetes
@@ -115,6 +126,7 @@ func (s *Scheduler) GetHandler() http.Handler {
 	r.HandleFunc("/train", s.train).Methods("POST")
 	r.HandleFunc("/infer", s.infer).Methods("POST")
 	r.HandleFunc("/health", s.handleHealth).Methods("GET")
+	r.HandleFunc("/finish/{taskId}", s.taskFinished).Methods("DELETE")
 	return r
 }
 

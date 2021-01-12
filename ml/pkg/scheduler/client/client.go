@@ -50,6 +50,22 @@ func (c *Client) UpdateJob(task *api.TrainTask) error {
 
 }
 
+// FinishJob makes the scheduler delete the job entry from the cache
+func (c *Client) FinishJob(jobId string) error {
+	url := c.schedulerUrl + "/finish/" + jobId
+
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return errors.Wrap(err, "could not send finish job request")
+	}
+
+	_, err = c.httpClient.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "error performing finish request")
+	}
+	return nil
+}
+
 // SubmitTrainTask submits a training task to the scheduler
 func (c *Client) SubmitTrainTask(req api.TrainRequest) (string, error) {
 	url := c.schedulerUrl + "/train"

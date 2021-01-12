@@ -34,6 +34,7 @@ func (job *TrainJob) saveTrainingHistory() {
 	collection := client.Database("kubeml").Collection("history")
 	h := api.History{
 		Id:   job.jobId,
+		Task: job.task.Parameters,
 		Data: job.history,
 	}
 

@@ -180,7 +180,8 @@ func newLayer(logger *zap.Logger, redisClient *redisai.Client, name, psId string
 		return nil, err
 	}
 
-	hasBias := true
+	// TODO check this
+	hasBias := false
 	if biasExists {
 		logger.Debug("Loading the biases")
 		sBias, biasValues, err := fetchTensor(redisClient, biasName)

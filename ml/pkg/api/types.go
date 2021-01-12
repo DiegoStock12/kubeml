@@ -40,6 +40,7 @@ type (
 	// specific training job
 	History struct {
 		Id   string                   `bson:"_id" json:"id"`
+		Task TrainRequest             `json:"task"`
 		Data map[string][]interface{} `json:"data"`
 	}
 )

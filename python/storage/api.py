@@ -17,7 +17,7 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 
 # set some basic logging params
 FORMAT = '[%(asctime)s] %(levelname)-8s %(message)s'
-logging.basicConfig(level=logging.DEBUG, format=FORMAT)\
+logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 
 # mongo connection
 client = pymongo.MongoClient(app.config['MONGO_ADDRESS'], app.config['MONGO_PORT'])
@@ -65,8 +65,6 @@ def upload_dataset(dataset_name: str):
     # for each of the files (should be 4), load them
     # and save them to the database.
     # The files will be x-train, y-train, x-test, y-test
-    # TODO maybe add a unique identifier to the datasets so there is
-    # TODO no clash if two try at the same time
     for datatype in ['train', 'test']:
         logging.debug(f'Loading {datatype} data')
 

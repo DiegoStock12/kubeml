@@ -89,9 +89,12 @@ func makeArgs(id, name, suffix string, shape tensor.Shape, values interface{}) (
 	return &args, nil
 }
 
+// getWeightKeys returns the proper formatted name of the weights and bias for a specific
+// parameter server id and function Id
 func getWeightKeys(layerName string, grad bool, psId string, funcId int) (string, string) {
 
 	var weightName, biasName string
+
 	// If it is a gradient and not the initial model we get one for each function
 	// We get to index by functionID
 	if grad {
