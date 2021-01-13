@@ -2,7 +2,6 @@ package ps
 
 import (
 	"fmt"
-	"github.com/diegostock12/thesis/ml/pkg/api"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
@@ -10,18 +9,18 @@ import (
 
 type (
 	JobMetrics map[string]prometheus.Gauge
+	JobHistory map[string][]float64
 )
 
-func NewHistory() api.JobHistory {
-	return api.JobHistory{
-		"loss": {},
-		"accuracy": {},
-		"trainLoss": {},
-		"parallelism": {},
-		"epoch_duration" : {},
+func NewHistory() JobHistory {
+	return JobHistory{
+		"loss":           {},
+		"accuracy":       {},
+		"trainLoss":      {},
+		"parallelism":    {},
+		"epoch_duration": {},
 	}
 }
-
 
 // createAndRegisterMetrics creates and registers the metrics that the
 // train job will publish during the training process for prometheus
@@ -58,11 +57,11 @@ func (job *TrainJob) createAndRegisterMetrics() JobMetrics {
 	})
 
 	return JobMetrics{
-		"loss": valLoss,
-		"accuracy": accuracy,
-		"trainLoss": trainLoss,
-		"parallelism": parallelism,
-		"epoch_duration" : epochDuration,
+		"loss":           valLoss,
+		"accuracy":       accuracy,
+		"trainLoss":      trainLoss,
+		"parallelism":    parallelism,
+		"epoch_duration": epochDuration,
 	}
 }
 
@@ -80,12 +79,12 @@ func (job *TrainJob) unregisterMetrics() {
 //
 // Get the last value present in the history and update the corresponding
 // prometheus gauge
-func (job *TrainJob) updateMetrics()  {
+func (job *TrainJob) updateMetrics() {
 	for name, values := range job.history {
 		if len(values) > 0 {
 			job.metrics[name].Set(values[len(values)-1])
 		} else {
-			job.logger.Warn("Skipping metric with no results",
+			job.logger.Debug("Skipping metric with no results",
 				zap.String("metric", name))
 		}
 	}

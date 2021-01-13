@@ -27,7 +27,7 @@ type (
 		// for every epoch
 		// It is saved to the database after the training process
 		// is complete
-		history api.JobHistory
+		history JobHistory
 
 		// metrics holds the metric collectors exposed to prometheus
 		// they basically expose the data present in the history so it can
@@ -137,6 +137,11 @@ func (job *TrainJob) serveTrainJob() {
 
 		// Invoke the validation function
 		job.validate()
+
+		job.history["parallelism"] = append(job.history["parallelism"], float64(job.parallelism))
+		job.history["epoch_duration"] = append(job.history["epoch_duration"], elapsed.Seconds())
+		job.updateMetrics()
+
 		if job.epoch < job.task.Parameters.Epochs {
 
 			job.task.ElapsedTime = elapsed.Seconds()
@@ -158,10 +163,6 @@ func (job *TrainJob) serveTrainJob() {
 			// Get the new parallelism and update it in the history
 			job.task = resp
 			job.parallelism = resp.Parallelism
-			job.history["parallelism"] = append(job.history["parallelism"], float64(resp.Parallelism))
-			job.history["epoch_duration"] = append(job.history["epoch_duration"], elapsed.Seconds())
-			job.updateMetrics()
-
 		}
 	}
 
