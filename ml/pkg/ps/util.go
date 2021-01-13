@@ -29,6 +29,7 @@ func (job *TrainJob) saveTrainingHistory() {
 		job.logger.Error("Could not connect to mongo", zap.Error(err))
 		return
 	}
+	defer client.Disconnect(context.TODO())
 
 	// Create the history and index by id
 	collection := client.Database("kubeml").Collection("history")

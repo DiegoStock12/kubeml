@@ -17,7 +17,7 @@ type (
 
 	// InferRequest is sent when wanting to get a result back from a trained network
 	InferRequest struct {
-		ModelId string `json:"model_id"`
+		ModelId string        `json:"model_id"`
 		Data    []interface{} `json:"data"`
 	}
 
@@ -39,8 +39,10 @@ type (
 	// History is the train and validation history of a
 	// specific training job
 	History struct {
-		Id   string                   `bson:"_id" json:"id"`
-		Task TrainRequest             `json:"task"`
-		Data map[string][]interface{} `json:"data"`
+		Id   string        `bson:"_id" json:"id"`
+		Task TrainRequest  `json:"task"`
+		Data JobHistory `json:"data"`
 	}
+
+	JobHistory map[string][]float64
 )

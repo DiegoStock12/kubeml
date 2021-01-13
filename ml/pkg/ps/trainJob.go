@@ -21,35 +21,41 @@ type (
 	TrainJob struct {
 		logger *zap.Logger
 
+		// history gathers the progress of the job
+		// it holds metrics for validation, train loss,
+		// accuracy, parallelism and epoch duration
+		// for every epoch
+		// It is saved to the database after the training process
+		// is complete
+		history api.JobHistory
+
+		// metrics holds the metric collectors exposed to prometheus
+		// they basically expose the data present in the history so it can
+		// be tracked in real time
+		metrics JobMetrics
+
 		// client for the scheduler (shared by all trainjobs)
 		scheduler *schedulerClient.Client
 
+		// request which has to be satisfied
+		task        *api.TrainTask
 		jobId       string
 		parallelism int
-
-		// parameters of the trainjob
-		epoch int
+		epoch       int
 
 		// reference model
-		model *model.Model
-
-		// optimizer for the model
+		model     *model.Model
 		optimizer model.ParallelSGD
 
-		// schedChan receives messages from the PS
-		schedChan <-chan *api.TrainTask
-		doneChan  chan<- string
-
-		// Communicate with the cache
+		// channels for communicating with the scheduler
+		// and parameter server to get new tasks and send finish
+		// signal
+		schedChan   <-chan *api.TrainTask
+		doneChan    chan<- string
 		redisClient *redisai.Client
 
-		// request which has to be satisfied
-		task *api.TrainTask
-
-		// history of the train job
-		history map[string][]interface{}
-
-		// to avoid exiting without the validation tasks finish
+		// wait group used when launching a validation
+		// function so we do not accidentally exit the job without
 		wgVal *sync.WaitGroup
 	}
 
@@ -57,7 +63,7 @@ type (
 	// results of a function, be it a training or validation function
 	funcResults struct {
 		funcId  int
-		results map[string]float32
+		results map[string]float64
 	}
 )
 
@@ -70,12 +76,9 @@ func newTrainJob(logger *zap.Logger,
 
 	logger.Info("Creating new train job")
 
-	// Create the connection to the REDIS api that we'll pass through to the PS
 	redisClient := redisai.Connect(fmt.Sprintf(
 		"redis://%s:%d", api.REDIS_ADDRESS_DEBUG, api.REDIS_PORT_DEBUG), nil)
 
-	// Create the PS struct
-	// TODO allow for more optimizers than the SGD
 	job := &TrainJob{
 		logger:      logger.Named(fmt.Sprintf("trainJob-%s", task.JobId)),
 		scheduler:   client,
@@ -86,11 +89,12 @@ func newTrainJob(logger *zap.Logger,
 		doneChan:    doneChan,
 		redisClient: redisClient,
 		task:        task,
-		history:     make(map[string][]interface{}),
+		history:     NewHistory(),
 		wgVal:       &sync.WaitGroup{},
 	}
 
 	job.optimizer = model.MakeParallelSGD(job.logger)
+	job.metrics = job.createAndRegisterMetrics()
 
 	return job
 
@@ -104,14 +108,21 @@ func (job *TrainJob) serveTrainJob() {
 	job.logger.Info("Starting to serve train job")
 	job.logger.Info("Initializing model")
 
+	defer func() {
+		// After the job is finished
+		// unregister the prometheus exposed metrics,
+		// clear connections and send the finish signal to the parameter
+		// server
+		job.unregisterMetrics()
+		job.redisClient.Close()
+		job.doneChan <- job.jobId
+	}()
+
 	err := job.initializeModel()
 	if err != nil {
 		job.logger.Fatal("Could not initialize model",
 			zap.Error(err))
 	}
-
-	// Set the initial parallelism
-	job.history["parallelism"] = []interface{}{job.parallelism}
 
 	// Loop for as many epochs as required by the request
 	for ; job.epoch <= job.task.Parameters.Epochs; job.epoch++ {
@@ -126,9 +137,6 @@ func (job *TrainJob) serveTrainJob() {
 
 		// Invoke the validation function
 		job.validate()
-
-		// If it is not our last epoch send the request to
-		// the scheduler so we can get the new parameters
 		if job.epoch < job.task.Parameters.Epochs {
 
 			job.task.ElapsedTime = elapsed.Seconds()
@@ -139,12 +147,10 @@ func (job *TrainJob) serveTrainJob() {
 				continue
 			}
 
-			job.logger.Debug("Waiting for scheduler response")
 			resp := <-job.schedChan
-
 			job.logger.Info("Received next config from the Scheduler",
 				zap.Int("new parallelism", resp.Parallelism))
-			if resp.Parallelism < 1 {
+			if resp.Parallelism < api.DEBUG_PARALLELISM {
 				job.logger.Error("Received bad configuration from the scheduler",
 					zap.Int("parallelism", resp.Parallelism))
 			}
@@ -152,20 +158,19 @@ func (job *TrainJob) serveTrainJob() {
 			// Get the new parallelism and update it in the history
 			job.task = resp
 			job.parallelism = resp.Parallelism
-			job.history["parallelism"] = append(job.history["parallelism"], resp.Parallelism)
+			job.history["parallelism"] = append(job.history["parallelism"], float64(resp.Parallelism))
+			job.history["epoch_duration"] = append(job.history["epoch_duration"], elapsed.Seconds())
+			job.updateMetrics()
 
 		}
 	}
 
 	// Wait for the val functions to finish
 	job.wgVal.Wait()
-	job.logger.Info(fmt.Sprintf("Training finished after %d epochs", job.epoch-1))
 	job.saveTrainingHistory()
-	job.logger.Info("Exiting...", zap.Any("history", job.history))
 
-	// Send the id to the PS so it can delete the
-	// entry in the job index
-	job.doneChan <- job.jobId
+	job.logger.Info("Exiting...", zap.Any("history", job.history))
+	job.logger.Info(fmt.Sprintf("Training finished after %d epochs", job.epoch-1))
 
 }
 
@@ -198,26 +203,6 @@ func (job *TrainJob) initializeModel() error {
 	return nil
 }
 
-// updateModel optimizes the model's weights and biases with the gradients
-// saved by the functions in the previous epoch
-//func (job *TrainJob) updateModel(funcs ...int) error {
-//	job.logger.Info("Updating model",
-//		zap.Any("funcs", funcs))
-//
-//	var result *multierror.Error
-//	N := len(funcs)
-//
-//	// For each of the functions call the optimizer step
-//	// function to fetch the gradients and update the model weights
-//	for _, id := range funcs {
-//		err := job.optimizer.Step(job.model, id, N)
-//		result = multierror.Append(result, err)
-//	}
-//
-//	return result.ErrorOrNil()
-//
-//}
-
 // train invokes the functions in each train stage and
 // returns the total time that the model spent training
 func (job *TrainJob) train() (time.Duration, error) {
@@ -226,24 +211,17 @@ func (job *TrainJob) train() (time.Duration, error) {
 
 	job.logger.Info("Started new epoch",
 		zap.Int("epoch", job.epoch))
-	startTime := time.Now()
+	start := time.Now()
 
 	// Invoke the functions and get the ids of the functions
 	// that should be used to update the model
 	funcs := job.invokeTrainFunctions()
-	// Get the elapsed time
-	elapsed := time.Now().Sub(startTime)
+	elapsed := time.Since(start)
 
-	// Update the model
-	//err := job.updateModel(funcs...)
-	//result = multierror.Append(result, err)
-
-	// Merge the results from the functions
+	// Merge the models and update in the database
 	job.optimizer.Merge(job.model, funcs...)
-	// update the model and invoke the functions
 	err := job.model.Save()
 	result = multierror.Append(result, err)
-
 	job.logger.Info("Epoch finished, saving model")
 
 	return elapsed, result.ErrorOrNil()
@@ -251,7 +229,6 @@ func (job *TrainJob) train() (time.Duration, error) {
 
 // validate invokes the validation function
 func (job *TrainJob) validate() {
-	// Invoke the validation function while we wait for the scheduler
 	job.wgVal.Add(1)
 	go job.invokeValFunction(job.wgVal)
 }

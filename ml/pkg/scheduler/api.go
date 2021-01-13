@@ -49,8 +49,6 @@ func (s *Scheduler) newParallelism(w http.ResponseWriter, r *http.Request) {
 	// Receive the train task from the job
 	// and insert it in the queue to be scheduled
 	var task api.TrainTask
-
-	// read the train request
 	err = json.Unmarshal(body, &task)
 	if err != nil {
 		s.logger.Error("Failed to parse the trainjob request",
@@ -80,8 +78,6 @@ func (s *Scheduler) train(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req api.TrainRequest
-
-	// read the train request
 	err = json.Unmarshal(body, &req)
 	if err != nil {
 		s.logger.Error("Failed to parse the train request",
@@ -136,12 +132,11 @@ func (s *Scheduler) infer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the url
 	// TODO funcName could be model id
 	url := buildFunctionURL(0, 1, "infer", "network", req.ModelId)
 	s.logger.Debug("Build inference url", zap.String("url", url))
 
-	// perform the http port request having the data as the body
+
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		s.logger.Error("Could not receive function response", zap.Error(err))

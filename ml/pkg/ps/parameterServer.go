@@ -3,7 +3,9 @@ package ps
 import (
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	schedulerClient "github.com/diegostock12/thesis/ml/pkg/scheduler/client"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
+	"net/http"
 	"sync"
 )
 
@@ -36,7 +38,6 @@ type (
 		// doneChan simply receives the exit messages from the jobs to
 		// delete them from the index.
 		// The jobs send their ID to the channel and the ps deletes the history
-		// TODo should this be buffered?
 		doneChan chan string
 
 		// Lock to alter the index
@@ -44,8 +45,19 @@ type (
 		mu sync.Mutex
 	}
 
-
 )
+
+func serveMetrics(logger *zap.Logger)  {
+
+	logger.Debug("Serving metrics")
+	// Expose the prometheus metrics endpoint
+	metricAddr := ":8080"
+	http.Handle("/metrics", promhttp.Handler())
+	err := http.ListenAndServe(metricAddr, nil)
+
+	logger.Fatal("metrics endpoint exited", zap.Error(err))
+	
+}
 
 // receiveFinish simply waits in the
 func (ps *ParameterServer) receiveFinish()  {
@@ -85,7 +97,7 @@ func (ps *ParameterServer) receiveFinish()  {
 //2) receive the notifications from the PS API about functions that have finished processing
 //which will trigger the execution retrieval of gradients and the update of the model
 //3) Start the API to get the requests from the functions
-func  Start(logger *zap.Logger, port int, schedulerUrl string) {
+func Start(logger *zap.Logger, port int, schedulerUrl string) {
 
 	// build the PS
 	ps := &ParameterServer{
@@ -102,6 +114,7 @@ func  Start(logger *zap.Logger, port int, schedulerUrl string) {
 
 	// start the listener for job finishes
 	go ps.receiveFinish()
+	go serveMetrics(ps.logger)
 
 
 	// Start the API to receive requests

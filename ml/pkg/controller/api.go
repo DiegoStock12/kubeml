@@ -59,21 +59,9 @@ func (c *Controller) handleInferenceRequest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var req api.InferRequest
-	// read the train request
-	err = json.Unmarshal(body, &req)
-	if err != nil {
-		c.logger.Error("Failed to parse the train request",
-			zap.Error(err),
-			zap.String("payload", string(body)))
-		http.Error(w, "Failed to decode the request", http.StatusInternalServerError)
-		return
-	}
-
-	// Forward the request to the scheduler
-	// we get the response object with the predictions as
-	// a byte array already
-	resp, err := c.scheduler.SubmitInferenceTask(req)
+	// Instead of unmarshalling and marshalling again the
+	// request, send the body as is to improve performance
+	resp, err := c.scheduler.SubmitInferenceTask(body)
 	if err != nil {
 		c.logger.Error("Could not get job id",
 			zap.Error(err))

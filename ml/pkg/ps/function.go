@@ -99,7 +99,7 @@ func (job *TrainJob) invokeTrainFunctions() []int {
 	close(respChan)
 
 	// Calculate the mean and save in the history
-	var loss float32
+	var loss float64
 	n := len(respChan)
 	if n != job.parallelism {
 		job.logger.Warn("Some of the functions returned without a result",
@@ -114,16 +114,10 @@ func (job *TrainJob) invokeTrainFunctions() []int {
 		funcs = append(funcs, response.funcId)
 	}
 	// After all divide by the number of elements and add to the history
-	avgLoss := loss / float32(n)
+	avgLoss := loss / float64(n)
+	job.logger.Info("Epoch had average loss", zap.Float64("loss", avgLoss))
+	job.history["trainLoss"] = append(job.history["trainLoss"], avgLoss)
 
-	// TODO make this more general if we want to have multiple metrics coming our way
-	job.logger.Info("Epoch had average loss", zap.Float32("loss", avgLoss))
-	values, exists := job.history["trainLoss"]
-	if exists {
-		job.history["trainLoss"] = append(values, avgLoss)
-	} else {
-		job.history["trainLoss"] = []interface{}{avgLoss}
-	}
 
 	job.logger.Debug("History updated", zap.Any("history", job.history))
 
@@ -138,8 +132,7 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 	job.logger.Info("Invoking validation function")
 
 	// TODO instead of returning the map we could add it to a job level map that tracks the progress
-	var results map[string]float32
-
+	var results map[string]float64
 	query := job.buildFunctionURL(0, 1, "val", job.task.Parameters.FunctionName)
 	resp, err := http.Get(query)
 	if err != nil {
@@ -177,7 +170,7 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 		if exists {
 			job.history[metric] = append(value, results[metric])
 		} else {
-			job.history[metric] = []interface{}{results[metric]}
+			job.history[metric] = []float64{results[metric]}
 		}
 	}
 
@@ -206,8 +199,8 @@ func (job *TrainJob) launchFunction(
 	}
 	defer resp.Body.Close()
 
-	var res map[string]float32
-	// We get a json with {loss: float32} so parse the json and so on
+	var res map[string]float64
+	// We get a json with {loss: float64} so parse the json and so on
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		job.logger.Error("Could not read response body", zap.Error(err))
