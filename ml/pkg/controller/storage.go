@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"github.com/diegostock12/thesis/ml/pkg/api"
+	"github.com/diegostock12/thesis/ml/pkg/util"
 	"go.uber.org/zap"
 	"net/http"
 	"net/http/httputil"
@@ -14,7 +15,13 @@ import (
 // StorageServiceProxy returns the reverse proxy that the controller
 // uses to redirect all the storage uploads and deletions to the storage service
 func (c *Controller) StorageServiceProxy(w http.ResponseWriter, r *http.Request)  {
-	ssUrl, err := url.Parse(api.STORAGE_ADDRESS_DEBUG)
+	var ssUrl *url.URL
+	var err error
+	if util.IsDebugEnv() {
+		ssUrl, err = url.Parse(api.STORAGE_ADDRESS_DEBUG)
+	} else {
+		ssUrl, err = url.Parse(api.STORAGE_ADDRESS)
+	}
 	if err != nil {
 		c.logger.Error("Error parsing url",
 			zap.Error(err),

@@ -13,4 +13,4 @@ COPY  utils.py /app
 
 EXPOSE 80
 
-CMD ["gunicorn", "-b", "0.0.0.0:80", "-w 1", "api:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:9090", "-w 1", "api:app"]

@@ -7,6 +7,7 @@ import (
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	"github.com/diegostock12/thesis/ml/pkg/model"
 	schedulerClient "github.com/diegostock12/thesis/ml/pkg/scheduler/client"
+	"github.com/diegostock12/thesis/ml/pkg/util"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"sync"
@@ -71,8 +72,14 @@ func newTrainJob(logger *zap.Logger,
 
 	logger.Info("Creating new train job")
 
-	redisClient := redisai.Connect(fmt.Sprintf(
-		"redis://%s:%d", api.REDIS_ADDRESS_DEBUG, api.REDIS_PORT_DEBUG), nil)
+	var redisClient *redisai.Client
+	if util.IsDebugEnv() {
+		redisClient = redisai.Connect(fmt.Sprintf(
+			"redis://%s:%d", api.REDIS_ADDRESS_DEBUG, api.REDIS_PORT_DEBUG), nil)
+	} else {
+		redisClient = redisai.Connect(fmt.Sprintf("%s:%d", api.REDIS_ADDRESS, api.REDIS_PORT), nil)
+	}
+
 
 	job := &TrainJob{
 		logger:      logger.Named(fmt.Sprintf("trainJob-%s", task.JobId)),
@@ -107,7 +114,8 @@ func (job *TrainJob) serveTrainJob() {
 		// unregister the prometheus exposed metrics,
 		// clear connections and send the finish signal to the parameter
 		// server
-		job.clearMetrics()
+		// TODO uncomment this after building the dashboard
+		//job.clearMetrics()
 		job.redisClient.Close()
 		job.doneChan <- job.jobId
 	}()

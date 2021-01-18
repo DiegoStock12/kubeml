@@ -101,12 +101,54 @@ spec:
     metadata:
       labels:
         svc: parameter-server
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8080"
     spec:
       containers:
         - name: parameter-server
           image: diegostock12/kubeml:latest
           command: ["/kubeml"]
           args: ["--psPort", "9090"]
+          readinessProbe:
+            httpGet:
+              path: "/health"
+              port: 9090
+            initialDelaySeconds: 1
+            periodSeconds: 1
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: "/health"
+              port: 9090
+            initialDelaySeconds: 35
+            periodSeconds: 5
+          ports:
+            - containerPort: 9090
+              name: http
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storage
+  namespace: kubeml
+  labels:
+    svc: storage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      svc: storage
+  template:
+    metadata:
+      labels:
+        svc: storage
+    spec:
+      containers:
+        - name: storage
+          image: diegostock12/storage-svc:latest
           readinessProbe:
             httpGet:
               path: "/health"
@@ -164,3 +206,28 @@ spec:
   type: ClusterIP
   selector:
     svc: "parameter-server"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "storage"
+  namespace: "kubeml"
+spec:
+  ports:
+    - port: 80
+      targetPort: 9090
+  type: ClusterIP
+  selector:
+    svc: "storage"
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ps-service-app
+  namespace: kubeml
+spec:
+  selector:
+    matchLabels:
+      svc: parameter-server
+  endpoints:
+    - targetPort: 8080

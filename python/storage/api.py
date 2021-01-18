@@ -1,12 +1,11 @@
+import logging
 import os
 import pickle
-import logging
+import uuid
 
 import numpy as np
 import pymongo
 from flask import Flask, request, jsonify
-import uuid
-
 from utils import *
 
 app = Flask(__name__)
@@ -21,6 +20,11 @@ logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 
 # mongo connection
 client = pymongo.MongoClient(app.config['MONGO_ADDRESS'], app.config['MONGO_PORT'])
+
+
+@app.route('/health')
+def health():
+    return '', 200
 
 
 # Define the endpoints of the storage service
@@ -136,6 +140,7 @@ def delete_dataset(dataset_name: str):
 
     logging.error("Dataset does not exist")
     return jsonify(error='Dataset does not exist'), 404
+
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/diegostock12/thesis/ml/pkg/util"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -20,6 +21,15 @@ import (
 // TODO make this more elegant by not having to add all the parameters
 func buildFunctionURL(funcId, numFunc int, task, funcName, psId string) string {
 
+
+
+	var routerAddr string
+	if util.IsDebugEnv() {
+		routerAddr = api.ROUTER_ADDRESS_DEBUG
+	} else {
+		routerAddr = api.ROUTER_ADDRESS
+	}
+
 	values := url.Values{}
 	values.Set("task", task)
 	values.Set("psId", psId)
@@ -28,7 +38,7 @@ func buildFunctionURL(funcId, numFunc int, task, funcName, psId string) string {
 	values.Set("batchSize", "0")
 	values.Set("lr", "1")
 
-	dest := api.ROUTER_ADDRESS_DEBUG + "/" + funcName + "?" + values.Encode()
+	dest := routerAddr + "/" + funcName + "?" + values.Encode()
 
 	return dest
 }

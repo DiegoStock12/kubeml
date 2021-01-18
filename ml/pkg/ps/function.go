@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/diegostock12/thesis/ml/pkg/api"
+	"github.com/diegostock12/thesis/ml/pkg/util"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
@@ -16,6 +17,13 @@ import (
 // buildFunctionURL returns the url that the PS will invoke to execute the function
 func (job *TrainJob) buildFunctionURL(funcId, numFunc int, task, funcName string) string {
 
+	var routerAddr string
+	if util.IsDebugEnv() {
+		routerAddr = api.ROUTER_ADDRESS_DEBUG
+	} else {
+		routerAddr = api.ROUTER_ADDRESS
+	}
+
 	values := url.Values{}
 	values.Set("task", task)
 	values.Set("psId", job.jobId)
@@ -24,7 +32,7 @@ func (job *TrainJob) buildFunctionURL(funcId, numFunc int, task, funcName string
 	values.Set("batchSize", strconv.Itoa(job.task.Parameters.BatchSize))
 	values.Set("lr", strconv.FormatFloat(float64(job.task.Parameters.LearningRate), 'f', -1, 32))
 
-	dest := api.ROUTER_ADDRESS_DEBUG + "/" + funcName + "?" + values.Encode()
+	dest := routerAddr + "/" + funcName + "?" + values.Encode()
 
 	job.logger.Debug("Built url", zap.String("url", dest))
 

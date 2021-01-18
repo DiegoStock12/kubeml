@@ -8,6 +8,9 @@ RUN apt-get update && \
     apt-get install gcc libev-dev libffi-dev -y && \
     apt-get clean
 
+
+RUN pip3 install --upgrade pip3
+
 # Copy the requirements and install
 WORKDIR /app
 COPY requirements.txt /app

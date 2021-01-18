@@ -4,4 +4,4 @@ services:
   storage:
     build: .
     ports:
-      - '80:80'
+      - '9090:9090'

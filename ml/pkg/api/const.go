@@ -8,14 +8,21 @@ const (
 	GradientSuffix = ".grad"
 )
 
-// Addresses and ports of services
+// Addresses of services
 const (
 	// Address to access the fission router
-	STORAGE_ADDRESS = "http://storagesvc"
+	STORAGE_ADDRESS = "http://storage.kubeml"
+	SCHEDULER_URL = "http://scheduler.kubeml"
+	PARAMETER_SERVER_URL = "http://parameter-server.kubeml"
+	CONTROLLER_URL = "http://controller.kubeml"
+)
+
+const(
 	ROUTER_ADDRESS = "http://router.fission"
 	MONGO_ADDRESS  = "mongo.default"
 	MONGO_PORT     = 27017
 	REDIS_ADDRESS  = "redis.default"
+	REDIS_PORT = 6379
 )
 
 // Debug
