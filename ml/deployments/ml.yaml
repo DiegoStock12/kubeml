@@ -27,22 +27,22 @@ spec:
         - name: controller
           image: diegostock12/kubeml:latest
           command: ["/kubeml"]
-          args: ["--controllerPort", "10100"]
+          args: ["--controllerPort", "9090"]
           readinessProbe:
             httpGet:
               path: "/health"
-              port: 10100
+              port: 9090
             initialDelaySeconds: 1
             periodSeconds: 1
             failureThreshold: 30
           livenessProbe:
             httpGet:
               path: "/health"
-              port: 10100
+              port: 9090
             initialDelaySeconds: 35
             periodSeconds: 5
           ports:
-            - containerPort: 10100
+            - containerPort: 9090
               name: http
 ---
 
@@ -67,22 +67,22 @@ spec:
         - name: scheduler
           image: diegostock12/kubeml:latest
           command: ["/kubeml"]
-          args: ["--schedulerPort", "10100"]
+          args: ["--schedulerPort", "9090"]
           readinessProbe:
             httpGet:
               path: "/health"
-              port: 10100
+              port: 9090
             initialDelaySeconds: 1
             periodSeconds: 1
             failureThreshold: 30
           livenessProbe:
             httpGet:
               path: "/health"
-              port: 10100
+              port: 9090
             initialDelaySeconds: 35
             periodSeconds: 5
           ports:
-            - containerPort: 10100
+            - containerPort: 9090
               name: http
 ---
 apiVersion: apps/v1
@@ -106,22 +106,22 @@ spec:
         - name: parameter-server
           image: diegostock12/kubeml:latest
           command: ["/kubeml"]
-          args: ["--psPort", "10100"]
+          args: ["--psPort", "9090"]
           readinessProbe:
             httpGet:
               path: "/health"
-              port: 10100
+              port: 9090
             initialDelaySeconds: 1
             periodSeconds: 1
             failureThreshold: 30
           livenessProbe:
             httpGet:
               path: "/health"
-              port: 10100
+              port: 9090
             initialDelaySeconds: 35
             periodSeconds: 5
           ports:
-            - containerPort: 10100
+            - containerPort: 9090
               name: http
 ---
 apiVersion: v1
@@ -132,8 +132,8 @@ metadata:
 spec:
   ports:
     - port: 80
-      targetPort: 10100
-  type: ClusterIP
+      targetPort: 9090
+  type: LoadBalancer
   selector:
     svc: "controller"
 
@@ -146,7 +146,7 @@ metadata:
 spec:
   ports:
     - port: 80
-      targetPort: 10100
+      targetPort: 9090
   type: ClusterIP
   selector:
     svc: "scheduler"
@@ -160,7 +160,7 @@ metadata:
 spec:
   ports:
     - port: 80
-      targetPort: 10100
+      targetPort: 9090
   type: ClusterIP
   selector:
     svc: "parameter-server"

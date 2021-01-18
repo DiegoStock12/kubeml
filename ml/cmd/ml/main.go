@@ -93,8 +93,8 @@ Options:
 
 
 	// for now set the default urls
-	schedulerUrl := "http://scheduler.ml"
-	psUrl := "http://ps.ml"
+	schedulerUrl := "http://scheduler.kubeml"
+	psUrl := "http://parameter-server.kubeml"
 
 	// parse the arguments
 	args, err := docopt.ParseDoc(usage)

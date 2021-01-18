@@ -8,14 +8,8 @@ const (
 	GradientSuffix = ".grad"
 )
 
-// Redis connection params
+// Addresses and ports of services
 const (
-	RedisHost = "192.168.99.102"
-	RedisPort = 6379
-)
-
-const (
-
 	// Address to access the fission router
 	STORAGE_ADDRESS = "http://storagesvc"
 	ROUTER_ADDRESS = "http://router.fission"
@@ -36,25 +30,6 @@ const (
 	PS_DEBUG_PORT = 10300
 	CONTROLLER_DEBUG_PORT = 10100
 	DEBUG_URL = "http://localhost"
-)
-
-// port on which the different API's will listen on
-const ML_DEFAULT_PORT = 10200
-
-
-// TODO create a client for each of these
-// Constants with the API endpoints
-const (
-	SCHEDULER_TRAIN_ENDPOINT = "/train"
-	SCHEDULER_INFERENCE_ENDPOINT = "/infer"
-	SCHEDULER_JOB_ENDPOINT = "/job"
-
-	CONTROLLER_TRAIN_ENDPOINT = "/train"
-	CONTROLLER_INFERENCE_ENDPOINT = "/infer"
-	CONTROLLER_DATASET_ENDPOINT = "/dataset"
-
-	PS_START_ENDPOINT = "/start"
-	PS_UPDATE_ENDPOINT = "/update"
 )
 
 
