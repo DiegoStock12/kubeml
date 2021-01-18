@@ -36,7 +36,7 @@ var (
 
 	// labelsJob are used those exported by each trainJob, to
 	// monitor its current state during the training phase
-	labelsJob = []string{"id"}
+	labelsJob = []string{"jobid"}
 
 	// labelsPS are exported by the parameter server to monitor the number
 	// of tasks of each type (training, validation) currently happening

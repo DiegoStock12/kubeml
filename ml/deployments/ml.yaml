@@ -125,8 +125,11 @@ spec:
             initialDelaySeconds: 35
             periodSeconds: 5
           ports:
+            - containerPort: 8080
+              name: metrics
             - containerPort: 9090
               name: http
+
 ---
 
 apiVersion: apps/v1
@@ -171,6 +174,8 @@ kind: Service
 metadata:
   name: "controller"
   namespace: "kubeml"
+  labels:
+    svc: controller
 spec:
   ports:
     - port: 80
@@ -185,6 +190,8 @@ kind: Service
 metadata:
   name: "scheduler"
   namespace: "kubeml"
+  labels:
+    svc: scheduler
 spec:
   ports:
     - port: 80
@@ -199,6 +206,8 @@ kind: Service
 metadata:
   name: "parameter-server"
   namespace: "kubeml"
+  labels:
+    svc: parameter-server
 spec:
   ports:
     - port: 80
@@ -212,6 +221,8 @@ kind: Service
 metadata:
   name: "storage"
   namespace: "kubeml"
+  labels:
+    svc: storage
 spec:
   ports:
     - port: 80
@@ -219,15 +230,3 @@ spec:
   type: ClusterIP
   selector:
     svc: "storage"
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: ps-service-app
-  namespace: kubeml
-spec:
-  selector:
-    matchLabels:
-      svc: parameter-server
-  endpoints:
-    - targetPort: 8080
