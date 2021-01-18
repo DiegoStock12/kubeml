@@ -2,6 +2,7 @@ import pickle
 import numpy as np
 import pymongo
 import torch.utils.data as tdata
+from flask import current_app
 
 
 MONGO_IP = 'mongodb.default'
@@ -78,6 +79,7 @@ class MnistDataset(tdata.Dataset):
             if data is None:
                 data, labels = d, l
             else:
+                current_app.logger.debug(f'Data is {data.shape}, labels are {labels.shape}')
                 data = np.vstack([data, d])
                 labels = np.hstack([labels, l])
 

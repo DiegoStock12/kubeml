@@ -29,11 +29,6 @@ type (
 		// is complete
 		history JobHistory
 
-		// metrics holds the metric collectors exposed to prometheus
-		// they basically expose the data present in the history so it can
-		// be tracked in real time
-		metrics JobMetrics
-
 		// client for the scheduler (shared by all trainjobs)
 		scheduler *schedulerClient.Client
 
@@ -89,12 +84,11 @@ func newTrainJob(logger *zap.Logger,
 		doneChan:    doneChan,
 		redisClient: redisClient,
 		task:        task,
-		history:     NewHistory(),
+		history:     JobHistory{},
 		wgVal:       &sync.WaitGroup{},
 	}
 
 	job.optimizer = model.MakeParallelSGD(job.logger)
-	job.metrics = job.createAndRegisterMetrics()
 
 	return job
 
@@ -113,7 +107,7 @@ func (job *TrainJob) serveTrainJob() {
 		// unregister the prometheus exposed metrics,
 		// clear connections and send the finish signal to the parameter
 		// server
-		job.unregisterMetrics()
+		job.clearMetrics()
 		job.redisClient.Close()
 		job.doneChan <- job.jobId
 	}()
@@ -138,8 +132,8 @@ func (job *TrainJob) serveTrainJob() {
 		// Invoke the validation function
 		job.validate()
 
-		job.history["parallelism"] = append(job.history["parallelism"], float64(job.parallelism))
-		job.history["epoch_duration"] = append(job.history["epoch_duration"], elapsed.Seconds())
+		job.history.Parallelism = append(job.history.Parallelism, float64(job.parallelism))
+		job.history.EpochDuration = append(job.history.EpochDuration, elapsed.Seconds())
 		job.updateMetrics()
 
 		if job.epoch < job.task.Parameters.Epochs {

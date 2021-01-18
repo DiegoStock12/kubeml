@@ -101,6 +101,9 @@ func (job *TrainJob) invokeTrainFunctions() []int {
 	// Calculate the mean and save in the history
 	var loss float64
 	n := len(respChan)
+	if n == 0 {
+		job.logger.Fatal("All the functions failed with no response")
+	}
 	if n != job.parallelism {
 		job.logger.Warn("Some of the functions returned without a result",
 			zap.Int("parallelism", job.parallelism),
@@ -116,7 +119,7 @@ func (job *TrainJob) invokeTrainFunctions() []int {
 	// After all divide by the number of elements and add to the history
 	avgLoss := loss / float64(n)
 	job.logger.Info("Epoch had average loss", zap.Float64("loss", avgLoss))
-	job.history["trainLoss"] = append(job.history["trainLoss"], avgLoss)
+	job.history.TrainLoss = append(job.history.TrainLoss, avgLoss)
 
 
 	job.logger.Debug("History updated", zap.Any("history", job.history))
@@ -165,15 +168,8 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 	job.logger.Debug("Got validation results", zap.Any("results", results))
 
 	// Update the history with the new results
-	for metric := range results {
-		value, exists := job.history[metric]
-		if exists {
-			job.history[metric] = append(value, results[metric])
-		} else {
-			job.history[metric] = []float64{results[metric]}
-		}
-	}
-
+	job.history.ValidationLoss = append(job.history.ValidationLoss, results["loss"])
+	job.history.Accuracy = append(job.history.Accuracy, results["accuracy"])
 	job.logger.Debug("History updated", zap.Any("history", job.history))
 
 }
@@ -207,9 +203,11 @@ func (job *TrainJob) launchFunction(
 		return
 	}
 
-	job.logger.Debug(fmt.Sprintf("Received body, %s", string(body)))
+	job.logger.Debug(fmt.Sprintf("Received body, %s", string(body)), zap.Int("funcId", funcId))
 	if err = json.Unmarshal(body, &res); err != nil {
-		job.logger.Error("Could not parse the JSON data", zap.Error(err), zap.String("data", string(body)))
+		job.logger.Error("Could not parse the JSON data", zap.Error(err),
+			zap.String("data", string(body)),
+			zap.String("status", resp.Status))
 		return
 	}
 

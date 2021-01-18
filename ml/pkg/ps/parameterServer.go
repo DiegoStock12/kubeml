@@ -9,7 +9,6 @@ import (
 	"sync"
 )
 
-
 // Parameter server is run in a separate goroutine from the scheduler
 // It can communicate with the scheduler through channels
 type (
@@ -44,23 +43,21 @@ type (
 		// TODO should it be RW?
 		mu sync.Mutex
 	}
-
 )
 
-func serveMetrics(logger *zap.Logger)  {
+func serveMetrics(logger *zap.Logger) {
 
 	logger.Debug("Serving metrics")
 	// Expose the prometheus metrics endpoint
-	metricAddr := ":8080"
 	http.Handle("/metrics", promhttp.Handler())
-	err := http.ListenAndServe(metricAddr, nil)
+	err := http.ListenAndServe(metricsAddr, nil)
 
 	logger.Fatal("metrics endpoint exited", zap.Error(err))
-	
+
 }
 
 // receiveFinish simply waits in the
-func (ps *ParameterServer) receiveFinish()  {
+func (ps *ParameterServer) receiveFinish() {
 
 	// Loop forever and wait for messages receiving the finish from the
 	// jobs
@@ -91,7 +88,6 @@ func (ps *ParameterServer) receiveFinish()  {
 
 }
 
-
 // Start Starts a New parameter server which will execute the tasks
 //1) start the new functions
 //2) receive the notifications from the PS API about functions that have finished processing
@@ -101,9 +97,9 @@ func Start(logger *zap.Logger, port int, schedulerUrl string) {
 
 	// build the PS
 	ps := &ParameterServer{
-		logger:    logger.Named("ps"),
-		port:      port,
-		jobIndex:  make(map[string]chan *api.TrainTask),
+		logger:   logger.Named("ps"),
+		port:     port,
+		jobIndex: make(map[string]chan *api.TrainTask),
 		doneChan: make(chan string),
 	}
 
@@ -116,9 +112,6 @@ func Start(logger *zap.Logger, port int, schedulerUrl string) {
 	go ps.receiveFinish()
 	go serveMetrics(ps.logger)
 
-
 	// Start the API to receive requests
 	ps.Serve(port)
 }
-
-

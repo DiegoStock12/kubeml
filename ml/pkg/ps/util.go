@@ -36,7 +36,7 @@ func (job *TrainJob) saveTrainingHistory() {
 	h := api.History{
 		Id:   job.jobId,
 		Task: job.task.Parameters,
-		Data: job.history,
+		Data: job.history.ToMap(),
 	}
 
 	// insert it in the DB
