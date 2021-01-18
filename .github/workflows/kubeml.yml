@@ -1,4 +1,4 @@
-name: Compile the code and publish on dockerhub
+name: Compile KubeML
 
 on:
   push:

@@ -11,6 +11,6 @@ RUN pip3 install  -r requirements.txt
 COPY  api.py /app
 COPY  utils.py /app
 
-EXPOSE 80
+EXPOSE 9090
 
-CMD ["gunicorn", "-b", "0.0.0.0:9090", "-w 1", "api:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:9090", "-w 4", "api:app"]
