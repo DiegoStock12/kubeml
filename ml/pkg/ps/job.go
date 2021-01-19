@@ -56,7 +56,8 @@ type (
 )
 
 // newTrainJob Creates a new TrainJob that will take care of a specific train request
-func newTrainJob(logger *zap.Logger,
+func newTrainJob(
+	logger *zap.Logger,
 	task *api.TrainTask,
 	schedChan <-chan *api.TrainTask,
 	doneChan chan string,

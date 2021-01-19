@@ -22,20 +22,23 @@ func MakeParallelSGD(logger *zap.Logger) ParallelSGD {
 
 // Merge fetches weights from the database and averages them to create a new
 // reference model for the training job
-// TODO we can parallelize fetching and averaging each layer
 func (psgd ParallelSGD) Merge(m *Model, funcs ...int) {
 	psgd.logger.Debug("Merging layers...", zap.Any("funcs", funcs))
 
+	// Fetch the layers output by each of the training functions
+	// For each of the layers accumulate them and then in the end divide
+	// by the total number of successful functions
+	// Then update the state dict
 	sd := make(map[string]*Layer)
-
-	// For each of the layers get and average the weights
-	// from all the functions
 	for layerName := range m.StateDict {
 		psgd.logger.Debug("Merging layer", zap.String("name", layerName))
 		num := 0
 
+		// First fetch the layer output by all functions
+		// if it doesn't exists in the new state dict assign it,
+		// if it does, simply add it
 		for _, fId := range funcs {
-			layer, err := newLayer(m.redisClient, layerName, m.jobId, fId)
+			layer, err := m.NewLayer(layerName, fId)
 			if err != nil {
 				psgd.logger.Error("Could not load layer from database",
 					zap.Error(err),
@@ -44,11 +47,7 @@ func (psgd ParallelSGD) Merge(m *Model, funcs ...int) {
 				continue
 			}
 
-			// if the layer is not set in the statedict set it
-			// with the current layer. If it is there simply add the
-			// newly fetched layer
-			total, exists := sd[layerName]
-			if !exists {
+			if total, exists := sd[layerName]; !exists {
 				sd[layerName] = layer
 			} else {
 				total.Weights, err = total.Weights.Add(layer.Weights)
@@ -64,12 +63,10 @@ func (psgd ParallelSGD) Merge(m *Model, funcs ...int) {
 					}
 				}
 			}
-
 			num++
 
 		}
 
-		psgd.logger.Debug("Nums are", zap.Int("num", num))
 		// Finally average all the weights and biases and set the num to 0
 		layer := sd[layerName]
 		var err error

@@ -63,8 +63,13 @@ type (
 )
 
 // Creates a new model with the specified layers
-func NewModel(logger *zap.Logger, jobId string, task api.TrainRequest,
-	layerNames []string, client *redisai.Client) *Model {
+func NewModel(
+	logger *zap.Logger,
+	jobId string,
+	task api.TrainRequest,
+	layerNames []string,
+	client *redisai.Client) *Model {
+
 	return &Model{
 		logger:      logger.Named("model"),
 		Name:        task.ModelType,
@@ -84,7 +89,7 @@ func (m *Model) Build() error {
 	for _, layerName := range m.layerNames {
 
 		m.logger.Debug("Creating new layer", zap.String("layerName", layerName))
-		l, err := newLayer(m.redisClient, layerName, m.jobId, -1)
+		l, err := m.NewLayer(layerName, -1)
 		if err != nil {
 			m.logger.Error("Error building layer",
 				zap.String("layer", layerName),
@@ -155,12 +160,19 @@ func (m *Model) Save() error {
 
 }
 
-// Build a new layer by getting it from the database already initialized
-func newLayer(redisClient *redisai.Client, name, psId string, funcId int) (*Layer, error) {
+// NewLayer fetches a layer from the database. It first queries
+// to see whether the layer contains bias or not, and then gets the layer
+// indexed by the function ID which saved it in the first place.
+//
+// The function Id is used to build the tensor key name. If the funcID is
+// >= 0, we know it is output from a function, if funcId is -1, we know
+// that it is the reference model that we need to load and no suffix is added
+// to the tensor name
+func (m *Model) NewLayer(name string, funcId int) (*Layer, error) {
 
 	// Get the redis keys
-	weightName, biasName := getWeightKeys(name, false, psId, funcId)
-	sWeights, weightValues, err := fetchTensor(redisClient, weightName)
+	weightName, biasName := getWeightKeys(name, false, m.jobId, funcId)
+	sWeights, weightValues, err := fetchTensor(m.redisClient, weightName)
 	if err != nil {
 		return nil, err
 	}
@@ -170,21 +182,20 @@ func newLayer(redisClient *redisai.Client, name, psId string, funcId int) (*Laye
 
 	// If we have to build the bias tensor
 	var b *tensor.Dense
-	biasExists, err := tensorExists(redisClient, biasName)
+	biasExists, err := tensorExists(m.redisClient, biasName)
 	if err != nil {
 		return nil, err
 	}
 
 	hasBias := false
 	if biasExists {
-		sBias, biasValues, err := fetchTensor(redisClient, biasName)
+		sBias, biasValues, err := fetchTensor(m.redisClient, biasName)
 		if err != nil {
 			return nil, err
 		}
 
 		// Cast the shape to an int array and build the layer tensor
 		dimBias := shapeToIntArray(sBias...)
-		// Build the actual tensor
 		b = tensor.New(tensor.WithShape(dimBias...), tensor.WithBacking(biasValues))
 		hasBias = true
 	}
@@ -243,14 +254,6 @@ func newGradient(redisClient *redisai.Client, layerName, psId string, funcId int
 
 }
 
-
-// Sets the model learning rate to the new value
-//func (lrs LrScheduler) updateLr(m *Model) {
-//	m.logger.Info("Updating the LR",
-//		zap.Float32("Rate", lrs.rate),
-//		zap.Float32("Current rate", m.lr))
-//	m.lr *= lrs.rate
-//}
 
 // tensorExists simply returns whether the tensor is present in the cache
 // In some networks (i.e resnets) the bias of the layers is not used, so in those

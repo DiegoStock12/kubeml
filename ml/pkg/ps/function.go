@@ -40,8 +40,7 @@ const (
 	Inference  FunctionTask = "infer"
 )
 
-// TODO this should take something to determine the batch of the data that should be used
-// TODO this can just take the
+
 // buildFunctionURL returns the url that the PS will invoke to execute the function
 func (job *TrainJob) buildFunctionURL(args FunctionArgs, task FunctionTask) string {
 
@@ -75,7 +74,6 @@ func (job *TrainJob) invokeInitFunction() ([]string, error) {
 	query := job.buildFunctionURL(FunctionArgs{}, Init)
 	resp, err := http.Get(query)
 	if err != nil {
-		// TODO here we should implement retries like in the fetcher specialize in fission
 		job.logger.Error("Could not call the init function",
 			zap.String("funcName", job.task.Parameters.FunctionName),
 			zap.Any("request", job.task.Parameters),
