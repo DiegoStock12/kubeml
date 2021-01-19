@@ -10,24 +10,13 @@ import (
 	"net/http"
 )
 
-func respondWithSuccess(w http.ResponseWriter, resp []byte) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_, err := w.Write(resp)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-}
 
 // updateTask Handles the responses from the scheduler to the
 // requests by the parameter servers to
 func (ps *ParameterServer) updateTask(w http.ResponseWriter, r *http.Request) {
 
-	// Get the job that the new response is for
 	vars := mux.Vars(r)
 	jobId := vars["jobId"]
-
-	// get the channel of the job
 	ch, exists := ps.jobIndex[jobId]
 	if !exists {
 		ps.logger.Error("Received response for non-existing job",
@@ -37,7 +26,6 @@ func (ps *ParameterServer) updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Unpack the Response
 	var resp api.TrainTask
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -56,10 +44,9 @@ func (ps *ParameterServer) updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ps.logger.Debug("Received response from the scheduler, sending to job...",
-		zap.Any("resp", resp))
 
-	// Send the response to the channel
+	// Send the response to the channel so the job can
+	// update the settings and start the next epoch
 	ch <- &resp
 
 }
@@ -68,7 +55,6 @@ func (ps *ParameterServer) updateTask(w http.ResponseWriter, r *http.Request) {
 // new training job. It creates a new parameter server thread and returns the id
 // of the created parameeter server
 func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
-	ps.logger.Debug("Processing request from the Scheduler")
 
 	var task api.TrainTask
 	body, err := ioutil.ReadAll(r.Body)
@@ -88,18 +74,18 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ps.logger.Debug("Received task from the scheduler",
-		zap.Any("task", task))
-
+	// Create a channel per job which will be used
+	// to communicate the new levels of parallelism chosen by
+	// the scheduler in coming epochs
+	//
+	// Also update the number of running tasks in the metrics endpoint
 	ch := make(chan *api.TrainTask)
+	ps.jobIndex[task.JobId] = ch
 
-	// TODO get a default parallelism
-	// Create the train job and start serving
 	job := newTrainJob(ps.logger, &task, ch, ps.doneChan, ps.scheduler)
 	go job.serveTrainJob()
+	ps.taskStarted(TrainTask)
 
-	// Add the channel and the id to the map
-	ps.jobIndex[task.JobId] = ch
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -111,10 +97,9 @@ func (ps *ParameterServer) handleHealth(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 }
 
-// Returns the handler for calls from the functions
+// GetHandler Returns the handler for calls from the functions
 func (ps *ParameterServer) GetHandler() http.Handler {
 	r := mux.NewRouter()
-	//r.HandleFunc("/finish/{funcId}", ps.handleFinish).Methods("POST")
 	r.HandleFunc("/start", ps.startTask).Methods("POST")
 	r.HandleFunc("/update/{jobId}", ps.updateTask).Methods("POST")
 	r.HandleFunc("/health",ps.handleHealth).Methods("GET")
@@ -126,12 +111,12 @@ func (ps *ParameterServer) GetHandler() http.Handler {
 // All of the parameter server threads share the same API, and
 // they communicate through channels
 func (ps *ParameterServer) Serve(port int) {
+
 	ps.logger.Info("Starting Parameter Server api",
 		zap.Int("port", port))
 
 	addr := fmt.Sprintf(":%v", port)
 
-	// Start serving the endpoint
 	err := http.ListenAndServe(addr, ps.GetHandler())
 	ps.logger.Fatal("Parameter Server API done",
 		zap.Error(err))

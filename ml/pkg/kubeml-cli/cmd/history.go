@@ -34,9 +34,9 @@ func getHistory(_ *cobra.Command, _ []string) error {
 func init()  {
 	rootCmd.AddCommand(historyCmd)
 
-	historyCmd.Flags().StringVar(&taskId, "taskId", "", "Id of the train task (required)" )
+	historyCmd.Flags().StringVar(&taskId, "network", "", "Id of the train task (required)" )
 	historyCmd.Flags().StringVarP(&outputFile, "outputFile", "o", "", "Output file to save the results")
 
-	historyCmd.MarkFlagRequired("taskId")
+	historyCmd.MarkFlagRequired("network")
 }
 

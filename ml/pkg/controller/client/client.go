@@ -20,9 +20,7 @@ type (
 	}
 )
 
-// MakeClient gets the kubernetes config and gets the IP address of the
-// controller
-// TODO for now just reference the local controller
+// MakeClient gets the kubernetes config and gets the IP address of the controller
 func MakeClient() *Client {
 
 	var controllerUrl string

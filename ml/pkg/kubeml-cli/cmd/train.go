@@ -26,7 +26,7 @@ var (
 
 // train builds the request and sends it to the controller so
 // the job can be scheduled
-func train(cmd *cobra.Command, args []string) error {
+func train(_ *cobra.Command, _ []string) error {
 	controller := controllerClient.MakeClient()
 	fmt.Println("Building train request and sending to ", controller)
 	req := api.TrainRequest{
@@ -54,12 +54,12 @@ func init() {
 	trainCmd.Flags().StringVarP(&dataset, "dataset", "d", "", "Dataset name (required)")
 	trainCmd.Flags().StringVarP(&functionName, "function", "f", "", "Function name (required)")
 	trainCmd.Flags().IntVarP(&epochs, "epochs", "e", 1, "Number of epochs to run (required)")
-	trainCmd.Flags().IntVarP(&batchSize, "batchSize", "b", 64, "Batch Size (required)")
+	trainCmd.Flags().IntVarP(&batchSize, "batch", "b", 64, "Batch Size (required)")
 	trainCmd.Flags().Float32Var(&lr, "lr", 0.01, "Learning Rate (required)")
 
 	trainCmd.MarkFlagRequired("dataset")
 	trainCmd.MarkFlagRequired("function")
 	trainCmd.MarkFlagRequired("epochs")
-	trainCmd.MarkFlagRequired("batchSize")
+	trainCmd.MarkFlagRequired("batch")
 	trainCmd.MarkFlagRequired("lr")
 }

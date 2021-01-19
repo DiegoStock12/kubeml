@@ -60,17 +60,17 @@ func init() {
 	// Add the flags to each command
 	// Flags for the create command
 	datasetCreateCmd.Flags().StringVarP(&name, "name", "n", "", "Dataset Name (required)")
-	datasetCreateCmd.Flags().StringVar(&trainData, "trainData", "", "Path to train data (required)")
-	datasetCreateCmd.Flags().StringVar(&trainLabels, "trainLabels", "", "Path to train labels (required)")
-	datasetCreateCmd.Flags().StringVar(&testData, "testData", "", "Path to test data (required")
-	datasetCreateCmd.Flags().StringVar(&testLabels, "testLabels", "", "Path to test labels (required)")
+	datasetCreateCmd.Flags().StringVar(&trainData, "traindata", "", "Path to train data (required)")
+	datasetCreateCmd.Flags().StringVar(&trainLabels, "trainlabels", "", "Path to train labels (required)")
+	datasetCreateCmd.Flags().StringVar(&testData, "testdata", "", "Path to test data (required")
+	datasetCreateCmd.Flags().StringVar(&testLabels, "testlabels", "", "Path to test labels (required)")
 
 	// Mark all of them as required
 	datasetCreateCmd.MarkFlagRequired("name")
-	datasetCreateCmd.MarkFlagRequired("trainData")
-	datasetCreateCmd.MarkFlagRequired("trainLabels")
-	datasetCreateCmd.MarkFlagRequired("testData")
-	datasetCreateCmd.MarkFlagRequired("testLabels")
+	datasetCreateCmd.MarkFlagRequired("traindata")
+	datasetCreateCmd.MarkFlagRequired("trainlabels")
+	datasetCreateCmd.MarkFlagRequired("testdata")
+	datasetCreateCmd.MarkFlagRequired("testlabels")
 
 	// Flags for the delete command
 	datasetDeleteCmd.Flags().StringVarP(&name, "name", "n", "", "Dataset Name (required)")

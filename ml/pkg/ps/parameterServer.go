@@ -56,11 +56,14 @@ func serveMetrics(logger *zap.Logger) {
 
 }
 
-// receiveFinish simply waits in the
+// receiveFinish  waits in a channel made available to all jobs at creation time
+// to receive signals that they are finished.
+//
+// After receiving this signal, clear the job entry in the job index, send a message
+// to the scheduler so that the cache is also updated and decrement the number of
+// running tasks in the metric
 func (ps *ParameterServer) receiveFinish() {
 
-	// Loop forever and wait for messages receiving the finish from the
-	// jobs
 	for {
 		id := <-ps.doneChan
 
@@ -83,6 +86,7 @@ func (ps *ParameterServer) receiveFinish() {
 		}
 
 		ps.mu.Unlock()
+		ps.taskFinished(TrainTask)
 
 	}
 

@@ -8,7 +8,6 @@ import (
 	"github.com/diegostock12/thesis/ml/pkg/model"
 	schedulerClient "github.com/diegostock12/thesis/ml/pkg/scheduler/client"
 	"github.com/diegostock12/thesis/ml/pkg/util"
-	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"sync"
 	"time"
@@ -114,8 +113,7 @@ func (job *TrainJob) serveTrainJob() {
 		// unregister the prometheus exposed metrics,
 		// clear connections and send the finish signal to the parameter
 		// server
-		// TODO uncomment this after building the dashboard
-		//job.clearMetrics()
+		job.clearMetrics()
 		job.redisClient.Close()
 		job.doneChan <- job.jobId
 	}()
@@ -179,6 +177,7 @@ func (job *TrainJob) serveTrainJob() {
 
 // initializeModel launches the function and creates the model used by the TrainJob
 func (job *TrainJob) initializeModel() error {
+
 	job.logger.Debug("Calling init function")
 	layers, err := job.invokeInitFunction()
 	if err != nil {
@@ -193,7 +192,6 @@ func (job *TrainJob) initializeModel() error {
 	m := model.NewModel(job.logger, job.jobId, job.task.Parameters, layers, job.redisClient)
 	job.model = m
 
-	job.logger.Debug("Building model...")
 	err = m.Build()
 	if err != nil {
 		return err
@@ -201,8 +199,6 @@ func (job *TrainJob) initializeModel() error {
 
 	// Summary of the model
 	m.Summary()
-	job.logger.Info("Initialized train job")
-
 	return nil
 }
 
@@ -210,24 +206,19 @@ func (job *TrainJob) initializeModel() error {
 // returns the total time that the model spent training
 func (job *TrainJob) train() (time.Duration, error) {
 
-	var result *multierror.Error
+	job.logger.Info("Started new epoch", zap.Int("epoch", job.epoch))
 
-	job.logger.Info("Started new epoch",
-		zap.Int("epoch", job.epoch))
+
 	start := time.Now()
-
-	// Invoke the functions and get the ids of the functions
-	// that should be used to update the model
 	funcs := job.invokeTrainFunctions()
 	elapsed := time.Since(start)
 
 	// Merge the models and update in the database
 	job.optimizer.Merge(job.model, funcs...)
 	err := job.model.Save()
-	result = multierror.Append(result, err)
 	job.logger.Info("Epoch finished, saving model")
 
-	return elapsed, result.ErrorOrNil()
+	return elapsed, err
 }
 
 // validate invokes the validation function

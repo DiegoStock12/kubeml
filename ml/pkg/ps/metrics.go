@@ -16,6 +16,13 @@ type (
 		Parallelism    []float64
 		EpochDuration  []float64
 	}
+
+	TaskType string
+)
+
+const (
+	TrainTask     TaskType = "train"
+	InferenceTask TaskType = "infer"
 )
 
 // ToMap converts the job history to a more general
@@ -31,7 +38,6 @@ func (h JobHistory) ToMap() map[string][]float64 {
 }
 
 var (
-
 	metricsAddr = ":8080"
 
 	// labelsJob are used those exported by each trainJob, to
@@ -39,7 +45,7 @@ var (
 	labelsJob = []string{"jobid"}
 
 	// labelsPS are exported by the parameter server to monitor the number
-	// of tasks of each type (training, validation) currently happening
+	// of tasks of each type (training, inference) currently happening
 	labelsPS = []string{"type"}
 
 	// Metrics for the job
@@ -87,21 +93,19 @@ var (
 	)
 
 	// Parameter server level metrics
-	functionsRunning = promauto.NewGaugeVec(
+	tasksRunning = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "kubeml_functions_running",
-			Help: "Number of runnning functions",
+			Name: "kubeml_job_running_total",
+			Help: "Number of running tasks of each type",
 		},
 		labelsPS,
 	)
 )
 
 func init() {
-	functionsRunning.WithLabelValues("train").Set(0)
-	functionsRunning.WithLabelValues("inference").Set(0)
+	tasksRunning.WithLabelValues("train").Set(0)
+	tasksRunning.WithLabelValues("inference").Set(0)
 }
-
-
 
 func last(arr []float64) float64 {
 	return arr[len(arr)-1]
@@ -126,7 +130,6 @@ func (job TrainJob) updateMetrics() {
 	epochDuration.WithLabelValues(job.jobId).Set(last(job.history.EpochDuration))
 	parallelism.WithLabelValues(job.jobId).Set(last(job.history.Parallelism))
 
-
 }
 
 // clearMetrics deletes the metrics associated with a jobId after
@@ -139,9 +142,34 @@ func (job *TrainJob) clearMetrics() {
 	epochDuration.DeleteLabelValues(job.jobId)
 }
 
-// parametersUpdated is called when a new configuration for a task,
-// be it that the task is created or the parallelism is updated
-func (ps *ParameterServer) parametersUpdated()  {
+// taskStarted updates the gauges for tasks in currently
+// running in the parameter server
+func (ps *ParameterServer) taskStarted(t TaskType) {
+
+	switch t {
+	case TrainTask:
+		tasksRunning.WithLabelValues("train").Inc()
+	case InferenceTask:
+		tasksRunning.WithLabelValues("inference").Inc()
+	default:
+		ps.logger.Warn("Received unknown task type")
+
+	}
 
 }
 
+
+// taskFinished updates the gauges for tasks in currently
+// running in the parameter server when a task is concluded
+func (ps *ParameterServer) taskFinished(t TaskType) {
+
+	switch t {
+	case TrainTask:
+		tasksRunning.WithLabelValues("train").Dec()
+	case InferenceTask:
+		tasksRunning.WithLabelValues("inference").Dec()
+	default:
+		ps.logger.Warn("Received unknown task type")
+	}
+
+}

@@ -58,7 +58,7 @@ func init() {
 	rootCmd.AddCommand(inferCmd)
 
 	inferCmd.Flags().StringVarP(&network, "network", "n", "", "Network ID (required)")
-	inferCmd.Flags().StringVar(&dataFile, "dataFile", "", "File with the data (required)")
+	inferCmd.Flags().StringVar(&dataFile, "datafile", "", "File with the data (required)")
 	inferCmd.MarkFlagRequired("network")
-	inferCmd.MarkFlagRequired("dataFile")
+	inferCmd.MarkFlagRequired("datafile")
 }

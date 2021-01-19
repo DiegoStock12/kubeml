@@ -1,7 +1,6 @@
 package util
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"strconv"
@@ -27,7 +26,6 @@ func FindFreePort() (int, error) {
 
 func IsDebugEnv () bool {
 	d := os.Getenv("DEBUG_ENV")
-	fmt.Println("DEBUG_ENV=", d)
 	if len(d) == 0 {
 		return false
 	}

@@ -8,3 +8,4 @@ spec:
       svc: parameter-server
   endpoints:
   - targetPort: 8080
+    interval: 10s
