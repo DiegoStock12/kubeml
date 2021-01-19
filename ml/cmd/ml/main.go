@@ -48,11 +48,6 @@ func runParameterServer(logger *zap.Logger, port int, schedulerUrl string) {
 	logger.Fatal("Parameter Server exited")
 }
 
-// TODO implement storage
-// Run the storage service that will manage the datasets and the trained models
-func runStorage(logger *zap.Logger, port int) {
-
-}
 
 // Main function that will run when starting a new pod on Kubernetes.
 // Looking at the function arguments the application run will be either a
@@ -120,11 +115,6 @@ Options:
 		runScheduler(logger, port, psUrl)
 	}
 
-	// Run the storage service
-	if args["--storageManagerport"] != nil {
-		port := getPort(logger, args["--storageManagerPort"])
-		runStorage(logger, port)
-	}
 
 	// Just wait forever
 	select {}

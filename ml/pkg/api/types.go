@@ -23,7 +23,6 @@ type (
 
 	// TrainTask is sent from the scheduler to the PS
 	// with the parallelism needed for the job
-	// TODO could use this both ways
 	TrainTask struct {
 		Parameters  TrainRequest `json:"request"`
 		Parallelism int          `json:"parallelism"`

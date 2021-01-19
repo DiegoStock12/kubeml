@@ -35,7 +35,7 @@ func (psgd ParallelSGD) Merge(m *Model, funcs ...int) {
 		num := 0
 
 		for _, fId := range funcs {
-			layer, err := newLayer(psgd.logger, m.redisClient, layerName, m.jobId, fId)
+			layer, err := newLayer(m.redisClient, layerName, m.jobId, fId)
 			if err != nil {
 				psgd.logger.Error("Could not load layer from database",
 					zap.Error(err),

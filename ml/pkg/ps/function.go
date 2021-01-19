@@ -13,9 +13,37 @@ import (
 	"sync"
 )
 
+type (
+
+	// FunctionArgs holds the arguments needed to build
+	// the url of a function, such as the function id and
+	// parallelism level
+	FunctionArgs struct {
+		Id  int
+		Num int
+	}
+
+	// FunctionResults holds the function id and the execution
+	// results of a function, be it a training or validation function
+	FunctionResults struct {
+		funcId  int
+		results map[string]float64
+	}
+
+	FunctionTask string
+)
+
+const (
+	Train      FunctionTask = "train"
+	Validation FunctionTask = "val"
+	Init       FunctionTask = "init"
+	Inference  FunctionTask = "infer"
+)
+
 // TODO this should take something to determine the batch of the data that should be used
+// TODO this can just take the
 // buildFunctionURL returns the url that the PS will invoke to execute the function
-func (job *TrainJob) buildFunctionURL(funcId, numFunc int, task, funcName string) string {
+func (job *TrainJob) buildFunctionURL(args FunctionArgs, task FunctionTask) string {
 
 	var routerAddr string
 	if util.IsDebugEnv() {
@@ -25,14 +53,14 @@ func (job *TrainJob) buildFunctionURL(funcId, numFunc int, task, funcName string
 	}
 
 	values := url.Values{}
-	values.Set("task", task)
+	values.Set("task", string(task))
 	values.Set("psId", job.jobId)
-	values.Set("N", strconv.Itoa(numFunc))
-	values.Set("funcId", strconv.Itoa(funcId))
+	values.Set("N", strconv.Itoa(args.Num))
+	values.Set("funcId", strconv.Itoa(args.Id))
 	values.Set("batchSize", strconv.Itoa(job.task.Parameters.BatchSize))
 	values.Set("lr", strconv.FormatFloat(float64(job.task.Parameters.LearningRate), 'f', -1, 32))
 
-	dest := routerAddr + "/" + funcName + "?" + values.Encode()
+	dest := routerAddr + "/" + job.task.Parameters.FunctionName + "?" + values.Encode()
 
 	job.logger.Debug("Built url", zap.String("url", dest))
 
@@ -44,12 +72,10 @@ func (job *TrainJob) buildFunctionURL(funcId, numFunc int, task, funcName string
 func (job *TrainJob) invokeInitFunction() ([]string, error) {
 
 	job.logger.Info("Invoking init function")
-	query := job.buildFunctionURL(0, 1, "init", job.task.Parameters.FunctionName)
+	query := job.buildFunctionURL(FunctionArgs{}, Init)
 	resp, err := http.Get(query)
-	defer resp.Body.Close()
 	if err != nil {
 		// TODO here we should implement retries like in the fetcher specialize in fission
-		// TODO maybe create a special function called execute with retries
 		job.logger.Error("Could not call the init function",
 			zap.String("funcName", job.task.Parameters.FunctionName),
 			zap.Any("request", job.task.Parameters),
@@ -57,6 +83,7 @@ func (job *TrainJob) invokeInitFunction() ([]string, error) {
 
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	var names []string
 	data, err := ioutil.ReadAll(resp.Body)
@@ -86,28 +113,23 @@ func (job *TrainJob) invokeTrainFunctions() []int {
 
 	job.logger.Debug("Invoking functions", zap.Int("N", job.parallelism))
 
-	var funcs []int
-
-	// Create the wait group and the channel
 	wg := &sync.WaitGroup{}
-	respChan := make(chan *funcResults, job.parallelism)
+	respChan := make(chan *FunctionResults, job.parallelism)
 
 	for i := 0; i < job.parallelism; i++ {
 		job.logger.Debug("Invoking function", zap.Int("id", i))
-		query := job.buildFunctionURL(i, job.parallelism, "train", job.task.Parameters.FunctionName)
+
+		args := FunctionArgs{Id: i, Num: job.parallelism}
+		query := job.buildFunctionURL(args, Train)
 
 		wg.Add(1)
-		// TODO this should return the train accuracy and loss for all of them
 		go job.launchFunction(i, query, wg, respChan)
 	}
 
 	wg.Wait()
-
 	job.logger.Info("Got all the responses, iterating")
 	close(respChan)
 
-	// Calculate the mean and save in the history
-	var loss float64
 	n := len(respChan)
 	if n == 0 {
 		job.logger.Fatal("All the functions failed with no response")
@@ -118,20 +140,25 @@ func (job *TrainJob) invokeTrainFunctions() []int {
 			zap.Int("responses", n))
 	}
 
-	// Compute the average loss reported by the functions
+	// Iterate through all the responses from the training functions that are in
+	// the channel. Average them onto a single metric which we will publish in the
+	// history and also expose to Prometheus
+	//
+	// It might happen that some of the functions fail. In that case, we count
+	// the number of responses and use that number when averaging the layers
+	var loss float64
+	var funcs []int
 	for response := range respChan {
 		job.logger.Debug("Got result...", zap.Any("Result", response.results))
 		loss += response.results["loss"]
 		funcs = append(funcs, response.funcId)
 	}
-	// After all divide by the number of elements and add to the history
+
 	avgLoss := loss / float64(n)
 	job.logger.Info("Epoch had average loss", zap.Float64("loss", avgLoss))
 	job.history.TrainLoss = append(job.history.TrainLoss, avgLoss)
 
-
 	job.logger.Debug("History updated", zap.Any("history", job.history))
-
 	return funcs
 }
 
@@ -142,13 +169,10 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 	defer wg.Done()
 	job.logger.Info("Invoking validation function")
 
-	// TODO instead of returning the map we could add it to a job level map that tracks the progress
-	var results map[string]float64
-	query := job.buildFunctionURL(0, 1, "val", job.task.Parameters.FunctionName)
+
+	query := job.buildFunctionURL(FunctionArgs{}, Validation)
 	resp, err := http.Get(query)
 	if err != nil {
-		// TODO here we should implement retries like in the fetcher specialize in fission
-		// TODO maybe create a special function called execute with retries
 		job.logger.Error("Could not call the validation function",
 			zap.String("funcName", job.task.Parameters.FunctionName),
 			zap.Any("request", job.task.Parameters),
@@ -163,8 +187,7 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 
 	}
 
-	// Unmarshall the JSON to a dict
-	// This JSON should give accuracy, precision, recall...
+	var results map[string]float64
 	err = json.Unmarshal(data, &results)
 	if err != nil {
 		job.logger.Error("Could not parse JSON",
@@ -188,12 +211,11 @@ func (job *TrainJob) launchFunction(
 	funcId int,
 	query string,
 	wg *sync.WaitGroup,
-	respChan chan *funcResults) {
+	respChan chan *FunctionResults) {
 
 	job.logger.Info("Starting request for function number", zap.Int("func_id", funcId))
 	defer wg.Done()
 
-	// do the request
 	resp, err := http.Get(query)
 	if err != nil {
 		job.logger.Error("Error when performing request",
@@ -203,14 +225,14 @@ func (job *TrainJob) launchFunction(
 	}
 	defer resp.Body.Close()
 
-	var res map[string]float64
-	// We get a json with {loss: float64} so parse the json and so on
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		job.logger.Error("Could not read response body", zap.Error(err))
 		return
 	}
 
+	var res map[string]float64
 	job.logger.Debug(fmt.Sprintf("Received body, %s", string(body)), zap.Int("funcId", funcId))
 	if err = json.Unmarshal(body, &res); err != nil {
 		job.logger.Error("Could not parse the JSON data", zap.Error(err),
@@ -219,11 +241,11 @@ func (job *TrainJob) launchFunction(
 		return
 	}
 
-	// send the result to the channel and confirm exit
 	job.logger.Info("Sending result to channel and exiting",
 		zap.Int("funcId", funcId),
 		zap.Any("results", res))
-	respChan <- &funcResults{
+
+	respChan <- &FunctionResults{
 		funcId:  funcId,
 		results: res,
 	}

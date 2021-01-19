@@ -84,7 +84,7 @@ func (m *Model) Build() error {
 	for _, layerName := range m.layerNames {
 
 		m.logger.Debug("Creating new layer", zap.String("layerName", layerName))
-		l, err := newLayer(m.logger, m.redisClient, layerName, m.jobId, -1)
+		l, err := newLayer(m.redisClient, layerName, m.jobId, -1)
 		if err != nil {
 			m.logger.Error("Error building layer",
 				zap.String("layer", layerName),
@@ -156,15 +156,10 @@ func (m *Model) Save() error {
 }
 
 // Build a new layer by getting it from the database already initialized
-// TODO get the logger out of here
-func newLayer(logger *zap.Logger, redisClient *redisai.Client, name, psId string, funcId int) (*Layer, error) {
+func newLayer(redisClient *redisai.Client, name, psId string, funcId int) (*Layer, error) {
 
 	// Get the redis keys
 	weightName, biasName := getWeightKeys(name, false, psId, funcId)
-
-	// Build the weight tensor
-	logger.Debug("Loading the weights...")
-
 	sWeights, weightValues, err := fetchTensor(redisClient, weightName)
 	if err != nil {
 		return nil, err
@@ -180,10 +175,8 @@ func newLayer(logger *zap.Logger, redisClient *redisai.Client, name, psId string
 		return nil, err
 	}
 
-	// TODO check this
 	hasBias := false
 	if biasExists {
-		logger.Debug("Loading the biases")
 		sBias, biasValues, err := fetchTensor(redisClient, biasName)
 		if err != nil {
 			return nil, err

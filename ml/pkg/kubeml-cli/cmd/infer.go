@@ -26,7 +26,6 @@ var (
 // infer Creates and submits an inference task
 func infer(_ *cobra.Command, _ []string) error {
 	controller := controllerClient.MakeClient()
-	// TODO should read the file and extract the datapoints
 
 	var data []interface{}
 	// read the data from the file

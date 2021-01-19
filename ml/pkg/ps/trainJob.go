@@ -53,13 +53,6 @@ type (
 		// function so we do not accidentally exit the job without
 		wgVal *sync.WaitGroup
 	}
-
-	// funcResults holds the function id and the execution
-	// results of a function, be it a training or validation function
-	funcResults struct {
-		funcId  int
-		results map[string]float64
-	}
 )
 
 // newTrainJob Creates a new TrainJob that will take care of a specific train request
@@ -78,7 +71,6 @@ func newTrainJob(logger *zap.Logger,
 	} else {
 		redisClient = redisai.Connect(fmt.Sprintf("redis://%s:%d", api.REDIS_ADDRESS, api.REDIS_PORT), nil)
 	}
-
 
 	job := &TrainJob{
 		logger:      logger.Named(fmt.Sprintf("trainJob-%s", task.JobId)),
@@ -207,7 +199,6 @@ func (job *TrainJob) initializeModel() error {
 func (job *TrainJob) train() (time.Duration, error) {
 
 	job.logger.Info("Started new epoch", zap.Int("epoch", job.epoch))
-
 
 	start := time.Now()
 	funcs := job.invokeTrainFunctions()
