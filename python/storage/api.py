@@ -11,7 +11,11 @@ from utils import *
 app = Flask(__name__)
 
 # Check if the debug environment is present
-debug = os.environ['DEBUG_ENV']
+try:
+    debug = os.environ['DEBUG_ENV']
+except KeyError:
+    debug = False
+
 if debug:
     app.config['MONGO_ADDRESS'] = '192.168.99.101'
     app.config['MONGO_PORT'] = 30933
