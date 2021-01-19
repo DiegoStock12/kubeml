@@ -11,6 +11,9 @@ RUN pip3 install  -r requirements.txt
 COPY  api.py /app
 COPY  utils.py /app
 
+
+ENV DEBUG_ENV True
+
 EXPOSE 9090
 
 CMD ["gunicorn", "-b", "0.0.0.0:9090", "-w 4", "api:app"]

@@ -77,7 +77,7 @@ func newTrainJob(logger *zap.Logger,
 		redisClient = redisai.Connect(fmt.Sprintf(
 			"redis://%s:%d", api.REDIS_ADDRESS_DEBUG, api.REDIS_PORT_DEBUG), nil)
 	} else {
-		redisClient = redisai.Connect(fmt.Sprintf("%s:%d", api.REDIS_ADDRESS, api.REDIS_PORT), nil)
+		redisClient = redisai.Connect(fmt.Sprintf("redis://%s:%d", api.REDIS_ADDRESS, api.REDIS_PORT), nil)
 	}
 
 

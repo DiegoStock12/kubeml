@@ -20,7 +20,7 @@ if debug:
     app.config['MONGO_ADDRESS'] = '192.168.99.101'
     app.config['MONGO_PORT'] = 30933
 else:
-    app.config['MONGO_ADDRESS'] = 'mongo.default'
+    app.config['MONGO_ADDRESS'] = 'mongodb.default'
     app.config['MONGO_PORT'] = 27017
 
 app.config['UPLOAD_FOLDER'] = 'uploads'

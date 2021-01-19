@@ -19,16 +19,16 @@ const (
 
 const(
 	ROUTER_ADDRESS = "http://router.fission"
-	MONGO_ADDRESS  = "mongo.default"
+	MONGO_ADDRESS  = "mongodb.default"
 	MONGO_PORT     = 27017
-	REDIS_ADDRESS  = "redis.default"
+	REDIS_ADDRESS  = "redisai.default"
 	REDIS_PORT = 6379
 )
 
 // Debug
 const (
 	MONGO_ADDRESS_DEBUG = "mongodb://192.168.99.101:30933"
-	STORAGE_ADDRESS_DEBUG = "http://192.168.99.102:80"
+	STORAGE_ADDRESS_DEBUG = "http://192.168.99.102:9090"
 	ROUTER_ADDRESS_DEBUG = "http://192.168.99.101:32422"
 	REDIS_ADDRESS_DEBUG  = "192.168.99.101"
 	REDIS_PORT_DEBUG     = 31618
