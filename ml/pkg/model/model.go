@@ -48,14 +48,6 @@ type (
 		Bias    *tensor.Dense
 	}
 
-	// Gradient saves the gradients of a layer
-	Gradient struct {
-		Weights *tensor.Dense
-
-		HasBias bool
-		Bias    *tensor.Dense
-	}
-
 	// Just a learning rate scheduler that multiplies the rate by rate when invoked
 	LrScheduler struct {
 		rate float32
@@ -171,7 +163,7 @@ func (m *Model) Save() error {
 func (m *Model) NewLayer(name string, funcId int) (*Layer, error) {
 
 	// Get the redis keys
-	weightName, biasName := getWeightKeys(name, false, m.jobId, funcId)
+	weightName, biasName := getWeightKeys(name, m.jobId, funcId)
 	sWeights, weightValues, err := fetchTensor(m.redisClient, weightName)
 	if err != nil {
 		return nil, err
@@ -209,50 +201,6 @@ func (m *Model) NewLayer(name string, funcId int) (*Layer, error) {
 
 }
 
-
-// Reads a gradient from the database
-func newGradient(redisClient *redisai.Client, layerName, psId string, funcId int) (*Gradient, error) {
-
-	// Get the redis keys
-	weightName, biasName := getWeightKeys(layerName, true, psId, funcId)
-
-	// Build the weight tensor
-	sWeights, weightValues, err := fetchTensor(redisClient, weightName)
-	if err != nil {
-		return nil, err
-	}
-
-	dimWeights := shapeToIntArray(sWeights...)
-	w := tensor.New(tensor.WithShape(dimWeights...), tensor.WithBacking(weightValues))
-
-	// If we have to build the bias tensor
-	var b *tensor.Dense
-	biasExists, err := tensorExists(redisClient, biasName)
-	if err != nil {
-		return nil, err
-	}
-
-	hasBias := false
-	if biasExists {
-		// Build the bias tensor
-		sBias, biasValues, err := fetchTensor(redisClient, biasName)
-		if err != nil {
-			return nil, err
-		}
-
-		dimBias := shapeToIntArray(sBias...)
-		// Build the actual tensor
-		b = tensor.New(tensor.WithShape(dimBias...), tensor.WithBacking(biasValues))
-		hasBias = true
-	}
-
-	return &Gradient{
-		Weights: w,
-		HasBias: hasBias,
-		Bias:    b,
-	}, nil
-
-}
 
 
 // tensorExists simply returns whether the tensor is present in the cache
