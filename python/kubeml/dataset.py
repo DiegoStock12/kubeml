@@ -13,8 +13,8 @@ try:
     MONGO_PORT = os.environ['MONGO_PORT']
 except KeyError:
     logging.error("Could not find mongo configuration in env, using defaults")
-    MONGO_IP = "mongodb.default"
-    MONGO_PORT = 27017
+    MONGO_IP = "192.168.99.101"
+    MONGO_PORT = 30933
 
 
 class KubeArgs:
@@ -26,7 +26,7 @@ class KubeArgs:
     def __init__(self, job_id: str,
                  N: int, task: str,
                  func_id: int,
-                 lr: int = 0, batch_size: int = 0):
+                 lr: float = 0, batch_size: int = 0):
         self.job_id = job_id
         self.N = N
         self.task = task
@@ -45,16 +45,14 @@ class KubeArgs:
             N = request.args.get("N", type=int)
             task = request.args.get("task")
             func_id = request.args.get("funcId", type=int)
-
-            if task in ['train', 'validation']:
-                lr = request.args.get("lr", type=float)
-                batch_size = request.args.get("batchSize", type=int)
+            lr = request.args.get("lr", type=float)
+            batch_size = request.args.get("batchSize", type=int)
 
         except (ValueError, Exception) as ve:
             logging.error(f"Error parsing request arguments: {ve}")
             raise ve
 
-        args = cls.__init__(job_id, N, task, func_id, lr, batch_size)
+        args = cls(job_id, N, task, func_id, lr, batch_size)
         return args
 
 

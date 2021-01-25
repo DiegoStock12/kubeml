@@ -8,8 +8,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.utils.data.dataset import T_co
-
-import logging
+from flask import current_app
 
 from kubeml import KubeDataset, Model
 
@@ -52,6 +51,8 @@ class KubeNet(Model):
         ])
 
     def train(self, model: nn.Module) -> float:
+        current_app.logger.info("In the train function")
+        return 1.4897364
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         dataset = ExampleDataset(transform=self.transf)
         train_loader = tdata.DataLoader(dataset, batch_size=self.args.batch_size)
@@ -72,13 +73,15 @@ class KubeNet(Model):
             optimizer.step()
 
             if batch_idx % 4 == 0:
-                logging.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                current_app.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                     1, batch_idx * len(data), len(train_loader.dataset),
                        100. * batch_idx / len(train_loader), loss.item()))
 
         return loss.item()
 
     def validate(self, model: nn.Module) -> Tuple[float, float]:
+        current_app.logger.info("In the validation function")
+        return 0.66666, 2.3
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         dataset = ExampleDataset(transform=self.transf)
         val_loader = tdata.DataLoader(dataset, batch_size=self.args.batch_size)
@@ -97,12 +100,14 @@ class KubeNet(Model):
         test_loss /= len(val_loader.dataset)
 
         accuracy = 100. * correct / len(val_loader.dataset)
-        logging.info('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+        current_app.logger.info('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
             test_loss, correct, len(val_loader.dataset),
             100. * correct / len(val_loader.dataset)))
         return accuracy, test_loss
 
     def infer(self, model: nn.Module, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
+        current_app.logger.info("In the inference function")
+        return [0.1, 2.3]
         model.eval()
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         data = self.transf(data).to(device)
@@ -113,6 +118,8 @@ class KubeNet(Model):
         return preds.cpu().numpy()
 
     def init(self, model: nn.Module):
+        current_app.logger.info("in the init function")
+        return
         def init_weights(m: nn.Module):
             if isinstance(m, nn.Conv2d):
                 nn.init.xavier_uniform_(m.weight)
@@ -140,7 +147,7 @@ class ExampleDataset(KubeDataset):
             return x, y.astype('int64')
 
 
-if __name__ == '__main__':
+def main():
     net = Net()
     kubenet = KubeNet(net)
-    kubenet.start()
+    return kubenet.start()
