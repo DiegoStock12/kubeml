@@ -108,7 +108,7 @@ def validate(model,
              device,
              val_loader: tdata.DataLoader) -> (float, float):
     """Loop used to validate the network"""
-    # model.eval()
+    model.eval()
     test_loss = 0
     correct = 0
     with torch.no_grad():

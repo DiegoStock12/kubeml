@@ -1,1 +1,2 @@
-from .function import Network
+from .network import Model
+from .dataset import KubeDataset
