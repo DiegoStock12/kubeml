@@ -16,6 +16,7 @@ try:
 except KeyError:
     debug = False
 
+# TODO add this also in an environment variable and put it in the yaml files
 if debug:
     app.config['MONGO_ADDRESS'] = '192.168.99.101'
     app.config['MONGO_PORT'] = 30933
