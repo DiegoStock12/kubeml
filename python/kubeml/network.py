@@ -115,7 +115,6 @@ class Model:
         Loads the model from redis ai and applies it to the network
         """
         state_dict = self.__get_model_dict()
-        current_app.logger.info(f'state dict loaded, {state_dict}')
         self._network.load_state_dict(state_dict)
         current_app.logger.debug("Loaded state dict from redis")
 
@@ -155,11 +154,8 @@ class Model:
         :return: The state dict of the reference model
         """
         state = dict()
-        current_app.logger.info(f'network, {self._network}')
         for name, layer in self._network.named_modules():
             job_id = self.args.job_id
-            current_app.logger.info(f'Layer, {name}, {layer}')
-
             if is_optimizable(layer):
                 current_app.logger.debug(f"Loading weights for layer {name}")
                 weight_key = f'{job_id}:{name}.weight'
@@ -177,9 +173,9 @@ class Model:
                     # set the bias
                     state[bias_key[len(job_id) + 1:]] = torch.from_numpy(w)
 
-            current_app.logger.debug(f'Layers are {state.keys()}')
+        current_app.logger.debug(f'Layers are {state.keys()}')
 
-            return state
+        return state
 
     def train(self, model: nn.Module) -> float:
         raise NotImplementedError

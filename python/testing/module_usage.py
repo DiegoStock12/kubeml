@@ -52,11 +52,13 @@ class KubeNet(Model):
 
     def train(self, model: nn.Module) -> float:
         current_app.logger.info("In the train function")
-        return 1.4897364
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        current_app.logger.info(f'Using device {device}')
         dataset = ExampleDataset(transform=self.transf)
         train_loader = tdata.DataLoader(dataset, batch_size=self.args.batch_size)
         optimizer = optim.Adam(model.parameters(), lr=self.args.lr)
+
+        model = model.to(device)
 
         model.train()
         loss = None
@@ -145,6 +147,9 @@ class ExampleDataset(KubeDataset):
             return self.transform(x), y.astype('int64')
         else:
             return x, y.astype('int64')
+
+    def __len__(self):
+        return len(self.data)
 
 
 def main():

@@ -1,6 +1,6 @@
 import torch.utils.data as data
 from pymongo import MongoClient
-from flask import request
+from flask import request, current_app
 import numpy as np
 import pickle
 import os
@@ -49,7 +49,7 @@ class KubeArgs:
             batch_size = request.args.get("batchSize", type=int)
 
         except (ValueError, Exception) as ve:
-            logging.error(f"Error parsing request arguments: {ve}")
+            current_app.logger.error(f"Error parsing request arguments: {ve}")
             raise ve
 
         args = cls(job_id, N, task, func_id, lr, batch_size)
@@ -76,12 +76,11 @@ class KubeDataset(data.Dataset):
         self._client = MongoClient(MONGO_IP, MONGO_PORT)
         self._database = self._client[dataset]
         self._args = KubeArgs.parse()
-        logging.debug(f"Parsed request args {self._args}")
 
         if self._args.task == "train":
             num_docs = self._database["train"].count_documents({})
-            minibatches = self.__split_minibatches(range(num_docs), self._args.N)[num_docs]
-            logging.debug("I get minibatches", minibatches)
+            minibatches = self.__split_minibatches(range(num_docs), self._args.N)[self._args.func_id]
+            current_app.logger.debug(f"I get minibatches {minibatches}")
             self.data, self.labels = self.__load_data(minibatches)
 
         else:
