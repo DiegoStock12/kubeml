@@ -65,7 +65,7 @@ as batch size, learning rate... chosen by the user, which can be accessed from t
 
 
 ```python
-from kubeml import Model
+from kubeml import KubeModel
 import torch
 import torch.nn as nn
 import numpy as np
@@ -73,7 +73,7 @@ from torch.utils import data
 from torch import optim
 from torchvision import transforms
 
-class KubeNet(Model):
+class KubeNet(KubeModel):
 
     def __init__(self, network: nn.Module):
         super().__init__(network)

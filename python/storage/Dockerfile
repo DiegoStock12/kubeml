@@ -12,7 +12,7 @@ COPY  api.py /app
 COPY  utils.py /app
 
 
-ENV DEBUG_ENV True
+#ENV DEBUG_ENV True
 
 EXPOSE 9090
 

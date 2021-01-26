@@ -58,8 +58,6 @@ class KubeModel:
             self._redis_client.close()
             raise KubeMLException(f"Task {task} not recognized", 400)
 
-        self._redis_client.close
-
     def __initialize(self) -> List[str]:
         """
         Initializes the network
