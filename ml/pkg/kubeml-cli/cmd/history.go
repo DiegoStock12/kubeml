@@ -10,7 +10,6 @@ import (
 
 var (
 	taskId     string
-	outputFile string
 
 	historyCmd = &cobra.Command{
 		Use:   "history",
@@ -91,7 +90,6 @@ func init() {
 
 	// Get command
 	historyGetCmd.Flags().StringVar(&taskId, "network", "", "Id of the train task (required)")
-	historyCmd.Flags().StringVarP(&outputFile, "outputFile", "o", "", "Output file to save the results")
 
 	// Delete command
 	historyDeleteCmd.Flags().StringVar(&taskId, "network", "", "Id of the train task (required)")
