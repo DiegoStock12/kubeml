@@ -1,8 +1,19 @@
-.idea	
-venv
-data
-buildtest
+.idea/
+.vscode/
 
+# Environments
+venv/
+
+
+# Test folders and files
+buildtest/
+uploads/
+data/
 *.npy
-__pycache__
-uploads
+
+# Python cache stuff
+__pycache__/
+
+
+# Jupyter Notebook
+.ipynb_checkpoints
