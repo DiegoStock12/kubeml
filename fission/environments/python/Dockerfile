@@ -9,7 +9,7 @@ RUN apt-get update && \
     apt-get clean
 
 
-RUN pip3 install --upgrade pip3
+RUN pip3 install --upgrade pip
 
 # Copy the requirements and install
 WORKDIR /app

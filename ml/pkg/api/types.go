@@ -40,7 +40,7 @@ type (
 	History struct {
 		Id   string               `bson:"_id" json:"id"`
 		Task TrainRequest         `json:"task"`
-		Data map[string][]float64 `json:"data"`
+		Data map[string][]float64 `json:"data,omitempty"`
 	}
 
 

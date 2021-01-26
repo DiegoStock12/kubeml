@@ -29,8 +29,8 @@ import (
 )
 
 func RegisterStorageServiceProxyRoute(ws *restful.WebService) {
-	tags := []string{"StorageServiceProxy"}
-	specTag = append(specTag, spec.Tag{TagProps: spec.TagProps{Name: "StorageServiceProxy", Description: "StorageServiceProxy Operation"}})
+	tags := []string{"storageServiceProxy"}
+	specTag = append(specTag, spec.Tag{TagProps: spec.TagProps{Name: "storageServiceProxy", Description: "storageServiceProxy Operation"}})
 
 	// workaround as go-restful has to set HTTP method explicitly.
 	ws.Route(
