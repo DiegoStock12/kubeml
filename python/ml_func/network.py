@@ -168,7 +168,7 @@ def main():
 
     # If we just want to init save the model and return
     # TODO should only parse all train_params if we don't have inference
-    if train_params.task == 'init':
+    if train_params._task == 'init':
         # Save the models and return the weights
         train_utils.save_model_weights(model, train_params)
         return jsonify([name for name, layer in model.named_children() if hasattr(layer, "bias")])
@@ -177,7 +177,7 @@ def main():
     # In these cases we will extract the data from the request body and
     # pass it to the model
     # TODO check how feasible it is to do everything from JSON
-    elif train_params.task == 'infer':
+    elif train_params._task == 'infer':
         # get the requests
         # the predictions will have the shape of
         # a json object with an array of datapoints, these
@@ -201,19 +201,19 @@ def main():
     # 2) load the model weights
     # 3) train or validate
     # (if we train) publish the gradients on the cache
-    dataset = ml_dataset.MnistDataset(func_id=train_params.func_id, num_func=train_params.N,
-                                      task=train_params.task, transform=transf)
+    dataset = ml_dataset.MnistDataset(func_id=train_params._func_id, num_func=train_params._N,
+                                      task=train_params._task, transform=transf)
     train_utils.load_model_weights(model, train_params)
     # TODO receive the batch size through the api call
     loader = tdata.DataLoader(dataset, batch_size=train_params.batch_size)
-    current_app.logger.info(f'built dataset of size {dataset.data.shape} task is {train_params.task}')
+    current_app.logger.info(f'built dataset of size {dataset.data.shape} task is {train_params._task}')
 
     # If we want to validate we call test, if not we call train, we return the stats from the
-    if train_params.task == 'val':
+    if train_params._task == 'val':
         acc, loss = validate(model, device, loader)
         res = train_utils.send_train_finish(train_params, loss=loss, accuracy=acc)
         current_app.logger.info(f"""Task is validation, received parameters are 
-                funcId={train_params.func_id}, N={train_params.N}, task={train_params.task}, 
+                funcId={train_params._func_id}, N={train_params._N}, task={train_params._task}, 
                 psId={train_params.ps_id},
                 completed in {time.time() - start}""")
         current_app.logger.info(f'Loaded model bias {model.fc2.bias}')
@@ -223,7 +223,7 @@ def main():
     # Train the network
     # Create an optimizer and do a full epoch on the parts of the data that
     # matter
-    elif train_params.task == 'train':
+    elif train_params._task == 'train':
         optimizer = optim.Adam(model.parameters(), lr=train_params.lr)
         loss = train(model, device, loader, optimizer, tensor_dict)
 
@@ -231,7 +231,7 @@ def main():
         train_utils.save_model_weights(model, train_params)
         res = train_utils.send_train_finish(train_params, loss=loss)
         current_app.logger.info(f"""Task is training, received parameters are 
-                funcId={train_params.func_id}, N={train_params.N}, task={train_params.task}, 
+                funcId={train_params._func_id}, N={train_params._N}, task={train_params._task}, 
                 psId={train_params.ps_id},
                 completed in {time.time() - start}, res={res}""")
         return jsonify(res)

@@ -8,7 +8,7 @@ import numpy as np
 import flask
 from flask import request, jsonify, current_app
 
-from .dataset import KubeArgs
+from .dataset import _KubeArgs
 from .util import *
 
 # Load from environment the values from th MONGO IP and PORT
@@ -33,8 +33,8 @@ class Model:
         """
         Start executes the function invoked by the user
         """
-        self.args = KubeArgs.parse()
-        task = self.args.task
+        self.args = _KubeArgs.parse()
+        task = self.args._task
 
         if task == "init":
             layers = self.__initialize()
@@ -122,9 +122,9 @@ class Model:
         """
         Saves the model to the tensor storage
         """
-        job_id = self.args.job_id
-        task = self.args.task
-        func_id = self.args.func_id
+        job_id = self.args._job_id
+        task = self.args._task
+        func_id = self.args._func_id
 
         current_app.logger.debug("Saving model to the database")
         with torch.no_grad():
@@ -155,7 +155,7 @@ class Model:
         """
         state = dict()
         for name, layer in self._network.named_modules():
-            job_id = self.args.job_id
+            job_id = self.args._job_id
             if is_optimizable(layer):
                 current_app.logger.debug(f"Loading weights for layer {name}")
                 weight_key = f'{job_id}:{name}.weight'

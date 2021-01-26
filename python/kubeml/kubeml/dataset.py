@@ -17,7 +17,7 @@ except KeyError:
     MONGO_PORT = 30933
 
 
-class KubeArgs:
+class _KubeArgs:
     """
     Arguments used by the function to transmit the information needed to perform a
     training, validation or inference task
@@ -27,10 +27,10 @@ class KubeArgs:
                  N: int, task: str,
                  func_id: int,
                  lr: float = 0, batch_size: int = 0):
-        self.job_id = job_id
-        self.N = N
-        self.task = task
-        self.func_id = func_id
+        self._job_id = job_id
+        self._N = N
+        self._task = task
+        self._func_id = func_id
         self.lr = lr
         self.batch_size = batch_size
 
@@ -75,11 +75,11 @@ class KubeDataset(data.Dataset):
 
         self._client = MongoClient(MONGO_IP, MONGO_PORT)
         self._database = self._client[dataset]
-        self._args = KubeArgs.parse()
+        self._args = _KubeArgs.parse()
 
-        if self._args.task == "train":
+        if self._args._task == "train":
             num_docs = self._database["train"].count_documents({})
-            minibatches = self.__split_minibatches(range(num_docs), self._args.N)[self._args.func_id]
+            minibatches = self.__split_minibatches(range(num_docs), self._args._N)[self._args._func_id]
             current_app.logger.debug(f"I get minibatches {minibatches}")
             self.data, self.labels = self.__load_data(minibatches)
 

@@ -17,7 +17,7 @@ The main functionality offered is in the shape of Models and Datasets. A KubeDat
 torch dataset which, like when using torch, users extend with their own functionality to adapt to their data. A simple
 example of how to create a dataset to train with KubeML is seen below.
 
-#### The Dataset class
+### The Dataset class
 
 ```python
 from kubeml import KubeDataset
@@ -53,7 +53,7 @@ The dataset exposes two member variables:
 
 Both are saved as numpy arrays.
 
-#### The Model class
+### The Model class
 
 The other main component is the model class. This class abstracts the complexity of distributing the training
 among multiple workers, nodes and GPUs. The constructor only takes a torch model as a parameter. The user only needs
