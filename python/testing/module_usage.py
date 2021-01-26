@@ -10,7 +10,7 @@ import torchvision.transforms as transforms
 from torch.utils.data.dataset import T_co
 from flask import current_app
 
-from kubeml.kubeml import KubeDataset, Model
+from kubeml.kubeml import KubeDataset, KubeModel
 
 # Define the network that we'll use to train
 class Net(nn.Module):
@@ -39,7 +39,7 @@ class Net(nn.Module):
         return output
 
 
-class KubeNet(Model):
+class KubeNet(KubeModel):
 
     def __init__(self, network: nn.Module):
         super().__init__(network)
@@ -82,10 +82,11 @@ class KubeNet(Model):
 
     def validate(self, model: nn.Module) -> Tuple[float, float]:
         current_app.logger.info("In the validation function")
-        return 0.66666, 2.3
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         dataset = ExampleDataset(transform=self.transf)
         val_loader = tdata.DataLoader(dataset, batch_size=self.args.batch_size)
+
+        model = model.to(device)
 
         model.eval()
         test_loss = 0

@@ -4,10 +4,12 @@ import torch
 import logging
 import os
 import redisai as rai
+from redis.exceptions import RedisError
 import numpy as np
 import flask
 from flask import request, jsonify, current_app
 
+from .exceptions import *
 from .dataset import _KubeArgs
 from .util import *
 
@@ -21,7 +23,7 @@ except KeyError:
     REDIS_PORT = 31618
 
 
-class Model:
+class KubeModel:
 
     def __init__(self, network: nn.Module):
         self._network = network
@@ -49,14 +51,14 @@ class Model:
             return jsonify(loss=loss, accuracy=acc), 200
 
         elif task == "infer":
-            try:
-                preds = self.__infer()
-                return jsonify(predictions=preds), 200
-            except Exception as e:
-                return jsonify(error=str(e)), 400
+            preds = self.__infer()
+            return jsonify(predictions=preds), 200
 
         else:
-            raise ValueError(f"Task {task} not recognized")
+            self._redis_client.close()
+            raise KubeMLException(f"Task {task} not recognized", 400)
+
+        self._redis_client.close
 
     def __initialize(self) -> List[str]:
         """
@@ -67,8 +69,12 @@ class Model:
         try:
             self.init(self._network)
             self.__save_model()
-        except Exception as e:
-            current_app.logger.error(f"Could not initialize model: {e}")
+
+        except RedisError as re:
+            raise StorageError(re)
+        finally:
+            self._redis_client.close()
+
         return [name for name, layer in self._network.named_modules() if is_optimizable(layer)]
 
     # TODO if we want to implement K-AVG... we could tune it here or in the PS directly
@@ -82,22 +88,35 @@ class Model:
         """
 
         # Loads the model, train and save the results after returning the loss
-        self.__load_model()
-        loss = self.train(self._network)
-        self.__save_model()
+
+        try:
+            self.__load_model()
+            loss = self.train(self._network)
+            self.__save_model()
+        except RedisError as re:
+            raise StorageError(re)
+        finally:
+            self._redis_client.close()
+
         return loss
 
     def __validate(self):
-        self.__load_model()
-        acc, loss = self.validate(self._network)
+
+        try:
+            self.__load_model()
+            acc, loss = self.validate(self._network)
+        except RedisError as re:
+            raise StorageError(re)
+        finally:
+            self._redis_client.close()
+
         return acc, loss
 
     def __infer(self) -> Union[torch.Tensor, np.ndarray, List[float]]:
         data_json = request.json
         if not data_json:
             current_app.logger.error("JSON not found in request")
-            # TODO implement our own exceptions
-            raise Exception
+            raise DataError
 
         preds = self.infer(self._network, data_json)
 
@@ -108,7 +127,7 @@ class Model:
         elif isinstance(preds, list):
             return preds
         else:
-            raise TypeError(f"Type {type(preds)} not accepted as return type")
+            raise InvalidFormatError
 
     def __load_model(self):
         """
@@ -177,6 +196,9 @@ class Model:
 
         return state
 
+    def init(self, model: nn.Module):
+        raise NotImplementedError
+
     def train(self, model: nn.Module) -> float:
         raise NotImplementedError
 
@@ -184,7 +206,4 @@ class Model:
         raise NotImplementedError
 
     def infer(self, model: nn.Module, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
-        raise NotImplementedError
-
-    def init(self, model: nn.Module):
         raise NotImplementedError

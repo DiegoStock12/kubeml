@@ -20,8 +20,7 @@ def handle_exception(error: KubeMLException):
 
 @app.route('/')
 def do():
-    logging.info(f'Called api with args, {request.args}')
-    raise KubeMLException("Test exception", 500)
+    app.logger.info(f'Called api with args, {request.args}')
     return module_usage.main()
 
 

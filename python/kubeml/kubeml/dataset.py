@@ -1,11 +1,16 @@
+from abc import ABC
+
 import torch.utils.data as data
 from pymongo import MongoClient
+from pymongo.errors import PyMongoError
 from flask import request, current_app
 import numpy as np
 import pickle
 import os
 import logging
 from typing import List, Generator
+
+from .exceptions import *
 
 # Load from environment the values from th MONGO IP and PORT
 try:
@@ -48,15 +53,15 @@ class _KubeArgs:
             lr = request.args.get("lr", type=float)
             batch_size = request.args.get("batchSize", type=int)
 
-        except (ValueError, Exception) as ve:
-            current_app.logger.error(f"Error parsing request arguments: {ve}")
-            raise ve
+        except ValueError as ve:
+            current_app.logger.error(f"Error parsing request arguments: {ve}, args:{request.args}")
+            raise InvalidArgsError(ve)
 
         args = cls(job_id, N, task, func_id, lr, batch_size)
         return args
 
 
-class KubeDataset(data.Dataset):
+class KubeDataset(data.Dataset, ABC):
     """
     KubeDataset is the main abstraction used by KubeML to load the data in a
     distributed manner from the storage in Kubernetes.
@@ -73,9 +78,24 @@ class KubeDataset(data.Dataset):
         :arg dataset Name of the dataset in the KubeML storage service
         """
 
+        self.dataset = dataset
         self._client = MongoClient(MONGO_IP, MONGO_PORT)
         self._database = self._client[dataset]
         self._args = _KubeArgs.parse()
+
+        # Check first if the dataset that the user gave as input
+        # is available in the configured storage service
+        try:
+            dbs = set(self._client.list_database_names())
+            if self.dataset not in dbs:
+                current_app.logger.error(f"Dataset not in the storage service. Dataset = {dataset},"
+                                         f"Available = {dbs}")
+                self._client.close()
+                raise DatasetNotFoundError
+
+        except PyMongoError as e:
+            self._client.close()
+            raise StorageError(e)
 
         if self._args._task == "train":
             num_docs = self._database["train"].count_documents({})
@@ -86,6 +106,9 @@ class KubeDataset(data.Dataset):
         else:
             self.data, self.labels = self.__load_data()
 
+        # finally close the connection since it will not be used in the future
+        self._client.close()
+
     def __load_data(self, minibatches: Generator[int, None, None] = None):
 
         # If the minibatches are None that means we have
@@ -94,12 +117,17 @@ class KubeDataset(data.Dataset):
         #
         # If not, load the minibatches that belong to the function
         # given the number of functions N and the function id
-        if minibatches is None:
-            batches = self._database["test"].find({})
-        else:
-            batches = self._database["train"].find({
-                '_id': {'$gte': minibatches.start, '$lte': minibatches.stop - 1}
-            })
+
+        try:
+            if minibatches is None:
+                batches = self._database["test"].find({})
+            else:
+                batches = self._database["train"].find({
+                    '_id': {'$gte': minibatches.start, '$lte': minibatches.stop - 1}
+                })
+        except PyMongoError as e:
+            self._client.close()
+            raise StorageError(e)
 
         data, labels = None, None
         for batch in batches:
