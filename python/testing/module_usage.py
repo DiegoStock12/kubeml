@@ -10,8 +10,7 @@ import torchvision.transforms as transforms
 from torch.utils.data.dataset import T_co
 from flask import current_app
 
-from kubeml import KubeDataset, Model
-
+from kubeml.kubeml import KubeDataset, Model
 
 # Define the network that we'll use to train
 class Net(nn.Module):
