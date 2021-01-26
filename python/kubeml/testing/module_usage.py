@@ -121,7 +121,6 @@ class KubeNet(Model):
 
     def init(self, model: nn.Module):
         current_app.logger.info("in the init function")
-        return
         def init_weights(m: nn.Module):
             if isinstance(m, nn.Conv2d):
                 nn.init.xavier_uniform_(m.weight)
