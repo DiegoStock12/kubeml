@@ -27,9 +27,8 @@ func main() {
 
 	start := time.Now()
 	values := url.Values{}
-	values.Set("task", "train")
-	values.Set("psId", "example")
-	values.Set("psPort", "34523")
+	values.Set("task", "init")
+	values.Set("psId", "test")
 	values.Set("N", "1")
 	values.Set("funcId", strconv.Itoa(0))
 	values.Set("batchSize", strconv.Itoa(128))
