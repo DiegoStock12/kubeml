@@ -4,6 +4,7 @@ import (
 	"fmt"
 	controllerClient "github.com/diegostock12/thesis/ml/pkg/controller/client"
 	"github.com/spf13/cobra"
+	"math"
 	"os"
 	"text/tabwriter"
 )
@@ -61,6 +62,13 @@ func deleteHistory(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
+func last(arr []float64) float64 {
+	if len(arr) > 0 {
+		return arr[len(arr)-1]
+	}
+	return math.NaN()
+}
+
 func listHistories(_ *cobra.Command, _ []string) error {
 	controller := controllerClient.MakeClient()
 
@@ -70,11 +78,12 @@ func listHistories(_ *cobra.Command, _ []string) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 1, 1, 2, ' ', 0)
-	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", "NAME", "MODEL", "DATASET", "EPOCHS", "BATCH", "LR")
+	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n", "NAME", "MODEL", "DATASET", "EPOCHS", "BATCH", "LR", "ACCURACY", "LOSS")
 
 	for _, h := range histories {
-		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
-			h.Id, h.Task.ModelType, h.Task.Dataset, h.Task.Epochs, h.Task.BatchSize, h.Task.LearningRate)
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+			h.Id, h.Task.ModelType, h.Task.Dataset, h.Task.Epochs, h.Task.BatchSize, h.Task.LearningRate,
+			last(h.Data["accuracy"]), last(h.Data["validation_loss"]))
 	}
 
 	w.Flush()

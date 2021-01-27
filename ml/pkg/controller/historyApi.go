@@ -6,7 +6,6 @@ import (
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 	"net/http"
 )
@@ -18,8 +17,8 @@ func (c *Controller) listHistories(w http.ResponseWriter, r *http.Request)  {
 
 	var histories []api.History
 	collection := c.mongoClient.Database("kubeml").Collection("history")
-	opts := options.Find().SetProjection(bson.M{"_id":1, "task":1})
-	cursor, err := collection.Find(context.TODO(),bson.M{}, opts)
+	//opts := options.Find().SetProjection(bson.M{"_id":1, "task":1})
+	cursor, err := collection.Find(context.TODO(),bson.M{})
 	if err != nil {
 		c.logger.Error("Could not get document lists", zap.Error(err))
 		http.Error(w, "Could not get document lists", http.StatusNotFound)
