@@ -53,7 +53,7 @@ func (job *TrainJob) buildFunctionURL(args FunctionArgs, task FunctionTask) stri
 
 	values := url.Values{}
 	values.Set("task", string(task))
-	values.Set("psId", job.jobId)
+	values.Set("jobId", job.jobId)
 	values.Set("N", strconv.Itoa(args.Num))
 	values.Set("funcId", strconv.Itoa(args.Id))
 	values.Set("batchSize", strconv.Itoa(job.task.Parameters.BatchSize))

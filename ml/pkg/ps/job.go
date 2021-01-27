@@ -129,7 +129,7 @@ func (job *TrainJob) serveTrainJob() {
 		}
 
 		// Invoke the validation function
-		job.validate()
+		//job.validate()
 
 		job.history.Parallelism = append(job.history.Parallelism, float64(job.parallelism))
 		job.history.EpochDuration = append(job.history.EpochDuration, elapsed.Seconds())
@@ -154,11 +154,17 @@ func (job *TrainJob) serveTrainJob() {
 			}
 
 			// Get the new parallelism and update it in the history
+			// TODO right now in debug environment keep parallelism untouched
 			job.task = resp
-			job.parallelism = resp.Parallelism
+			if !util.IsDebugEnv() {
+				job.parallelism = resp.Parallelism
+			}
+
 			
 		}
 	}
+
+	job.validate()
 
 	// Wait for the val functions to finish
 	job.wgVal.Wait()

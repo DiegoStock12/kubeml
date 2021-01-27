@@ -13,7 +13,7 @@ import (
 
 const (
 	routerUrl = "http://192.168.99.101:32422"
-	functionName = "network"
+	functionName = "knetwork"
 )
 
 func panicIf(err error) {

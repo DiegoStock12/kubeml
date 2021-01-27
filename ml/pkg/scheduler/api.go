@@ -32,7 +32,7 @@ func buildFunctionURL(funcId, numFunc int, task, funcName, psId string) string {
 
 	values := url.Values{}
 	values.Set("task", task)
-	values.Set("psId", psId)
+	values.Set("jobId", psId)
 	values.Set("N", strconv.Itoa(numFunc))
 	values.Set("funcId", strconv.Itoa(funcId))
 	values.Set("batchSize", "0")
