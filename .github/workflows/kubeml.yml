@@ -3,7 +3,6 @@ name: Compile KubeML
 on:
   push:
     branches:
-      - master
       - develop
 
 jobs:
