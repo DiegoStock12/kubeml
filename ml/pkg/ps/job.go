@@ -156,6 +156,7 @@ func (job *TrainJob) serveTrainJob() {
 			// Get the new parallelism and update it in the history
 			job.task = resp
 			job.parallelism = resp.Parallelism
+			
 		}
 	}
 

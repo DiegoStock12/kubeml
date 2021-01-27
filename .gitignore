@@ -20,5 +20,6 @@ __pycache__/
 .ipynb_checkpoints
 
 # Python module build files
+dist/
 build/
 *.egg-info/

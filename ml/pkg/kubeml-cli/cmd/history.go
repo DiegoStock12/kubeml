@@ -69,8 +69,8 @@ func listHistories(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
-	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", "NAME", "MODEL", "DATASET", "EPOCHS", "BATCH SIZE", "LR")
+	w := tabwriter.NewWriter(os.Stdout, 1, 1, 2, ' ', 0)
+	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", "NAME", "MODEL", "DATASET", "EPOCHS", "BATCH", "LR")
 
 	for _, h := range histories {
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",

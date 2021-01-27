@@ -175,6 +175,7 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 			zap.String("funcName", job.task.Parameters.FunctionName),
 			zap.Any("request", job.task.Parameters),
 			zap.Error(err))
+		return
 	}
 	defer resp.Body.Close()
 
@@ -182,6 +183,7 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 	if err != nil {
 		job.logger.Error("Could not read layer names",
 			zap.Error(err))
+		return
 
 	}
 
