@@ -12,6 +12,9 @@ setup(
     version='0.1',
     description='Python tools for training Neural Networks with KubeML',
     author='Diego Albo Martínez',
+    author_email="diego.albo.martinez@gmail.com",
+    long_description=README,
+    long_description_content_type="text/markdown",
     packages=['kubeml'],
     install_requires=[
         'torch>=1.7',
@@ -20,6 +23,5 @@ setup(
         'pymongo>=3.11.1',
         'flask>=1.1.2'
     ],
-    long_description=README,
-    long_description_content_type="text/markdown",
+    license="MIT",
 )

@@ -1,16 +1,16 @@
-import logging
-import os
 from typing import Dict, List, Tuple, Any, Union
 
-import flask
-import numpy as np
-import redisai as rai
 import torch
-from flask import request, jsonify, current_app
+import logging
+import os
+import redisai as rai
 from redis.exceptions import RedisError
+import numpy as np
+import flask
+from flask import request, jsonify, current_app
 
-from .dataset import _KubeArgs
 from .exceptions import *
+from .dataset import _KubeArgs
 from .util import *
 
 # Load from environment the values from th MONGO IP and PORT
@@ -170,10 +170,9 @@ class KubeModel:
 
         :return: The state dict of the reference model
         """
-        job_id = self.args._job_id
-
         state = dict()
         for name, layer in self._network.named_modules():
+            job_id = self.args._job_id
             if is_optimizable(layer):
                 current_app.logger.debug(f"Loading weights for layer {name}")
                 weight_key = f'{job_id}:{name}.weight'
