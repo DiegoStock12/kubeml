@@ -32,6 +32,11 @@ COPY --from=builder /app/* /app/
 WORKDIR app
 ENV PATH=/root/.local/bin:$PATH
 
-ENTRYPOINT ["python3"]
-CMD ["server.py"]
+# Start a gunicorn server with only one worker to ensure
+# isolation on a function basis
+# and offer more performance than the default server
+CMD ["gunicorn", "-b", "0.0.0.0:8888", "-w 1", "server:app"]
+
+#ENTRYPOINT ["python3"]
+#CMD ["server.py"]
 

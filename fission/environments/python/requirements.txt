@@ -1,4 +1,4 @@
-flask ~= 1.0.4
+flask>=1.1
 bjoern
 httplib2
 python-dateutil
@@ -9,7 +9,9 @@ gevent
 sentry-sdk[flask]
 
 # requirements added by me
-torch
+torch >= 1.7
 torchvision
 redisai
 pymongo
+gunicorn
+kubeml

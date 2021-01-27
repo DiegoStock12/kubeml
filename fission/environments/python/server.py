@@ -4,11 +4,13 @@ import logging
 import os
 import sys
 
-from flask import Flask, request, abort, g
+from flask import Flask, request, abort, g, jsonify
 from gevent.pywsgi import WSGIServer
 import bjoern
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
+
+from kubeml.exceptions import KubeMLException
 
 
 IS_PY2 = (sys.version_info.major == 2)
@@ -127,17 +129,28 @@ class FuncApp(Flask):
 
             return self.userfunc()
 
+        # register error handler so the function
+        # returns readable and detailed error messages
+        # from common exceptions
+        @self.errorhandler(KubeMLException)
+        def handle_exception(error: KubeMLException):
+            response = jsonify(error.to_dict())
+            response.status_code = error.status_code
+            return response
+
 
 app = FuncApp(__name__, logging.DEBUG)
 
-#
-# TODO: this starts the built-in server, which isn't the most
-# efficient.  We should use something better.
-#
-if os.environ.get("WSGI_FRAMEWORK") == "GEVENT":
-    app.logger.info("Starting gevent based server")
-    svc = WSGIServer(('0.0.0.0', 8888), app)
-    svc.serve_forever()
-else:
-    app.logger.info("Starting bjoern based server")
-    bjoern.run(app, '0.0.0.0', 8888, reuse_port=True)
+
+if __name__ == '__main__':
+    #
+    # TODO: this starts the built-in server, which isn't the most
+    # efficient.  We should use something better.
+    #
+    if os.environ.get("WSGI_FRAMEWORK") == "GEVENT":
+        app.logger.info("Starting gevent based server")
+        svc = WSGIServer(('0.0.0.0', 8888), app)
+        svc.serve_forever()
+    else:
+        app.logger.info("Starting bjoern based server")
+        bjoern.run(app, '0.0.0.0', 8888, reuse_port=True)
