@@ -58,6 +58,7 @@ var (
 )
 
 // createFunction creates a new function
+// TODO should check if function exists first
 func createFunction(_ *cobra.Command, _ []string) error {
 
 	// make fission client
@@ -108,7 +109,8 @@ func createFunction(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	err = createTrigger(fissionClient, fnName, http.MethodGet)
+	// Create triggers with a certain method
+	err = createTrigger(fissionClient, fnName, []string{http.MethodGet})
 	if err != nil {
 		return err
 	}
@@ -117,7 +119,7 @@ func createFunction(_ *cobra.Command, _ []string) error {
 
 }
 
-// createPackage retirns
+// createPackage returns
 func createPackage(fissionClient *crd.FissionClient, fnName, codePath string) (*fv1.Package, error) {
 
 	pkgName := fmt.Sprintf("%v-%v", fnName, uuid.New().String()[:8])
@@ -204,26 +206,29 @@ func fileSize(path string) (int64, error) {
 
 // createTrigger creates an http route in fission with the same name of the
 // function for convenience
-func createTrigger(fissionClient *crd.FissionClient, name, method string) error {
+func createTrigger(fissionClient *crd.FissionClient, name string, methods []string) error {
 
-	ht := &fv1.HTTPTrigger{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: DEFAULT_NAMESPACE,
-		},
-		Spec: fv1.HTTPTriggerSpec{
-			RelativeURL: "/" + name,
-			Method:      method,
-			FunctionReference: fv1.FunctionReference{
-				Type: fv1.FunctionReferenceTypeFunctionName,
-				Name: name,
+	for _, method := range methods {
+		ht := &fv1.HTTPTrigger{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: DEFAULT_NAMESPACE,
 			},
-		},
-	}
+			Spec: fv1.HTTPTriggerSpec{
+				RelativeURL: "/" + name,
+				Method:      method,
+				FunctionReference: fv1.FunctionReference{
+					Type: fv1.FunctionReferenceTypeFunctionName,
+					Name: name,
+				},
+			},
+		}
 
-	_, err := fissionClient.CoreV1().HTTPTriggers("").Create(ht)
-	if err != nil {
-		return errors.Wrap(err, "unable to create http trigger")
+		_, err := fissionClient.CoreV1().HTTPTriggers("").Create(ht)
+		if err != nil {
+			return errors.Wrap(err, "unable to create http trigger")
+		}
+
 	}
 
 	return nil
