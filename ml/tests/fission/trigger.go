@@ -10,7 +10,7 @@ import (
 	"os"
 )
 
-const DEFAULT_NAMESPACE = "default"
+//const DEFAULT_NAMESPACE = "default"
 
 func createTrigger(fissionClient *crd.FissionClient, name string, methods []string) error {
 

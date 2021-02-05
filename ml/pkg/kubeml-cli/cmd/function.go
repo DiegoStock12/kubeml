@@ -143,7 +143,7 @@ func createPackage(fissionClient *crd.FissionClient, fnName, codePath string) (*
 			Deployment: *deployment,
 		},
 		Status: fv1.PackageStatus{
-			BuildStatus:         fv1.BuildStatusPending,
+			BuildStatus:         fv1.BuildStatusSucceeded,
 			LastUpdateTimestamp: metav1.Time{Time: time.Now().UTC()},
 		},
 	}
@@ -221,8 +221,15 @@ func createTrigger(fissionClient *crd.FissionClient, name string, methods []stri
 					Type: fv1.FunctionReferenceTypeFunctionName,
 					Name: name,
 				},
+				IngressConfig: fv1.IngressConfig{
+					Annotations: nil,
+					Path:        "/" + name,
+					Host:        "*",
+					TLS:         "",
+				},
 			},
 		}
+
 
 		_, err := fissionClient.CoreV1().HTTPTriggers("").Create(ht)
 		if err != nil {

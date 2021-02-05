@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/fission/fission/pkg/crd"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,12 +17,16 @@ func main() {
 		panic(err)
 	}
 
-	functions, err := fissionClient.CoreV1().Functions("").List(metav1.ListOptions{})
+	packages, err := fissionClient.CoreV1().Packages("").List(metav1.ListOptions{})
 	if err != nil {
 		panic(err)
 	}
-	for _, fun := range functions.Items {
-		fmt.Println(fun.Name, fun.Spec.Environment.Name , fun.CreationTimestamp.Time)
-	}
+	//for _, fun := range packages.Items {
+	//	fmt.Println(fun.Name, fun.Spec.Environment.Name , fun.CreationTimestamp.Time, fun.ManagedFields, fun.Initializers)
+	//}
+	p := packages.Items[0]
+	j, err := json.MarshalIndent(p, " ", "   ")
+
+	fmt.Println(string(j))
 
 }
