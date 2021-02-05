@@ -5,6 +5,7 @@ import (
 	fv1 "github.com/fission/fission/pkg/apis/core/v1"
 	"github.com/fission/fission/pkg/crd"
 	"github.com/google/uuid"
+	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io/ioutil"
@@ -32,6 +33,7 @@ var (
 	fnName     string
 	fnCodePath string
 
+	// TODO add a prerun hook so it creates the fission client
 	functionCmd = &cobra.Command{
 		Use:     "function",
 		Aliases: []string{"fn"},
@@ -211,7 +213,7 @@ func createTrigger(fissionClient *crd.FissionClient, name string, methods []stri
 	for _, method := range methods {
 		ht := &fv1.HTTPTrigger{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
+				Name:      fmt.Sprintf("%v-%v", name, method),
 				Namespace: DEFAULT_NAMESPACE,
 			},
 			Spec: fv1.HTTPTriggerSpec{
@@ -230,7 +232,6 @@ func createTrigger(fissionClient *crd.FissionClient, name string, methods []stri
 			},
 		}
 
-
 		_, err := fissionClient.CoreV1().HTTPTriggers("").Create(ht)
 		if err != nil {
 			return errors.Wrap(err, "unable to create http trigger")
@@ -243,8 +244,30 @@ func createTrigger(fissionClient *crd.FissionClient, name string, methods []stri
 }
 
 // deleteFunction deletes one of the functions
+// TODO see if we can make the fission client be created on a prerun
 func deleteFunction(_ *cobra.Command, _ []string) error {
-	return nil
+	// make fission client
+	fissionClient, _, _, err := crd.MakeFissionClient()
+	if err != nil {
+		return errors.Wrap(err, "could not initialize fission client")
+	}
+
+	// Should delete the function, the http triggers and the package
+	var result *multierror.Error
+	fmt.Println("Deleting function resource...")
+	err = fissionClient.CoreV1().Functions("").Delete(fnName, &metav1.DeleteOptions{})
+	result = multierror.Append(result, err)
+
+	fmt.Println("Deleting package resource...")
+	err = fissionClient.CoreV1().Packages("").Delete(fnName, &metav1.DeleteOptions{})
+	result = multierror.Append(result, err)
+
+	fmt.Println("Deleting triggers...")
+	err = fissionClient.CoreV1().HTTPTriggers("").Delete(fnName, &metav1.DeleteOptions{})
+	result = multierror.Append(result, err)
+
+	return result.ErrorOrNil()
+
 }
 
 // listFunctions returns a table with the information of the current functions
