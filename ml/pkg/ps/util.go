@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	"github.com/diegostock12/thesis/ml/pkg/util"
+	"github.com/gomodule/redigo/redis"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
@@ -16,6 +17,29 @@ func createMongoURI() string {
 	} else {
 		return fmt.Sprintf("mongodb://%s:%d", api.MONGO_ADDRESS, api.MONGO_PORT)
 	}
+}
+
+// cleanTensors simply drops the keys and values used during training by the
+// different functions and keeps only the reference model in the database
+// to save space
+func (job TrainJob) cleanTensors() {
+
+	filterStr := fmt.Sprintf("%s*/*", job.jobId)
+	tensorListArgs := redis.Args{filterStr}
+	tensorNames ,err := redis.Strings(job.redisClient.DoOrSend("KEYS", tensorListArgs, nil))
+	if err != nil {
+		job.logger.Error("Error accessing tensors to be deleted", zap.Error(err))
+		return
+	}
+
+	// delete the temporary tensors in one call
+	deleteArgs := redis.Args{}.AddFlat(tensorNames)
+	num, err := redis.Int(job.redisClient.DoOrSend("DEL", deleteArgs, nil))
+	if err != nil {
+		job.logger.Error("Error deleting database tensors", zap.Error(err))
+		return
+	}
+	job.logger.Debug("Delete from the database", zap.Int("num tensors", num))
 }
 
 // saveTrainingHistory saves the history in the mongo database
