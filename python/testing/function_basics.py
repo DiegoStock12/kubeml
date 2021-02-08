@@ -95,7 +95,6 @@ class KubeNet(KubeModel):
             loss = F.nll_loss(output, target)
             loss.backward()
 
-            # Here save the gradients to publish on the database
             optimizer.step()
             total_loss += loss.item()
 
