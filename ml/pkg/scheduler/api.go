@@ -172,14 +172,12 @@ func (s *Scheduler) infer(w http.ResponseWriter, r *http.Request) {
 // taskFinished simply deletes the entry from the scheduler index
 func (s *Scheduler) taskFinished(w http.ResponseWriter, r*http.Request)  {
 	vars := mux.Vars(r)
-	task := vars["taskId"]
+	taskId := vars["taskId"]
 
 	s.logger.Debug("Deleting task from the cache",
-		zap.String("task", task))
+		zap.String("task", taskId))
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.cache, task)
+	s.policy.taskFinished(taskId)
 
 	w.WriteHeader(http.StatusOK)
 	return
