@@ -19,14 +19,14 @@ func createMongoURI() string {
 	}
 }
 
-// cleanTensors simply drops the keys and values used during training by the
+// clearTensors simply drops the keys and values used during training by the
 // different functions and keeps only the reference model in the database
 // to save space
-func (job TrainJob) cleanTensors() {
+func (job *TrainJob) clearTensors() {
 
 	filterStr := fmt.Sprintf("%s*/*", job.jobId)
 	tensorListArgs := redis.Args{filterStr}
-	tensorNames ,err := redis.Strings(job.redisClient.DoOrSend("KEYS", tensorListArgs, nil))
+	tensorNames, err := redis.Strings(job.redisClient.DoOrSend("KEYS", tensorListArgs, nil))
 	if err != nil {
 		job.logger.Error("Error accessing tensors to be deleted", zap.Error(err))
 		return
@@ -38,6 +38,9 @@ func (job TrainJob) cleanTensors() {
 	if err != nil {
 		job.logger.Error("Error deleting database tensors", zap.Error(err))
 		return
+	}
+	if num == 0 {
+		job.logger.Warn("No tensors with this name found in the database")
 	}
 	job.logger.Debug("Delete from the database", zap.Int("num tensors", num))
 }

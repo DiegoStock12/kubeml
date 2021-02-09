@@ -107,7 +107,7 @@ func (job *TrainJob) serveTrainJob() {
 		// clear connections and send the finish signal to the parameter
 		// server
 		job.clearMetrics()
-		job.cleanTensors()
+		job.clearTensors()
 		job.redisClient.Close()
 		job.doneChan <- job.jobId
 	}()
