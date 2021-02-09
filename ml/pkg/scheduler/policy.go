@@ -50,7 +50,7 @@ func makeThroughputPolicy(logger *zap.Logger) ThroughputBasedPolicy {
 func (tp ThroughputBasedPolicy) calculateParallelism(task api.TrainTask) (parallelism int, op TaskOperation) {
 
 	tp.mu.RLock()
-	threshold, exists := tp.timeCache[task.JobId]
+	prevTime, exists := tp.timeCache[task.JobId]
 	tp.mu.RUnlock()
 
 	// If it is the first epoch and we do not have a history
@@ -65,21 +65,21 @@ func (tp ThroughputBasedPolicy) calculateParallelism(task api.TrainTask) (parall
 	} else {
 
 		switch {
-		case threshold == -1:
+		case prevTime == -1:
 			tp.logger.Debug("No previous time, increasing parallelism")
 			tp.timeCache[task.JobId] = task.ElapsedTime
 			return task.Parallelism + 1, UpdateTask
 
-		// If the new time is better than the threshold
+		// If the new time is better than the prevTime
 		// always scale up and set a new reference time
-		case task.ElapsedTime <= threshold*scaleUpLimit:
+		case task.ElapsedTime <= prevTime*ThroughputScaleUpThreshold:
 			tp.logger.Debug("Time is better, scaling up")
 			tp.timeCache[task.JobId] = task.ElapsedTime
 			return task.Parallelism + 1, UpdateTask
 
 		// If the performance is much worse (20%) than the reference
 		// time, downscale and set a new reference time
-		case task.ElapsedTime >= threshold*scaleDownLimit:
+		case task.ElapsedTime >= prevTime*ThroughPutScaleDownThreshold:
 			tp.logger.Debug("Time is worse, scaling down")
 			tp.timeCache[task.JobId] = task.ElapsedTime
 			return task.Parallelism - 1, UpdateTask
@@ -95,7 +95,7 @@ func (tp ThroughputBasedPolicy) calculateParallelism(task api.TrainTask) (parall
 
 // taskFinished handles the finish of the task, here simply deletes it from
 // the time cache
-func (tp ThroughputBasedPolicy) taskFinished(taskId string)  {
+func (tp ThroughputBasedPolicy) taskFinished(taskId string) {
 	tp.mu.Lock()
 	defer tp.mu.Unlock()
 	delete(tp.timeCache, taskId)
