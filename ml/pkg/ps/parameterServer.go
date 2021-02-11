@@ -58,6 +58,11 @@ type (
 		// Lock to alter the index
 		// TODO should it be RW?
 		mu sync.Mutex
+
+		// flag to choose deployment mode for jobs,
+		// false is goroutines and true is in a pod of their own
+		// TODO just for A/B testing, choose best one in future
+		deployStandaloneJobs bool
 	}
 )
 
@@ -148,7 +153,12 @@ func (ps *ParameterServer) createJobPod(task *api.TrainTask) error {
 
 	ps.logger.Debug("Created pod")
 
-	// send the train task to the pod
+	// TODO send the train task to the pod API exposed
+	// TODO use the job Client,
+	// we can just pass the pod reference to the job client
+	// and he should take care of the rest
+	// or pass the entire trainTask and the client will extract the
+	// IP and send the request to that pod
 
 
 
@@ -197,7 +207,7 @@ func (ps *ParameterServer) receiveFinish() {
 		}
 
 		ps.mu.Unlock()
-		ps.taskFinished(TrainTask)
+		taskFinished(TrainTask)
 
 	}
 
@@ -208,7 +218,7 @@ func (ps *ParameterServer) receiveFinish() {
 //2) receive the notifications from the PS API about functions that have finished processing
 //which will trigger the execution retrieval of gradients and the update of the model
 //3) Start the API to get the requests from the functions
-func Start(logger *zap.Logger, port int, schedulerUrl string) {
+func Start(logger *zap.Logger, port int, schedulerUrl string, standaloneJobs bool) {
 
 	// build the PS
 	ps := &ParameterServer{
@@ -216,6 +226,7 @@ func Start(logger *zap.Logger, port int, schedulerUrl string) {
 		port:     port,
 		jobIndex: make(map[string]*api.TrainTask),
 		doneChan: make(chan string),
+		deployStandaloneJobs: standaloneJobs,
 	}
 
 	// set the scheduler client

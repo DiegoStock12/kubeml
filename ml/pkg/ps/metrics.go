@@ -1,6 +1,7 @@
 package ps
 
 import (
+	"github.com/diegostock12/thesis/ml/pkg/api"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -84,52 +85,36 @@ func init() {
 	tasksRunning.WithLabelValues("inference").Set(0)
 }
 
-func last(arr []float64) float64 {
-	return arr[len(arr)-1]
-}
 
 // updateMetrics takes the history of the job and refreshes the
 // ps metrics for that job using the jobId as the filtering label
-func (job TrainJob) updateMetrics() {
-
-	// The validation values might not be set yet since the validation
-	// function runs independently from the training jobs
-	if len(job.history.ValidationLoss) > 0 {
-		valLoss.WithLabelValues(job.jobId).Set(last(job.history.ValidationLoss))
-	}
-
-	if len(job.history.Accuracy) > 0 {
-		accuracy.WithLabelValues(job.jobId).Set(last(job.history.Accuracy))
-	}
-
-	// set the training values
-	trainLoss.WithLabelValues(job.jobId).Set(last(job.history.TrainLoss))
-	epochDuration.WithLabelValues(job.jobId).Set(last(job.history.EpochDuration))
-	parallelism.WithLabelValues(job.jobId).Set(last(job.history.Parallelism))
-
+func updateMetrics(jobId string, metrics api.MetricUpdate) {
+	valLoss.WithLabelValues(jobId).Set(metrics.ValidationLoss)
+	accuracy.WithLabelValues(jobId).Set(metrics.Accuracy)
+	trainLoss.WithLabelValues(jobId).Set(metrics.TrainLoss)
+	epochDuration.WithLabelValues(jobId).Set(metrics.EpochDuration)
+	parallelism.WithLabelValues(jobId).Set(metrics.Parallelism)
 }
 
 // clearMetrics deletes the metrics associated with a jobId after
 // the training process is done
-func (job *TrainJob) clearMetrics() {
-	valLoss.DeleteLabelValues(job.jobId)
-	accuracy.DeleteLabelValues(job.jobId)
-	trainLoss.DeleteLabelValues(job.jobId)
-	parallelism.DeleteLabelValues(job.jobId)
-	epochDuration.DeleteLabelValues(job.jobId)
+func clearMetrics(jobId string) {
+	valLoss.DeleteLabelValues(jobId)
+	accuracy.DeleteLabelValues(jobId)
+	trainLoss.DeleteLabelValues(jobId)
+	parallelism.DeleteLabelValues(jobId)
+	epochDuration.DeleteLabelValues(jobId)
 }
 
 // taskStarted updates the gauges for tasks in currently
 // running in the parameter server
-func (ps *ParameterServer) taskStarted(t TaskType) {
+func taskStarted(t TaskType) {
 
 	switch t {
 	case TrainTask:
 		tasksRunning.WithLabelValues("train").Inc()
 	case InferenceTask:
 		tasksRunning.WithLabelValues("inference").Inc()
-	default:
-		ps.logger.Warn("Received unknown task type")
 
 	}
 
@@ -137,15 +122,13 @@ func (ps *ParameterServer) taskStarted(t TaskType) {
 
 // taskFinished updates the gauges for tasks in currently
 // running in the parameter server when a task is concluded
-func (ps *ParameterServer) taskFinished(t TaskType) {
+func taskFinished(t TaskType) {
 
 	switch t {
 	case TrainTask:
 		tasksRunning.WithLabelValues("train").Dec()
 	case InferenceTask:
 		tasksRunning.WithLabelValues("inference").Dec()
-	default:
-		ps.logger.Warn("Received unknown task type")
 	}
 
 }

@@ -60,6 +60,16 @@ type (
 		EpochDuration  []float64 `json:"epoch_duration"`
 	}
 
+	// MetricUpdate is received by the parameter server from the train jobs
+	// to refresh the metrics exposed to prometheus
+	MetricUpdate struct {
+		ValidationLoss float64 `json:"validations_loss"`
+		Accuracy       float64 `json:"accuracy"`
+		TrainLoss      float64 `json:"train_loss"`
+		Parallelism    float64 `json:"parallelism"`
+		EpochDuration  float64 `json:"epoch_duration"`
+	}
+
 	// A single datapoint plus label
 	Datapoint struct {
 		Features []float32 `json:"features"`

@@ -19,6 +19,28 @@ func createMongoURI() string {
 	}
 }
 
+// lastValue simply returns the last value of the array if not empty,
+// if empty return 0
+func lastValue(arr []float64) float64 {
+	if len(arr) == 0 {
+		return 0
+	}
+	return arr[len(arr)-1]
+}
+
+// getLatestMetrics gets the last entry of the history and returns a metrics
+// object that will be sent to the parameter server api to update the counters
+// of the job
+func getLatestMetrics(history *api.JobHistory) api.MetricUpdate {
+	return api.MetricUpdate{
+		ValidationLoss: lastValue(history.ValidationLoss),
+		Accuracy:       lastValue(history.Accuracy),
+		TrainLoss:      lastValue(history.TrainLoss),
+		Parallelism:    lastValue(history.Parallelism),
+		EpochDuration:  lastValue(history.EpochDuration),
+	}
+}
+
 // clearTensors simply drops the keys and values used during training by the
 // different functions and keeps only the reference model in the database
 // to save space

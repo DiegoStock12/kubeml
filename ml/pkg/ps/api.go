@@ -84,11 +84,64 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 
 	job := newTrainJob(ps.logger, &task, ch, ps.doneChan, ps.scheduler)
 	go job.serveTrainJob()
-	ps.taskStarted(TrainTask)
+	taskStarted(TrainTask)
 
 
 	w.WriteHeader(http.StatusOK)
 }
+
+func (ps *ParameterServer) updateJobMetrics(w http.ResponseWriter, r *http.Request)  {
+	vars := mux.Vars(r)
+	jobId := vars["jobId"]
+
+	var metrics api.MetricUpdate
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		ps.logger.Error("Could not read response body",
+			zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = json.Unmarshal(body, &metrics)
+	if err != nil {
+		ps.logger.Error("Could not unmarshal the task json",
+			zap.String("request", string(body)),
+			zap.Error(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// update the metrics for that job
+	ps.logger.Debug("Received metrics from job",
+		zap.String("jobId", jobId),
+		zap.Any("metrics", metrics))
+
+	updateMetrics(jobId, metrics)
+
+	ps.logger.Debug("metrics updated", zap.String("jobId", jobId))
+
+}
+
+
+// tODO finish this
+func (ps *ParameterServer) jobFinish(w http.ResponseWriter, r *http.Request)  {
+	vars := mux.Vars(r)
+	jobId := vars["jobId"]
+
+	// update the metrics for that job
+	ps.logger.Debug("Deleting metrics from job",
+		zap.String("jobId", jobId),
+		zap.Any("metrics", metrics))
+
+	updateMetrics(jobId, metrics)
+
+	ps.logger.Debug("metrics updated", zap.String("jobId", jobId))
+
+}
+
+
+
 
 
 
@@ -103,7 +156,8 @@ func (ps *ParameterServer) GetHandler() http.Handler {
 	r.HandleFunc("/start", ps.startTask).Methods("POST")
 	r.HandleFunc("/update/{jobId}", ps.updateTask).Methods("POST")
 	r.HandleFunc("/health",ps.handleHealth).Methods("GET")
-
+	r.HandleFunc("/metrics/{jobId}", ps.updateJobMetrics).Methods("POST")
+	r.HandleFunc("/finish/{jobId}", ps.jobFinish).Methods("POST")
 	return r
 }
 
