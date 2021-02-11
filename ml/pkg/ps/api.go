@@ -80,7 +80,7 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 	//
 	// Also update the number of running tasks in the metrics endpoint
 	ch := make(chan *api.TrainTask)
-	ps.jobIndex[task.JobId] = ch
+	ps.jobIndex[task.Job.JobId] = ch
 
 	job := newTrainJob(ps.logger, &task, ch, ps.doneChan, ps.scheduler)
 	go job.serveTrainJob()

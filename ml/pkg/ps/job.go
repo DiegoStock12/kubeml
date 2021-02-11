@@ -74,10 +74,10 @@ func newTrainJob(
 	}
 
 	job := &TrainJob{
-		logger:      logger.Named(fmt.Sprintf("trainJob-%s", task.JobId)),
+		logger:      logger.Named(fmt.Sprintf("trainJob-%s", task.Job.JobId)),
 		scheduler:   client,
-		jobId:       task.JobId,
-		parallelism: task.Parallelism,
+		jobId:       task.Job.JobId,
+		parallelism: task.Job.State.Parallelism,
 		epoch:       1,
 		schedChan:   schedChan,
 		doneChan:    doneChan,
@@ -138,7 +138,7 @@ func (job *TrainJob) serveTrainJob() {
 
 		if job.epoch < job.task.Parameters.Epochs {
 
-			job.task.ElapsedTime = elapsed.Seconds()
+			job.task.Job.State.ElapsedTime = elapsed.Seconds()
 			err = job.scheduler.UpdateJob(job.task)
 			if err != nil {
 				job.logger.Error("Error updating parallelism",
@@ -148,17 +148,17 @@ func (job *TrainJob) serveTrainJob() {
 
 			resp := <-job.schedChan
 			job.logger.Info("Received next config from the Scheduler",
-				zap.Int("new parallelism", resp.Parallelism))
-			if resp.Parallelism < api.DEBUG_PARALLELISM {
+				zap.Int("new parallelism", resp.Job.State.Parallelism))
+			if resp.Job.State.Parallelism < api.DEBUG_PARALLELISM {
 				job.logger.Error("Received bad configuration from the scheduler",
-					zap.Int("parallelism", resp.Parallelism))
+					zap.Int("parallelism", resp.Job.State.Parallelism))
 			}
 
 			// Get the new parallelism and update it in the history
 			// TODO right now in debug environment keep parallelism untouched
 			job.task = resp
 			if !util.IsDebugEnv() {
-				job.parallelism = resp.Parallelism
+				job.parallelism = resp.Job.State.Parallelism
 			}
 
 			

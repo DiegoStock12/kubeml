@@ -75,9 +75,9 @@ func (sq *SchedulerQueue) pushRequest(req *api.TrainRequest) {
 	// right now just create a task and push it to queue
 	t := &api.TrainTask{
 		Parameters:  *req,
-		Parallelism: -1,
-		JobId:       createJobId(),
-		ElapsedTime: -1,
+		Job: api.JobInfo{
+			JobId: createJobId(),
+		},
 	}
 	sq.trainQ.PushBack(t)
 

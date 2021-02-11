@@ -31,7 +31,7 @@ func MakeClient(logger *zap.Logger, psUrl string) *Client {
 // UpdateTask sends the parameters to the PS for the
 // next epoch of a particular training job
 func (c *Client) UpdateTask(task *api.TrainTask) error {
-	url := c.psUrl + "/update/" + task.JobId
+	url := c.psUrl + "/update/" + task.Job.JobId
 
 	c.logger.Debug("Updating task", zap.String("url", url))
 

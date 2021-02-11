@@ -50,14 +50,14 @@ func makeThroughputPolicy(logger *zap.Logger) ThroughputBasedPolicy {
 func (tp ThroughputBasedPolicy) calculateParallelism(task api.TrainTask) (parallelism int, op TaskOperation) {
 
 	tp.mu.RLock()
-	prevTime, exists := tp.timeCache[task.JobId]
+	prevTime, exists := tp.timeCache[task.Job.JobId]
 	tp.mu.RUnlock()
 
 	// If it is the first epoch and we do not have a history
 	// of this task, simply return the debug parallelism
 	if !exists {
 		tp.mu.Lock()
-		tp.timeCache[task.JobId] = -1
+		tp.timeCache[task.Job.JobId] = 0
 		tp.mu.Unlock()
 
 		return api.DEBUG_PARALLELISM, CreateTask
@@ -65,28 +65,28 @@ func (tp ThroughputBasedPolicy) calculateParallelism(task api.TrainTask) (parall
 	} else {
 
 		switch {
-		case prevTime == -1:
+		case prevTime == 0:
 			tp.logger.Debug("No previous time, increasing parallelism")
-			tp.timeCache[task.JobId] = task.ElapsedTime
-			return task.Parallelism + 1, UpdateTask
+			tp.timeCache[task.Job.JobId] = task.Job.State.ElapsedTime
+			return task.Job.State.Parallelism + 1, UpdateTask
 
 		// If the new time is better than the prevTime
 		// always scale up and set a new reference time
-		case task.ElapsedTime <= prevTime*ThroughputScaleUpThreshold:
+		case task.Job.State.ElapsedTime <= prevTime*ThroughputScaleUpThreshold:
 			tp.logger.Debug("Time is better, scaling up")
-			tp.timeCache[task.JobId] = task.ElapsedTime
-			return task.Parallelism + 1, UpdateTask
+			tp.timeCache[task.Job.JobId] = task.Job.State.ElapsedTime
+			return task.Job.State.Parallelism + 1, UpdateTask
 
 		// If the performance is much worse (20%) than the reference
 		// time, downscale and set a new reference time
-		case task.ElapsedTime >= prevTime*ThroughPutScaleDownThreshold:
+		case task.Job.State.ElapsedTime >= prevTime*ThroughPutScaleDownThreshold:
 			tp.logger.Debug("Time is worse, scaling down")
-			tp.timeCache[task.JobId] = task.ElapsedTime
-			return task.Parallelism - 1, UpdateTask
+			tp.timeCache[task.Job.JobId] = task.Job.State.ElapsedTime
+			return task.Job.State.Parallelism - 1, UpdateTask
 
 		default:
 			tp.logger.Debug("Time is worse within the limits, keeping parallelism")
-			return task.Parallelism, UpdateTask
+			return task.Job.State.Parallelism, UpdateTask
 		}
 
 	}

@@ -1,5 +1,7 @@
 package api
 
+import corev1 "k8s.io/api/core/v1"
+
 // Types used by the APIs of the controller and the scheduler
 
 type (
@@ -21,13 +23,31 @@ type (
 		Data    []interface{} `json:"data"`
 	}
 
-	// TrainTask is sent from the scheduler to the PS
-	// with the parallelism needed for the job
+	// TrainTask associates the train request sent by the user
+	// with the kubeml specific handler of the request or job
+	// It is the main object exchanged by the Scheduler and parameter
+	// server to schedule new parallelism
 	TrainTask struct {
 		Parameters  TrainRequest `json:"request"`
-		Parallelism int          `json:"parallelism"`
-		JobId       string       `json:"job_id"`
-		ElapsedTime float64      `json:"elapsed_time"`
+		Job         JobInfo      `json:"job,omitempty"`
+	}
+
+	// JobInfo holds the information about the Job responsible
+	// for training the network
+	//
+	// This includes training specific parameters such as the elapsed time,
+	// parallelism and so on, but also lower level information such as this job's
+	// pod definition
+	JobInfo struct {
+		JobId string     `json:"id"`
+		State JobState   `json:"state,omitempty"`
+		Pod   corev1.Pod `json:"pod,omitempty"`
+	}
+
+	// JobState holds the training specific variables of the job
+	JobState struct {
+		Parallelism int     `json:"parallelism"`
+		ElapsedTime float64 `json:"elapsed_time"`
 	}
 
 	// A single datapoint plus label
@@ -42,6 +62,4 @@ type (
 		Task TrainRequest         `json:"task"`
 		Data map[string][]float64 `json:"data,omitempty"`
 	}
-
-
 )

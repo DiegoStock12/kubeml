@@ -16,12 +16,9 @@ import (
 	"github.com/diegostock12/thesis/ml/pkg/api"
 )
 
-
 // buildFunctionURL returns the url that the PS will invoke to execute the function
 // TODO make this more elegant by not having to add all the parameters
 func buildFunctionURL(funcId, numFunc int, task, funcName, psId string) string {
-
-
 
 	var routerAddr string
 	if util.IsDebugEnv() {
@@ -42,7 +39,6 @@ func buildFunctionURL(funcId, numFunc int, task, funcName, psId string) string {
 
 	return dest
 }
-
 
 // newParallelism listens to the TrainJobs of the Parameter Server and their
 // requests for a new level of parallelism.
@@ -101,22 +97,22 @@ func (s *Scheduler) train(w http.ResponseWriter, r *http.Request) {
 	id := createJobId()
 
 	// TODO now add it directly to the task queue
-	t := api.TrainTask{
-		Parameters:  req,
-		Parallelism: -1,
-		JobId:       id,
-		ElapsedTime: -1,
+	task := api.TrainTask{
+		Parameters: req,
+		Job: api.JobInfo{
+			JobId: id,
+		},
 	}
 
 	s.logger.Debug("Adding task to queue",
-		zap.Any("task", t))
-	s.queue.pushTask(&t)
+		zap.Any("task", task))
+	s.queue.pushTask(&task)
 
 	s.logger.Debug("here")
 
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write([]byte(id))
-	if err != nil{
+	if err != nil {
 		s.logger.Error("error writing response", zap.Error(err))
 	}
 }
@@ -146,7 +142,6 @@ func (s *Scheduler) infer(w http.ResponseWriter, r *http.Request) {
 	url := buildFunctionURL(0, 1, "infer", "network", req.ModelId)
 	s.logger.Debug("Build inference url", zap.String("url", url))
 
-
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		s.logger.Error("Could not receive function response", zap.Error(err))
@@ -162,15 +157,14 @@ func (s *Scheduler) infer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
-	s.logger.Debug("got response",zap.String("predictions", string(preds)))
+	s.logger.Debug("got response", zap.String("predictions", string(preds)))
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(preds)
 }
 
 // taskFinished simply deletes the entry from the scheduler index
-func (s *Scheduler) taskFinished(w http.ResponseWriter, r*http.Request)  {
+func (s *Scheduler) taskFinished(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	taskId := vars["taskId"]
 

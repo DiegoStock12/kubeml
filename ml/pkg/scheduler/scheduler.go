@@ -66,7 +66,7 @@ func (s *Scheduler) scheduleTasks() {
 		parallelism, operation := s.policy.calculateParallelism(*task)
 
 		// TODO if the scheduling fails, retry as K8s does by putting it in the queue
-		task.Parallelism = parallelism
+		task.Job.State.Parallelism = parallelism
 		switch operation {
 		case CreateTask:
 			err = s.ps.StartTask(task)
