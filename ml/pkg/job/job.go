@@ -27,7 +27,7 @@ type (
 		// for every epoch
 		// It is saved to the database after the training process
 		// is complete
-		history JobHistory
+		history api.JobHistory
 
 		// client for the scheduler (shared by all trainjobs)
 		scheduler *schedulerClient.Client
@@ -83,7 +83,7 @@ func newTrainJob(
 		doneChan:    doneChan,
 		redisClient: redisClient,
 		task:        task,
-		history:     JobHistory{},
+		history:     api.JobHistory{},
 		wgVal:       &sync.WaitGroup{},
 	}
 

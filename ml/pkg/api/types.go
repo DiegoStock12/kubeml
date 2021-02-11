@@ -28,8 +28,8 @@ type (
 	// It is the main object exchanged by the Scheduler and parameter
 	// server to schedule new parallelism
 	TrainTask struct {
-		Parameters  TrainRequest `json:"request"`
-		Job         JobInfo      `json:"job,omitempty"`
+		Parameters TrainRequest `json:"request"`
+		Job        JobInfo      `json:"job,omitempty"`
 	}
 
 	// JobInfo holds the information about the Job responsible
@@ -50,6 +50,16 @@ type (
 		ElapsedTime float64 `json:"elapsed_time"`
 	}
 
+	// JobHistory saves the intermediate results from the training process
+	// epoch to epoch
+	JobHistory struct {
+		ValidationLoss []float64 `json:"validation_loss"`
+		Accuracy       []float64 `json:"accuracy"`
+		TrainLoss      []float64 `json:"train_loss"`
+		Parallelism    []float64 `json:"parallelism"`
+		EpochDuration  []float64 `json:"epoch_duration"`
+	}
+
 	// A single datapoint plus label
 	Datapoint struct {
 		Features []float32 `json:"features"`
@@ -58,8 +68,8 @@ type (
 	// History is the train and validation history of a
 	// specific training job
 	History struct {
-		Id   string               `bson:"_id" json:"id"`
-		Task TrainRequest         `json:"task"`
-		Data map[string][]float64 `json:"data,omitempty"`
+		Id   string       `bson:"_id" json:"id"`
+		Task TrainRequest `json:"task"`
+		Data JobHistory   `json:"data,omitempty"`
 	}
 )

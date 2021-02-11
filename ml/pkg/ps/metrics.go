@@ -6,17 +6,6 @@ import (
 )
 
 type (
-
-	// JobHistory saves the intermediate results from the training process
-	// epoch to epoch
-	JobHistory struct {
-		ValidationLoss []float64
-		Accuracy       []float64
-		TrainLoss      []float64
-		Parallelism    []float64
-		EpochDuration  []float64
-	}
-
 	TaskType string
 )
 
@@ -24,18 +13,6 @@ const (
 	TrainTask     TaskType = "train"
 	InferenceTask TaskType = "infer"
 )
-
-// ToMap converts the job history to a more general
-// map for serizlization
-func (h JobHistory) ToMap() map[string][]float64 {
-	return map[string][]float64{
-		"validation_loss": h.ValidationLoss,
-		"accuracy":        h.Accuracy,
-		"train_loss":      h.TrainLoss,
-		"parallelism":     h.Parallelism,
-		"epoch_duration":  h.EpochDuration,
-	}
-}
 
 var (
 	metricsAddr = ":8080"
@@ -157,7 +134,6 @@ func (ps *ParameterServer) taskStarted(t TaskType) {
 	}
 
 }
-
 
 // taskFinished updates the gauges for tasks in currently
 // running in the parameter server when a task is concluded
