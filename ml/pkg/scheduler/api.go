@@ -198,7 +198,7 @@ func (s *Scheduler) Serve(port int) {
 	s.logger.Info("Starting scheduler api", zap.Int("port", port))
 	addr := fmt.Sprintf(":%v", port)
 
-	// Start serving the endpoint
+	// Train serving the endpoint
 	err := http.ListenAndServe(addr, s.GetHandler())
 	s.logger.Fatal("Scheduler API done", zap.Error(err))
 

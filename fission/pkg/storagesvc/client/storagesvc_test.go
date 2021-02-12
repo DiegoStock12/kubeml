@@ -102,7 +102,7 @@ func TestS3StorageService(t *testing.T) {
 	fmt.Println("Test S3 Storage service")
 	var minioClient *minio.Client
 
-	// Start minio docker container
+	// Train minio docker container
 	pool, err := dockertest.NewPool("")
 	resource := runMinioDockerContainer(pool)
 
@@ -128,7 +128,7 @@ func TestS3StorageService(t *testing.T) {
 
 	defer pool.Purge(resource)
 
-	// Start storagesvc
+	// Train storagesvc
 	bucketName := "test-s3-service"
 	subDir := "x/y/z"
 	startS3StorageService(endpoint, bucketName, subDir)

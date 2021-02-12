@@ -3,6 +3,8 @@ package ps
 import (
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	schedulerClient "github.com/diegostock12/thesis/ml/pkg/scheduler/client"
+	jobClient "github.com/diegostock12/thesis/ml/pkg/train/client"
+	"github.com/fission/fission/pkg/crd"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
@@ -32,9 +34,8 @@ type (
 
 		// scheduler is the client used by the PS and all
 		// its train jobs to send requests to the scheduler
-		scheduler *schedulerClient.Client
-
-		// kubernetes client to handle created pods for jobs
+		scheduler  *schedulerClient.Client
+		jobClient  *jobClient.Client
 		kubeClient *kubernetes.Clientset
 
 		// jobIndex with all the train jobs
@@ -121,8 +122,14 @@ func Start(logger *zap.Logger, port int, schedulerUrl string, standaloneJobs boo
 		deployStandaloneJobs: standaloneJobs,
 	}
 
-	// set the scheduler client
+	// set the clients
 	ps.scheduler = schedulerClient.MakeClient(ps.logger, schedulerUrl)
+	ps.jobClient = jobClient.MakeClient(ps.logger)
+	_, kubeClient, _, err := crd.GetKubernetesClient()
+	if err != nil {
+		logger.Fatal("Unable to create kubernetes client", zap.Error(err))
+	}
+	ps.kubeClient = kubeClient
 
 	ps.logger.Info("Started new parameter server")
 
@@ -130,6 +137,6 @@ func Start(logger *zap.Logger, port int, schedulerUrl string, standaloneJobs boo
 	go ps.receiveFinish()
 	go serveMetrics(ps.logger)
 
-	// Start the API to receive requests
+	// Train the API to receive requests
 	ps.Serve(port)
 }

@@ -47,7 +47,7 @@ func Dump(input cli.Input) error {
 }
 
 func (opts *DumpSubCommand) do(input cli.Input) error {
-	fmt.Println("Start dumping process...")
+	fmt.Println("Train dumping process...")
 
 	nozip := input.Bool(flagkey.SupportNoZip)
 	outputDir := input.String(flagkey.SupportOutput)

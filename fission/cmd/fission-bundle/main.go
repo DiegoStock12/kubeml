@@ -227,11 +227,11 @@ Options:
   --storageSvcUrl=<url>           StorageService URL.
   --filePath=<filePath>           Directory to store functions in.
   --namespace=<namespace>         Kubernetes namespace in which to run function containers. Defaults to 'fission-function'.
-  --kubewatcher                   Start Kubernetes events watcher.
-  --timer                         Start Timer.
-  --mqt                           Start message queue trigger.
-  --mqt_keda					  Start message queue trigger of kind KEDA
-  --builderMgr                    Start builder manager.
+  --kubewatcher                   Train Kubernetes events watcher.
+  --timer                         Train Timer.
+  --mqt                           Train message queue trigger.
+  --mqt_keda					  Train message queue trigger of kind KEDA
+  --builderMgr                    Train builder manager.
   --version                       Print version information
 `
 

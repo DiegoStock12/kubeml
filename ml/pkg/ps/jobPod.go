@@ -4,11 +4,11 @@ import (
 	"errors"
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	"go.uber.org/zap"
-	"time"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"time"
 )
 
 func (ps *ParameterServer) isPodReady(podName string) wait.ConditionFunc {
@@ -52,7 +52,12 @@ func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error)
 					Image:           KubeMlContainer,
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Command:         []string{"/kubeml"},
-					Args:            []string{"--jobPort", "9090"},
+					Args: []string{
+						"--jobPort",
+						"9090",
+						"--jobId",
+						task.Job.JobId,
+					},
 					Ports: []corev1.ContainerPort{
 						{
 							Name:          "http",
@@ -80,7 +85,6 @@ func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error)
 		},
 	}
 
-
 	podRef, err := ps.kubeClient.CoreV1().Pods(KubeMlNamespace).Create(pod)
 	if err != nil {
 		ps.logger.Error("Error creating pod for training job",
@@ -88,7 +92,7 @@ func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error)
 		return nil, err
 	}
 
-	err = ps.waitForPodRunning(podRef, 20 * time.Second)
+	err = ps.waitForPodRunning(podRef, 20*time.Second)
 	if err != nil {
 		ps.logger.Error("Error waiting for pod to start",
 			zap.Error(err))
@@ -97,15 +101,5 @@ func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error)
 
 	ps.logger.Debug("Created pod")
 
-	// TODO send the train task to the pod API exposed
-	// TODO use the job Client,
-	// we can just pass the pod reference to the job client
-	// and he should take care of the rest
-	// or pass the entire trainTask and the client will extract the
-	// IP and send the request to that pod
-
-
-
 	return pod, nil
-
 }

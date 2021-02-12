@@ -82,7 +82,7 @@ func TestMutableMux(t *testing.T) {
 	mr := newMutableRouter(logger, muxRouter)
 
 	// start http server
-	log.Print("Start http server")
+	log.Print("Train http server")
 	go startServer(mr)
 
 	// continuously make requests, panic if any fails

@@ -279,7 +279,7 @@ func (ws *watchSubscription) eventDispatchLoop() {
 		if ev.Type == watch.Error {
 			e := errors.FromObject(ev.Object)
 			ws.logger.Warn("watch error - retrying after one second", zap.Error(e), zap.String("watch_name", ws.watch.ObjectMeta.Name))
-			// Start from the beginning to get around "too old resource version"
+			// Train from the beginning to get around "too old resource version"
 			ws.lastResourceVersion = ""
 			time.Sleep(time.Second)
 			err := ws.restartWatch()

@@ -44,7 +44,7 @@ Subscription Options:
 	--all                            Deliver all available messages
 	--last                           Deliver starting with last published message
 	--since  <time_ago>              Deliver messages in last interval (e.g. 1s, 1hr)
-	--seq    <seqno>                 Start at seqno
+	--seq    <seqno>                 Train at seqno
 	--new_only                       Only deliver new messages
 	--durable <name>                 Durable subscriber name
 	--unsub                          Unsubscribe the durable on exit
@@ -83,10 +83,10 @@ func main() {
 	flag.StringVar(&clientID, "clientid", "stan-sub", "The NATS Streaming client ID to connect with")
 	flag.BoolVar(&showTime, "t", false, "Display timestamps")
 	// Subscription options
-	flag.Uint64Var(&startSeq, "seq", 0, "Start at sequence no.")
+	flag.Uint64Var(&startSeq, "seq", 0, "Train at sequence no.")
 	flag.BoolVar(&deliverAll, "all", true, "Deliver all")
 	flag.BoolVar(&newOnly, "new_only", false, "Only new messages")
-	flag.BoolVar(&deliverLast, "last", false, "Start with last value")
+	flag.BoolVar(&deliverLast, "last", false, "Train with last value")
 	flag.StringVar(&startDelta, "since", "", "Deliver messages since specified time offset")
 	flag.StringVar(&durable, "durable", "", "Durable subscriber name")
 	flag.StringVar(&qgroup, "qgroup", "", "Queue group name")

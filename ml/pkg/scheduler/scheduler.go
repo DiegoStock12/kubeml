@@ -107,7 +107,7 @@ func Start(logger *zap.Logger, port int, psUrl string) {
 	s.ps = psClient.MakeClient(s.logger, psUrl)
 	s.policy = makeThroughputPolicy(s.logger)
 
-	// Start consuming metrics and also listening for requests
+	// Train consuming metrics and also listening for requests
 	go s.consumeMetrics()
 	go s.scheduleTasks()
 

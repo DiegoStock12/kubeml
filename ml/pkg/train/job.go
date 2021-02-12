@@ -47,7 +47,8 @@ type (
 		// channels for communicating with the scheduler
 		// and parameter server to get new tasks and send finish
 		// signal
-		schedChan   <-chan *api.JobState
+		//TODO get rid of the done chan and make all through the api
+		schedChan   chan *api.JobState
 		doneChan    chan<- string
 		redisClient *redisai.Client
 
@@ -61,7 +62,7 @@ type (
 func NewTrainJob(
 	logger *zap.Logger,
 	task *api.TrainTask,
-	schedChan <-chan *api.JobState,
+	schedChan chan *api.JobState,
 	doneChan chan string,
 	client *schedulerClient.Client) *TrainJob {
 
@@ -100,9 +101,8 @@ func NewTrainJob(
 // wait for its task to be defined there.
 //
 // This is the constructor used when deploying the jobs in separate pods
-func(job *TrainJob) NewBasicJob(logger *zap.Logger, jobId string){
+func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 	logger.Info("Creating new basic train job")
-
 
 	var redisClient *redisai.Client
 	if util.IsDebugEnv() {
@@ -112,26 +112,29 @@ func(job *TrainJob) NewBasicJob(logger *zap.Logger, jobId string){
 		redisClient = redisai.Connect(fmt.Sprintf("redis://%s:%d", api.REDIS_ADDRESS, api.REDIS_PORT), nil)
 	}
 
-	job = &TrainJob{
+	job := &TrainJob{
 		logger:      logger.Named(fmt.Sprintf("trainJob-%s", jobId)),
-		history:     api.JobHistory{},
 		jobId:       jobId,
-		parallelism: 0,
-		epoch:       0,
-		model:       nil,
-		optimizer:   model.ParallelSGD{},
+		epoch:       1,
 		schedChan:   make(chan *api.JobState),
-		doneChan:    nil,
 		redisClient: redisClient,
+		history:     api.JobHistory{},
 		wgVal:       &sync.WaitGroup{},
 	}
 
+	job.scheduler = schedulerClient.MakeClient(job.logger, api.SCHEDULER_URL)
+	job.ps = psClient.MakeClient(job.logger, api.PARAMETER_SERVER_URL)
+	job.optimizer = model.MakeParallelSGD(job.logger)
+
+	return job
 }
 
-// Start is the main Waits for the API to receive all the requests for starting the next epoch
+// Train is the main
+//
+// Waits for the API to receive all the requests for starting the next epoch
 // After this the job needs to send a request to the scheduler to get the proper
 // amount of functions to use in the next epoch
-func (job *TrainJob) Start() {
+func (job *TrainJob) Train() {
 
 	job.logger.Info("Starting to serve train job")
 	job.logger.Info("Initializing model")
@@ -184,19 +187,19 @@ func (job *TrainJob) Start() {
 				continue
 			}
 
-			resp := <-job.schedChan
+			update := <-job.schedChan
 			job.logger.Info("Received next config from the Scheduler",
-				zap.Int("new parallelism", resp.Parallelism))
-			if resp.Parallelism < api.DEBUG_PARALLELISM {
+				zap.Int("new parallelism", update.Parallelism))
+			if update.Parallelism < api.DEBUG_PARALLELISM {
 				job.logger.Error("Received bad configuration from the scheduler",
-					zap.Int("parallelism", resp.Parallelism))
+					zap.Int("parallelism", update.Parallelism))
 			}
 
 			// Get the new parallelism and update it in the history
 			// TODO right now in debug environment keep parallelism untouched
-			job.task.Job.State = *resp
+			job.task.Job.State = *update
 			if !util.IsDebugEnv() {
-				job.parallelism = resp.Parallelism
+				job.parallelism = update.Parallelism
 			}
 
 		}

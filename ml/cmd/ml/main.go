@@ -4,13 +4,14 @@ import (
 	"github.com/diegostock12/thesis/ml/pkg/controller"
 	"github.com/diegostock12/thesis/ml/pkg/ps"
 	"github.com/diegostock12/thesis/ml/pkg/scheduler"
+	"github.com/diegostock12/thesis/ml/pkg/train"
+	"os"
 
 	"github.com/docopt/docopt-go"
 	"go.uber.org/zap"
 	"log"
 	"strconv"
 )
-
 
 func getStringArgWithDefault(arg interface{}, defaultValue string) string {
 	if arg != nil {
@@ -43,11 +44,16 @@ func runScheduler(logger *zap.Logger, port int, psUrl string) {
 }
 
 // Run the parameter server
-func runParameterServer(logger *zap.Logger, port int, schedulerUrl string) {
-	ps.Start(logger,port, schedulerUrl)
+func runParameterServer(logger *zap.Logger, port int, schedulerUrl string, standalone bool) {
+	ps.Start(logger, port, schedulerUrl, standalone)
 	logger.Fatal("Parameter Server exited")
 }
 
+
+func runJob(logger *zap.Logger, port int, jobId string){
+	job := train.NewBasicJob(logger, jobId)
+	job.Serve(port)
+}
 
 // Main function that will run when starting a new pod on Kubernetes.
 // Looking at the function arguments the application run will be either a
@@ -70,13 +76,15 @@ It starts one of the components:
 Usage:
 	kubeml --controllerPort=<port>
 	kubeml --schedulerPort=<port>
-	kubeml --storageManagerPort=<port>
+	kubeml --jobPort=<port> --jobId=<id>
 	kubeml --psPort=<port>
+
 
 Options:
 	--controllerPort=<port>			Port that the controller should listen on
 	--schedulerPort=<port>			Port that the scheduler should listen on
-	--storageManagerPort=<port>		Port that the storage manager should listen on
+	--jobPort=<port>				Port that the job should listen on
+	--jobId=<id>					Id of the job to be started
 	--psPort=<port> 				Port that the parameter server should listen on
 `
 
@@ -85,7 +93,6 @@ Options:
 	if err != nil {
 		log.Fatalf("Could not build zap logger: %v", err)
 	}
-
 
 	// for now set the default urls
 	schedulerUrl := "http://scheduler.kubeml"
@@ -105,8 +112,23 @@ Options:
 
 	// Run ps if it is the passed argument
 	if args["--psPort"] != nil {
+
+		var sjobs bool
+		// get the argument to see if we run standalone jobs
+		standaloneJobs := os.Getenv("STANDALONE_JOBS")
+
+		// by default assume that standalone jobs is true
+		if len(standaloneJobs) == 0 {
+			sjobs = true
+		} else {
+			sjobs, err = strconv.ParseBool(standaloneJobs)
+			if err != nil{
+				logger.Fatal("could not parse env variable for jobs", zap.Error(err))
+			}
+		}
+
 		port := getPort(logger, args["--psPort"])
-		runParameterServer(logger, port, schedulerUrl)
+		runParameterServer(logger, port, schedulerUrl, sjobs)
 	}
 
 	// Run scheduler if it is the passed argument
@@ -115,6 +137,17 @@ Options:
 		runScheduler(logger, port, psUrl)
 	}
 
+	// Run a new train job
+	if args["--jobPort"] != nil {
+		port := getPort(logger, args["--jobPort"])
+		var jobId string
+		if args["--jobId"] != nil {
+			jobId = args["--jobId"].(string)
+		} else {
+			logger.Fatal("Given jobPort but not jobId")
+		}
+		runJob(logger, port, jobId)
+	}
 
 	// Just wait forever
 	select {}

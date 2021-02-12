@@ -15,9 +15,9 @@ import (
 // updateTask Handles the responses from the scheduler to the
 // requests by the parameter servers to
 func (ps *ParameterServer) updateTask(w http.ResponseWriter, r *http.Request) {
-
 	vars := mux.Vars(r)
 	jobId := vars["jobId"]
+
 	ps.mu.RLock()
 	task, exists := ps.jobIndex[jobId]
 	ps.mu.RUnlock()
@@ -29,31 +29,37 @@ func (ps *ParameterServer) updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var resp api.JobState
+	var update api.JobState
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		ps.logger.Error("Could not read response body",
+		ps.logger.Error("Could not read state body",
 			zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	err = json.Unmarshal(body, &resp)
+	err = json.Unmarshal(body, &update)
 	if err != nil {
-		ps.logger.Error("Could not unmarshal the response json",
+		ps.logger.Error("Could not unmarshal the state json",
 			zap.String("request", string(body)),
 			zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	// TODO here check if it is a standalone deployment
-	// TODO if so send a request using the client, if not get the channel
-	// TODO which can be stored in a task object
-	// Send the response to the channel so the job can
-	// update the settings and start the next epoch
-	// TODO see how this is serialized
-	task.Job.Channel <- &resp
+	// send the update through the client if standalone or
+	// through the channel if threaded ps
+	if ps.deployStandaloneJobs {
+		err = ps.jobClient.UpdateTask(task, update)
+		if err != nil {
+			ps.logger.Error("could not send update to job",
+				zap.Error(err))
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	} else {
+		task.Job.Channel <- &update
+	}
 
 }
 
@@ -65,9 +71,9 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 	var task api.TrainTask
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		ps.logger.Error("Could not read response body",
+		ps.logger.Error("Could not read request body",
 			zap.Error(err))
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "could not read request body", http.StatusInternalServerError)
 		return
 	}
 
@@ -93,15 +99,21 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 		task.Job.Pod = pod
 
 		// here we should send the request to start the task using the client
-
-
+		// TODO here if we are unable we should repeat and if not in the end delete the pod
+		err = ps.jobClient.StartTask(&task)
+		if err != nil {
+			ps.logger.Error("Unable to send the task to the jobClient",
+				zap.Error(err))
+			http.Error(w, "unable to send task for job", http.StatusInternalServerError)
+			return
+		}
 
 	} else {
 		// if we are deploying them in the same pod, create a channel to communicate
 		ch := make(chan *api.JobState)
 		task.Job.Channel = ch
 		job := train.NewTrainJob(ps.logger, &task, ch, ps.doneChan, ps.scheduler)
-		go job.Start()
+		go job.Train()
 	}
 
 	ps.jobIndex[task.Job.JobId] = &task
