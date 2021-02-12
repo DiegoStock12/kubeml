@@ -41,10 +41,10 @@ type (
 	// Also include the channel for backwards compatibility with the thread deploying
 	// method and with a - so it is ignored
 	JobInfo struct {
-		JobId   string     `json:"id"`
-		State   JobState   `json:"state"`
-		Pod     *corev1.Pod `json:"pod,omitempty"`
-		Channel chan *TrainTask `json:"-"`
+		JobId   string         `json:"id"`
+		State   JobState       `json:"state"`
+		Pod     *corev1.Pod    `json:"-"`
+		Channel chan *JobState `json:"-"`
 	}
 
 	// JobState holds the training specific variables of the job

@@ -1,4 +1,4 @@
-package ps
+package train
 
 import (
 	"encoding/json"

@@ -126,10 +126,10 @@ func main() {
 	err = kubeClient.CoreV1().Pods(podref.Namespace).Delete(podref.Name, &metav1.DeleteOptions{})
 	if err != nil {panic(err)}
 
-
-	env, _ := fissionClient.CoreV1().Functions("").List(metav1.ListOptions{})
-	for _, e := range env.Items {
-		fmt.Println(e.Name)
-	}
+	//
+	//env, _ := fissionClient.CoreV1().Functions("").List(metav1.ListOptions{})
+	//for _, e := range env.Items {
+	//	fmt.Println(e.Name)
+	//}
 
 }

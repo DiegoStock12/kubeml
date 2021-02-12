@@ -35,7 +35,7 @@ func (c *Client) UpdateTask(task *api.TrainTask) error {
 
 	c.logger.Debug("Updating task", zap.String("url", url))
 
-	body, err := json.Marshal(task)
+	body, err := json.Marshal(task.Job.State)
 	if err != nil {
 		return errors.Wrap(err, "could not marshal update request")
 	}

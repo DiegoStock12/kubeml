@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/diegostock12/thesis/ml/pkg/api"
+	"github.com/diegostock12/thesis/ml/pkg/train"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"io/ioutil"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 )
-
 
 // updateTask Handles the responses from the scheduler to the
 // requests by the parameter servers to
@@ -29,7 +29,7 @@ func (ps *ParameterServer) updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var resp api.TrainTask
+	var resp api.JobState
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		ps.logger.Error("Could not read response body",
@@ -46,7 +46,6 @@ func (ps *ParameterServer) updateTask(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
 
 	// TODO here check if it is a standalone deployment
 	// TODO if so send a request using the client, if not get the channel
@@ -81,7 +80,9 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ps.deployStandaloneJobs{
+	// if we are deploying the jobs in different pods
+	// create it and add it to the struct
+	if ps.deployStandaloneJobs {
 		pod, err := ps.createJobPod(task)
 		if err != nil {
 			ps.logger.Error("error creating pod",
@@ -89,30 +90,29 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "unable to create pod for job", http.StatusInternalServerError)
 			return
 		}
-
 		task.Job.Pod = pod
 
+		// here we should send the request to start the task using the client
+
+
+
+	} else {
+		// if we are deploying them in the same pod, create a channel to communicate
+		ch := make(chan *api.JobState)
+		task.Job.Channel = ch
+		job := train.NewTrainJob(ps.logger, &task, ch, ps.doneChan, ps.scheduler)
+		go job.Start()
 	}
-	// Create a channel per job which will be used
-	// to communicate the new levels of parallelism chosen by
-	// the scheduler in coming epochs
-	//
-	// Also update the number of running tasks in the metrics endpoint
-	ch := make(chan *api.TrainTask)
-	ps.jobIndex[task.Job.JobId] = ch
 
-	job := newTrainJob(ps.logger, &task, ch, ps.doneChan, ps.scheduler)
-	go job.serveTrainJob()
+	ps.jobIndex[task.Job.JobId] = &task
 	taskStarted(TrainTask)
-
 
 	w.WriteHeader(http.StatusOK)
 }
 
-
 // updateJobMetrics receives the metric updates posted by the training jobs and updates them
 // in the prometheus metrics registry
-func (ps *ParameterServer) updateJobMetrics(w http.ResponseWriter, r *http.Request)  {
+func (ps *ParameterServer) updateJobMetrics(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	jobId := vars["jobId"]
 
@@ -145,7 +145,6 @@ func (ps *ParameterServer) updateJobMetrics(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusOK)
 }
 
-
 // jobFinish receives the finish signal from the jobs and takes care of the job cleaning
 // process.
 //
@@ -153,10 +152,9 @@ func (ps *ParameterServer) updateJobMetrics(w http.ResponseWriter, r *http.Reque
 // 2) Communicates the finish to the scheduler so it is also cleaned there
 // 3) Deletes the Pod using the kubernetes client
 // 4) Deletes the entry in the job index of the parameter server
-func (ps *ParameterServer) jobFinish(w http.ResponseWriter, r *http.Request)  {
+func (ps *ParameterServer) jobFinish(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	jobId := vars["jobId"]
-
 
 	ps.mu.RLock()
 	task, exists := ps.jobIndex[jobId]
@@ -167,7 +165,6 @@ func (ps *ParameterServer) jobFinish(w http.ResponseWriter, r *http.Request)  {
 		http.Error(w, "job not found in index", http.StatusBadRequest)
 		return
 	}
-
 
 	// clean the metrics for that job
 	clearMetrics(jobId)
@@ -200,7 +197,6 @@ func (ps *ParameterServer) jobFinish(w http.ResponseWriter, r *http.Request)  {
 
 }
 
-
 // Handle Kubernetes heartbeats
 func (ps *ParameterServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
@@ -211,7 +207,7 @@ func (ps *ParameterServer) GetHandler() http.Handler {
 	r := mux.NewRouter()
 	r.HandleFunc("/start", ps.startTask).Methods("POST")
 	r.HandleFunc("/update/{jobId}", ps.updateTask).Methods("POST")
-	r.HandleFunc("/health",ps.handleHealth).Methods("GET")
+	r.HandleFunc("/health", ps.handleHealth).Methods("GET")
 	r.HandleFunc("/metrics/{jobId}", ps.updateJobMetrics).Methods("POST")
 	r.HandleFunc("/finish/{jobId}", ps.jobFinish).Methods("DELETE")
 	return r

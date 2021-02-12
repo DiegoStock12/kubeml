@@ -1,4 +1,4 @@
-package ps
+package train
 
 import (
 	"context"
@@ -31,8 +31,8 @@ func lastValue(arr []float64) float64 {
 // getLatestMetrics gets the last entry of the history and returns a metrics
 // object that will be sent to the parameter server api to update the counters
 // of the job
-func getLatestMetrics(history *api.JobHistory) api.MetricUpdate {
-	return api.MetricUpdate{
+func getLatestMetrics(history *api.JobHistory) *api.MetricUpdate {
+	return &api.MetricUpdate{
 		ValidationLoss: lastValue(history.ValidationLoss),
 		Accuracy:       lastValue(history.Accuracy),
 		TrainLoss:      lastValue(history.TrainLoss),

@@ -1,4 +1,4 @@
-package ps
+package train
 
 import (
 	"errors"
@@ -6,6 +6,7 @@ import (
 	"github.com/RedisAI/redisai-go/redisai"
 	"github.com/diegostock12/thesis/ml/pkg/api"
 	"github.com/diegostock12/thesis/ml/pkg/model"
+	psClient "github.com/diegostock12/thesis/ml/pkg/ps/client"
 	schedulerClient "github.com/diegostock12/thesis/ml/pkg/scheduler/client"
 	"github.com/diegostock12/thesis/ml/pkg/util"
 	"go.uber.org/zap"
@@ -31,6 +32,7 @@ type (
 
 		// client for the scheduler (shared by all trainjobs)
 		scheduler *schedulerClient.Client
+		ps        *psClient.Client
 
 		// request which has to be satisfied
 		task        *api.TrainTask
@@ -45,7 +47,7 @@ type (
 		// channels for communicating with the scheduler
 		// and parameter server to get new tasks and send finish
 		// signal
-		schedChan   <-chan *api.TrainTask
+		schedChan   <-chan *api.JobState
 		doneChan    chan<- string
 		redisClient *redisai.Client
 
@@ -55,11 +57,11 @@ type (
 	}
 )
 
-// newTrainJob Creates a new TrainJob that will take care of a specific train request
-func newTrainJob(
+// NewTrainJob Creates a new TrainJob that will take care of a specific train request
+func NewTrainJob(
 	logger *zap.Logger,
 	task *api.TrainTask,
-	schedChan <-chan *api.TrainTask,
+	schedChan <-chan *api.JobState,
 	doneChan chan string,
 	client *schedulerClient.Client) *TrainJob {
 
@@ -87,16 +89,49 @@ func newTrainJob(
 		wgVal:       &sync.WaitGroup{},
 	}
 
+	job.ps = psClient.MakeClient(job.logger, api.PARAMETER_SERVER_URL)
 	job.optimizer = model.MakeParallelSGD(job.logger)
 
 	return job
 
 }
 
-// serveTrainJob is the main Waits for the API to receive all the requests for starting the next epoch
+// NewBasicJob creates a job with no task provided yet. It will start the job api and
+// wait for its task to be defined there.
+//
+// This is the constructor used when deploying the jobs in separate pods
+func(job *TrainJob) NewBasicJob(logger *zap.Logger, jobId string){
+	logger.Info("Creating new basic train job")
+
+
+	var redisClient *redisai.Client
+	if util.IsDebugEnv() {
+		redisClient = redisai.Connect(fmt.Sprintf(
+			"redis://%s:%d", api.REDIS_ADDRESS_DEBUG, api.REDIS_PORT_DEBUG), nil)
+	} else {
+		redisClient = redisai.Connect(fmt.Sprintf("redis://%s:%d", api.REDIS_ADDRESS, api.REDIS_PORT), nil)
+	}
+
+	job = &TrainJob{
+		logger:      logger.Named(fmt.Sprintf("trainJob-%s", jobId)),
+		history:     api.JobHistory{},
+		jobId:       jobId,
+		parallelism: 0,
+		epoch:       0,
+		model:       nil,
+		optimizer:   model.ParallelSGD{},
+		schedChan:   make(chan *api.JobState),
+		doneChan:    nil,
+		redisClient: redisClient,
+		wgVal:       &sync.WaitGroup{},
+	}
+
+}
+
+// Start is the main Waits for the API to receive all the requests for starting the next epoch
 // After this the job needs to send a request to the scheduler to get the proper
 // amount of functions to use in the next epoch
-func (job *TrainJob) serveTrainJob() {
+func (job *TrainJob) Start() {
 
 	job.logger.Info("Starting to serve train job")
 	job.logger.Info("Initializing model")
@@ -106,10 +141,9 @@ func (job *TrainJob) serveTrainJob() {
 		// unregister the prometheus exposed metrics,
 		// clear connections and send the finish signal to the parameter
 		// server
-		job.clearMetrics()
 		job.clearTensors()
 		job.redisClient.Close()
-		job.doneChan <- job.jobId
+		job.ps.JobFinished(job.jobId)
 	}()
 
 	err := job.initializeModel()
@@ -134,7 +168,11 @@ func (job *TrainJob) serveTrainJob() {
 
 		job.history.Parallelism = append(job.history.Parallelism, float64(job.parallelism))
 		job.history.EpochDuration = append(job.history.EpochDuration, elapsed.Seconds())
-		job.updateMetrics()
+		err = job.ps.UpdateMetrics(job.jobId, getLatestMetrics(&job.history))
+		if err != nil {
+			job.logger.Error("error sending updated metrics to the parameter server",
+				zap.Error(err))
+		}
 
 		if job.epoch < job.task.Parameters.Epochs {
 
@@ -148,20 +186,19 @@ func (job *TrainJob) serveTrainJob() {
 
 			resp := <-job.schedChan
 			job.logger.Info("Received next config from the Scheduler",
-				zap.Int("new parallelism", resp.Job.State.Parallelism))
-			if resp.Job.State.Parallelism < api.DEBUG_PARALLELISM {
+				zap.Int("new parallelism", resp.Parallelism))
+			if resp.Parallelism < api.DEBUG_PARALLELISM {
 				job.logger.Error("Received bad configuration from the scheduler",
-					zap.Int("parallelism", resp.Job.State.Parallelism))
+					zap.Int("parallelism", resp.Parallelism))
 			}
 
 			// Get the new parallelism and update it in the history
 			// TODO right now in debug environment keep parallelism untouched
-			job.task = resp
+			job.task.Job.State = *resp
 			if !util.IsDebugEnv() {
-				job.parallelism = resp.Job.State.Parallelism
+				job.parallelism = resp.Parallelism
 			}
 
-			
 		}
 	}
 
