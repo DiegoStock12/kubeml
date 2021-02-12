@@ -2,7 +2,7 @@ package client
 
 import (
 	"encoding/json"
-	"github.com/diegostock12/thesis/ml/pkg/api"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"net/http"

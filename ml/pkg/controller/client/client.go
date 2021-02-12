@@ -2,8 +2,8 @@ package client
 
 import (
 	"fmt"
-	"github.com/diegostock12/thesis/ml/pkg/api"
-	"github.com/diegostock12/thesis/ml/pkg/util"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
+	"github.com/diegostock12/kubeml/ml/pkg/util"
 	"net/http"
 )
 

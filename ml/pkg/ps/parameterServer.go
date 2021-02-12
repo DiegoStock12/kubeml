@@ -1,9 +1,9 @@
 package ps
 
 import (
-	"github.com/diegostock12/thesis/ml/pkg/api"
-	schedulerClient "github.com/diegostock12/thesis/ml/pkg/scheduler/client"
-	jobClient "github.com/diegostock12/thesis/ml/pkg/train/client"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
+	schedulerClient "github.com/diegostock12/kubeml/ml/pkg/scheduler/client"
+	jobClient "github.com/diegostock12/kubeml/ml/pkg/train/client"
 	"github.com/fission/fission/pkg/crd"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
@@ -137,6 +137,6 @@ func Start(logger *zap.Logger, port int, schedulerUrl string, standaloneJobs boo
 	go ps.receiveFinish()
 	go serveMetrics(ps.logger)
 
-	// Train the API to receive requests
+	// Start the API to receive requests
 	ps.Serve(port)
 }

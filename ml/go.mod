@@ -1,4 +1,4 @@
-module github.com/diegostock12/thesis/ml
+module github.com/diegostock12/kubeml/ml
 
 go 1.12
 

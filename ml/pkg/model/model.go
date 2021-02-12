@@ -3,7 +3,7 @@ package model
 import (
 	"fmt"
 	"github.com/RedisAI/redisai-go/redisai"
-	"github.com/diegostock12/thesis/ml/pkg/api"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/gomodule/redigo/redis"
 	"go.uber.org/zap"
 	"gorgonia.org/tensor"

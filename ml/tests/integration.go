@@ -2,10 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/diegostock12/thesis/ml/pkg/api"
-	"github.com/diegostock12/thesis/ml/pkg/controller"
-	"github.com/diegostock12/thesis/ml/pkg/ps"
-	"github.com/diegostock12/thesis/ml/pkg/scheduler"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
+	"github.com/diegostock12/kubeml/ml/pkg/controller"
+	"github.com/diegostock12/kubeml/ml/pkg/ps"
+	"github.com/diegostock12/kubeml/ml/pkg/scheduler"
 	"go.uber.org/zap"
 	"log"
 )

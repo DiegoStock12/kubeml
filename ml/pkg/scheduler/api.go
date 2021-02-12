@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/diegostock12/thesis/ml/pkg/util"
+	"github.com/diegostock12/kubeml/ml/pkg/util"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -13,7 +13,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/diegostock12/thesis/ml/pkg/api"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
 )
 
 // buildFunctionURL returns the url that the PS will invoke to execute the function

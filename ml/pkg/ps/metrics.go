@@ -1,7 +1,7 @@
 package ps
 
 import (
-	"github.com/diegostock12/thesis/ml/pkg/api"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )

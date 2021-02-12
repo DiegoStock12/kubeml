@@ -1,6 +1,6 @@
 package main
 
-import "github.com/diegostock12/thesis/ml/pkg/kubeml-cli/cmd"
+import "github.com/diegostock12/kubeml/ml/pkg/kubeml-cli/cmd"
 
 
 func main() {

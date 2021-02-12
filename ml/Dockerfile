@@ -4,7 +4,7 @@ RUN apk add bash ca-certificates git gcc g++ libc-dev
 
 ENV GO111MODULE=on
 
-ARG GOPKG=github.com/diegostock12/thesis/ml
+ARG GOPKG=github.com/diegostock12/kubeml/ml
 
 WORKDIR /app
 

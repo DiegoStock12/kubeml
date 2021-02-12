@@ -1,7 +1,7 @@
 package scheduler
 
 import (
-	"github.com/diegostock12/thesis/ml/pkg/api"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"go.uber.org/zap"
 	"sync"
 )

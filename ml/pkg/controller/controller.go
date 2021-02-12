@@ -3,9 +3,9 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/diegostock12/thesis/ml/pkg/api"
-	schedulerClient "github.com/diegostock12/thesis/ml/pkg/scheduler/client"
-	"github.com/diegostock12/thesis/ml/pkg/util"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
+	schedulerClient "github.com/diegostock12/kubeml/ml/pkg/scheduler/client"
+	"github.com/diegostock12/kubeml/ml/pkg/util"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"

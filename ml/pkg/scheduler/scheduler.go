@@ -1,7 +1,7 @@
 package scheduler
 
 import (
-	psClient "github.com/diegostock12/thesis/ml/pkg/ps/client"
+	psClient "github.com/diegostock12/kubeml/ml/pkg/ps/client"
 	"go.uber.org/zap"
 	"time"
 )

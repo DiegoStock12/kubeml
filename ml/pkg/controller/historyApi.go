@@ -3,7 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
-	"github.com/diegostock12/thesis/ml/pkg/api"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.uber.org/zap"

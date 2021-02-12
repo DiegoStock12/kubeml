@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/RedisAI/redisai-go/redisai"
-	"github.com/diegostock12/thesis/ml/pkg/api"
-	"github.com/diegostock12/thesis/ml/pkg/model"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
+	"github.com/diegostock12/kubeml/ml/pkg/model"
 	"go.uber.org/zap"
 )
 

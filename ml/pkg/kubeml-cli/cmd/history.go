@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	controllerClient "github.com/diegostock12/thesis/ml/pkg/controller/client"
+	controllerClient "github.com/diegostock12/kubeml/ml/pkg/controller/client"
 	"github.com/spf13/cobra"
 	"math"
 	"os"

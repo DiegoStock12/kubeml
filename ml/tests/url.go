@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/diegostock12/thesis/ml/pkg/api"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"net/url"
 )
 

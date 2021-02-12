@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/diegostock12/thesis/ml/pkg/api"
-	controllerClient "github.com/diegostock12/thesis/ml/pkg/controller/client"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
+	controllerClient "github.com/diegostock12/kubeml/ml/pkg/controller/client"
 	"github.com/spf13/cobra"
 )
 

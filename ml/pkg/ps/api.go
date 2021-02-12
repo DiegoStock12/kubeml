@@ -3,8 +3,8 @@ package ps
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/diegostock12/thesis/ml/pkg/api"
-	"github.com/diegostock12/thesis/ml/pkg/train"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
+	"github.com/diegostock12/kubeml/ml/pkg/train"
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"io/ioutil"
