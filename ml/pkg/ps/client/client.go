@@ -50,21 +50,55 @@ func (c *Client) UpdateTask(task *api.TrainTask) error {
 }
 
 // StartTask sends a new task to the parameter server
-func (c *Client) StartTask(task *api.TrainTask)  error {
+func (c *Client) StartTask(task *api.TrainTask) error {
 	url := c.psUrl + "/start"
 
 	// send request
 	body, err := json.Marshal(task)
 	if err != nil {
-		return errors.Wrap(err,"could not marshal json")
+		return errors.Wrap(err, "could not marshal json")
 	}
 
 	_, err = c.httpClient.Post(url, "application/json", bytes.NewReader(body))
-	if err != nil{
+	if err != nil {
 		return errors.Wrap(err, "could not start new task")
 	}
 
 	return nil
 }
 
+// UpdateMetrics sends a new metric set to the parameter server from the Jobs
+// so they can be exposed to prometheus
+func (c *Client) UpdateMetrics(jobId string, update *api.MetricUpdate) error {
+	url := c.psUrl + "/metrics/" + jobId
 
+	body, err := json.Marshal(update)
+	if err != nil {
+		return errors.Wrap(err, "could not marshal metrics object")
+	}
+
+	_, err = c.httpClient.Post(url, "application/json", bytes.NewReader(body))
+	if err != nil {
+		return errors.Wrap(err, "could not send metrics to the ps")
+	}
+
+	return nil
+}
+
+// JobFinished communicates to the parameter server that a job has finished. The PS
+// will then clear its index, metrics and also communicate with the Scheduler
+func (c *Client) JobFinished(jobId string) error {
+	url := c.psUrl + "/finish/" + jobId
+
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return errors.Wrap(err, "could not create http request")
+	}
+
+	_, err = c.httpClient.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "error sending delete request")
+	}
+
+	return nil
+}

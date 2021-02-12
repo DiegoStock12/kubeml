@@ -57,7 +57,7 @@ type (
 
 		// Lock to alter the index
 		// TODO should it be RW?
-		mu sync.Mutex
+		mu sync.RWMutex
 
 		// flag to choose deployment mode for jobs,
 		// false is goroutines and true is in a pod of their own
@@ -91,7 +91,7 @@ func (ps *ParameterServer) waitForPodRunning(pod *corev1.Pod, timeout time.Durat
 }
 
 // createJobPod creates a pod for a new train job with a specific ID
-func (ps *ParameterServer) createJobPod(task *api.TrainTask) error {
+func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error) {
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -141,14 +141,14 @@ func (ps *ParameterServer) createJobPod(task *api.TrainTask) error {
 	if err != nil {
 		ps.logger.Error("Error creating pod for training job",
 			zap.Error(err))
-		return err
+		return nil, err
 	}
 
 	err = ps.waitForPodRunning(podRef, 20 * time.Second)
 	if err != nil {
 		ps.logger.Error("Error waiting for pod to start",
 			zap.Error(err))
-		return err
+		return nil, err
 	}
 
 	ps.logger.Debug("Created pod")
@@ -162,7 +162,7 @@ func (ps *ParameterServer) createJobPod(task *api.TrainTask) error {
 
 
 
-	return nil
+	return pod, nil
 
 }
 

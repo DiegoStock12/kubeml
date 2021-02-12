@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"sync"
+	"time"
 )
 
 type SyncList struct {
@@ -103,32 +104,32 @@ func main() {
 		fmt.Println(p.Spec.Containers[0].ReadinessProbe)
 	}
 
-	//// try to create and delete a pod
-	//busyPod := getPod()
-	//podref, err := kubeClient.CoreV1().Pods(busyPod.Namespace).Create(busyPod)
-	//if err != nil {panic(err)}
-	//
-	//fmt.Println("Created pod", podref.Name)
-	//
-	//// list the pods in the namespace
-	//pods, err = kubeClient.CoreV1().Pods(busyPod.Namespace).List(metav1.ListOptions{})
-	//if err != nil {panic(err)}
-	//
-	//for _, p := range pods.Items{
-	//	fmt.Println(p.Name, p.Spec.Containers, p.Spec.Containers[0].Ports)
-	//}
-	//
-	//
-	//time.Sleep(30 * time.Second)
-	//fmt.Println("Deleting pod...")
-	//// delete the busybox pod
-	//err = kubeClient.CoreV1().Pods(podref.Namespace).Delete(podref.Name, &metav1.DeleteOptions{})
-	//if err != nil {panic(err)}
-	//
-	//
-	//env, _ := fissionClient.CoreV1().Functions("").List(metav1.ListOptions{})
-	//for _, e := range env.Items {
-	//	fmt.Println(e.Name)
-	//}
+	// try to create and delete a pod
+	busyPod := getPod()
+	podref, err := kubeClient.CoreV1().Pods(busyPod.Namespace).Create(busyPod)
+	if err != nil {panic(err)}
+
+	fmt.Println("Created pod", podref.Name)
+
+	// list the pods in the namespace
+	pods, err = kubeClient.CoreV1().Pods(busyPod.Namespace).List(metav1.ListOptions{})
+	if err != nil {panic(err)}
+
+	for _, p := range pods.Items{
+		fmt.Println(p.Name, p.Spec.Containers, p.Spec.Containers[0].Ports)
+	}
+
+
+	time.Sleep(30 * time.Second)
+	fmt.Println("Deleting pod...")
+	// delete the busybox pod
+	err = kubeClient.CoreV1().Pods(podref.Namespace).Delete(podref.Name, &metav1.DeleteOptions{})
+	if err != nil {panic(err)}
+
+
+	env, _ := fissionClient.CoreV1().Functions("").List(metav1.ListOptions{})
+	for _, e := range env.Items {
+		fmt.Println(e.Name)
+	}
 
 }
