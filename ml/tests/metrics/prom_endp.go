@@ -5,6 +5,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"io/ioutil"
 	"math/rand"
 
 	"log"
@@ -63,6 +64,25 @@ func job(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
+// test reads the request body if it is empty
+func test(w http.ResponseWriter, r *http.Request)  {
+	body := r.Body
+	if body == http.NoBody {
+		fmt.Println("Body is nil")
+	} else {
+		received, err := ioutil.ReadAll(body)
+		fmt.Println(len(received))
+		if len(received) == 0{
+			fmt.Println("Received empty body")
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("Received error", string(received))
+	}
+
+}
+
 
 
 func main() {
@@ -72,5 +92,6 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	http.HandleFunc("/unregister", unregister)
 	http.HandleFunc("/job", job)
-	log.Fatal(http.ListenAndServe(":8000", nil))
+	http.HandleFunc("/test", test)
+	log.Fatal(http.ListenAndServe(":9999", nil))
 }
