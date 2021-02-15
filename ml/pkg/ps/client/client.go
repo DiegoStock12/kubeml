@@ -87,15 +87,18 @@ func (c *Client) UpdateMetrics(jobId string, update *api.MetricUpdate) error {
 
 // JobFinished communicates to the parameter server that a job has finished. The PS
 // will then clear its index, metrics and also communicate with the Scheduler
-func (c *Client) JobFinished(jobId string) error {
+func (c *Client) JobFinished(jobId string, exitErr error) error {
 	url := c.psUrl + "/finish/" + jobId
 
-	req, err := http.NewRequest(http.MethodDelete, url, nil)
-	if err != nil {
-		return errors.Wrap(err, "could not create http request")
+	var req *http.Request
+	if exitErr != nil{
+		body := []byte(exitErr.Error())
+		req, _ = http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	} else {
+		req, _ = http.NewRequest(http.MethodPost, url, nil)
 	}
-
-	_, err = c.httpClient.Do(req)
+	
+	_, err := c.httpClient.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "error sending delete request")
 	}
