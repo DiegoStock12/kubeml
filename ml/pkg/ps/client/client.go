@@ -97,7 +97,7 @@ func (c *Client) JobFinished(jobId string, exitErr error) error {
 	} else {
 		req, _ = http.NewRequest(http.MethodPost, url, nil)
 	}
-	
+
 	_, err := c.httpClient.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "error sending delete request")

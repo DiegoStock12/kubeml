@@ -55,6 +55,8 @@ type (
 		// wait group used when launching a validation
 		// function so we do not accidentally exit the job without
 		wgVal *sync.WaitGroup
+
+		exitErr error
 	}
 )
 
@@ -152,13 +154,15 @@ func (job *TrainJob) Train() {
 		// server
 		job.clearTensors()
 		job.redisClient.Close()
-		job.ps.JobFinished(job.jobId)
+		job.ps.JobFinished(job.jobId, job.exitErr)
 	}()
 
 	err := job.initializeModel()
 	if err != nil {
-		job.logger.Fatal("Could not initialize model",
+		job.logger.Error("Could not initialize model",
 			zap.Error(err))
+		job.exitErr = err
+		return
 	}
 
 	// Loop for as many epochs as required by the request
@@ -170,6 +174,7 @@ func (job *TrainJob) Train() {
 		elapsed, err := job.train()
 		if err != nil {
 			job.logger.Error("Error training model", zap.Error(err))
+			job.exitErr = err
 			return
 		}
 
