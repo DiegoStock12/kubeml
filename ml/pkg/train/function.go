@@ -133,7 +133,7 @@ func (job *TrainJob) invokeTrainFunctions() ([]int, error) {
 		// if all the functions failed with the same error, see
 		// which error caused that
 		funcError := <-errChan
-		job.logger.Fatal("All the functions failed with no response",
+		job.logger.Error("All the functions failed with no response",
 			zap.Error(funcError))
 
 		return nil, funcError
