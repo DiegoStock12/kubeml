@@ -106,6 +106,11 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 			zap.Any("phase", pod.Status.Phase))
 
 
+
+		ps.logger.Debug("Sending task to job",
+			zap.Any("task", task))
+
+
 		// here we should send the request to start the task using the client
 		// TODO here if we are unable we should repeat and if not in the end delete the pod
 		err = ps.jobClient.StartTask(&task)
@@ -115,6 +120,8 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "unable to send task for job", http.StatusInternalServerError)
 			return
 		}
+
+		ps.logger.Debug("task sent to job")
 
 	} else {
 		// if we are deploying them in the same pod, create a channel to communicate
