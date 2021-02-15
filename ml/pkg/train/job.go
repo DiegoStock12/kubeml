@@ -170,6 +170,7 @@ func (job *TrainJob) Train() {
 		elapsed, err := job.train()
 		if err != nil {
 			job.logger.Error("Error training model", zap.Error(err))
+			return
 		}
 
 		// Invoke the validation function
@@ -204,7 +205,7 @@ func (job *TrainJob) Train() {
 			// Get the new parallelism and update it in the history
 			// TODO right now in debug environment keep parallelism untouched
 			job.task.Job.State = *update
-			if !util.IsDebugEnv() && !util.LimitParallelism(){
+			if !util.IsDebugEnv() && !util.LimitParallelism() {
 				job.logger.Debug("updating parallelism...")
 				job.parallelism = update.Parallelism
 			}
@@ -245,7 +246,6 @@ func (job *TrainJob) initializeModel() error {
 		return err
 	}
 
-	// Summary of the model
 	m.Summary()
 	return nil
 }
@@ -257,12 +257,15 @@ func (job *TrainJob) train() (time.Duration, error) {
 	job.logger.Info("Started new epoch", zap.Int("epoch", job.epoch))
 
 	start := time.Now()
-	funcs := job.invokeTrainFunctions()
+	funcs, err := job.invokeTrainFunctions()
+	if err != nil {
+		return time.Duration(0), err
+	}
 	elapsed := time.Since(start)
 
 	// Merge the models and update in the database
 	job.optimizer.Merge(job.model, funcs...)
-	err := job.model.Save()
+	err = job.model.Save()
 	job.logger.Info("Epoch finished, saving model")
 
 	return elapsed, err

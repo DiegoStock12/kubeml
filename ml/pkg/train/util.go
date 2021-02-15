@@ -2,6 +2,8 @@ package train
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/diegostock12/kubeml/ml/pkg/util"
@@ -17,6 +19,24 @@ func createMongoURI() string {
 	} else {
 		return fmt.Sprintf("mongodb://%s:%d", api.MONGO_ADDRESS, api.MONGO_PORT)
 	}
+}
+
+// parseResponseError gets the error resulting from the function calls
+// ans extracts it from the response
+func parseResponseError(data []byte) (funcError error, err error) {
+	var resp map[string]interface{}
+	err = json.Unmarshal(data, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	errMsg, exists := resp["error"]
+	if !exists {
+		return nil, errors.New("could not find error message in response")
+	}
+
+	return errors.New(errMsg.(string)), nil
+
 }
 
 // lastValue simply returns the last value of the array if not empty,

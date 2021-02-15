@@ -17,8 +17,7 @@ func (c *Controller) train(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req := api.TrainRequest{}
-
+	var req api.TrainRequest
 	// read the train request
 	err = json.Unmarshal(body, &req)
 	if err != nil {
@@ -28,6 +27,8 @@ func (c *Controller) train(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to decode the request", http.StatusInternalServerError)
 		return
 	}
+
+	// TODO filter if the dataset exists before submitting
 
 
 	// Forward the request to the scheduler

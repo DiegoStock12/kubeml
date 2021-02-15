@@ -40,7 +40,6 @@ const (
 	Inference  FunctionTask = "infer"
 )
 
-
 // buildFunctionURL returns the url that the PS will invoke to execute the function
 func (job *TrainJob) buildFunctionURL(args FunctionArgs, task FunctionTask) string {
 
@@ -107,12 +106,13 @@ func (job *TrainJob) invokeInitFunction() ([]string, error) {
 
 // invokeTrainFunctions Invokes N functions to start the next epoch
 // returns the function ids from which it got a response
-func (job *TrainJob) invokeTrainFunctions() []int {
+func (job *TrainJob) invokeTrainFunctions() ([]int, error) {
 
 	job.logger.Debug("Invoking functions", zap.Int("N", job.parallelism))
 
 	wg := &sync.WaitGroup{}
 	respChan := make(chan *FunctionResults, job.parallelism)
+	errChan := make(chan error, job.parallelism)
 
 	for i := 0; i < job.parallelism; i++ {
 		job.logger.Debug("Invoking function", zap.Int("id", i))
@@ -121,7 +121,7 @@ func (job *TrainJob) invokeTrainFunctions() []int {
 		query := job.buildFunctionURL(args, Train)
 
 		wg.Add(1)
-		go job.launchFunction(i, query, wg, respChan)
+		go job.launchFunction(i, query, wg, respChan, errChan)
 	}
 
 	wg.Wait()
@@ -130,7 +130,14 @@ func (job *TrainJob) invokeTrainFunctions() []int {
 
 	n := len(respChan)
 	if n == 0 {
-		job.logger.Fatal("All the functions failed with no response")
+		// if all the functions failed with the same error, see
+		// which error caused that
+		funcError := <-errChan
+		job.logger.Fatal("All the functions failed with no response",
+			zap.Error(funcError))
+
+		return nil, funcError
+
 	}
 	if n != job.parallelism {
 		job.logger.Warn("Some of the functions returned without a result",
@@ -157,7 +164,7 @@ func (job *TrainJob) invokeTrainFunctions() []int {
 	job.history.TrainLoss = append(job.history.TrainLoss, avgLoss)
 
 	job.logger.Debug("History updated", zap.Any("history", job.history))
-	return funcs
+	return funcs, nil
 }
 
 // invokeValFunction After getting all the gradients and publishing the new model invoke
@@ -166,7 +173,6 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 
 	defer wg.Done()
 	job.logger.Info("Invoking validation function")
-
 
 	query := job.buildFunctionURL(FunctionArgs{}, Validation)
 	resp, err := http.Get(query)
@@ -211,7 +217,8 @@ func (job *TrainJob) launchFunction(
 	funcId int,
 	query string,
 	wg *sync.WaitGroup,
-	respChan chan *FunctionResults) {
+	respChan chan *FunctionResults,
+	errChan chan error) {
 
 	job.logger.Info("Starting request for function number", zap.Int("func_id", funcId))
 	defer wg.Done()
@@ -225,7 +232,6 @@ func (job *TrainJob) launchFunction(
 	}
 	defer resp.Body.Close()
 
-
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		job.logger.Error("Could not read response body", zap.Error(err))
@@ -233,11 +239,24 @@ func (job *TrainJob) launchFunction(
 	}
 
 	var res map[string]float64
+	var funcError error
 	job.logger.Debug(fmt.Sprintf("Received body, %s", string(body)), zap.Int("funcId", funcId))
 	if err = json.Unmarshal(body, &res); err != nil {
 		job.logger.Error("Could not parse the JSON data", zap.Error(err),
 			zap.String("data", string(body)),
 			zap.String("status", resp.Status))
+
+		// TODO maybe make a function directly for this
+		// if we get an error parsing into the results, try
+		// to parse the error in the json data
+		funcError, err = parseResponseError(body)
+		if err != nil {
+			job.logger.Error("error parsing function error",
+				zap.Error(err))
+			errChan <- err
+		} else {
+			errChan <- funcError
+		}
 		return
 	}
 
