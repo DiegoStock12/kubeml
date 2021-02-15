@@ -204,7 +204,8 @@ func (job *TrainJob) Train() {
 			// Get the new parallelism and update it in the history
 			// TODO right now in debug environment keep parallelism untouched
 			job.task.Job.State = *update
-			if !util.IsDebugEnv() {
+			if !util.IsDebugEnv() && !util.LimitParallelism(){
+				job.logger.Debug("updating parallelism...")
 				job.parallelism = update.Parallelism
 			}
 

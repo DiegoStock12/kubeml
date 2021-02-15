@@ -58,6 +58,13 @@ func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error)
 						"--jobId",
 						task.Job.JobId,
 					},
+					// TODO for now limit parallelism to two in minikube
+					Env: []corev1.EnvVar{
+						{
+							Name: "LIMIT_PARALLELISM",
+							Value: "true",
+						},
+					},
 					Ports: []corev1.ContainerPort{
 						{
 							Name:          "http",

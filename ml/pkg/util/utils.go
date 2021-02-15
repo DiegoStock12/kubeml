@@ -36,3 +36,17 @@ func IsDebugEnv () bool {
 	}
 	return debug
 }
+
+
+func LimitParallelism() bool {
+	d := os.Getenv("LIMIT_PARALLELISM")
+	if len(d) == 0 {
+		return false
+	}
+
+	debug, err := strconv.ParseBool(d)
+	if err != nil {
+		panic(err)
+	}
+	return debug
+}
