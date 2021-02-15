@@ -91,14 +91,21 @@ func (c *Client) JobFinished(jobId string, exitErr error) error {
 	url := c.psUrl + "/finish/" + jobId
 
 	var req *http.Request
-	if exitErr != nil{
+	var err error
+	if exitErr != nil {
 		body := []byte(exitErr.Error())
-		req, _ = http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+		req, err = http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+		if err != nil {
+			return errors.Wrap(err, "could not build request")
+		}
 	} else {
-		req, _ = http.NewRequest(http.MethodPost, url, nil)
+		req, err = http.NewRequest(http.MethodPost, url, nil)
+		if err != nil {
+			return errors.Wrap(err, "could not build request")
+		}
 	}
 
-	_, err := c.httpClient.Do(req)
+	_, err = c.httpClient.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "error sending delete request")
 	}
