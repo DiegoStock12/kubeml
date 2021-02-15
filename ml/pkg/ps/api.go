@@ -86,6 +86,8 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ps.logger.Debug("About to create pod")
+
 	// if we are deploying the jobs in different pods
 	// create it and add it to the struct
 	if ps.deployStandaloneJobs {
@@ -97,6 +99,12 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		task.Job.Pod = pod
+
+		ps.logger.Debug("assigned pod to task",
+			zap.Any("name", pod.Name),
+			zap.Any("ip", pod.Status.PodIP),
+			zap.Any("phase", pod.Status.Phase))
+
 
 		// here we should send the request to start the task using the client
 		// TODO here if we are unable we should repeat and if not in the end delete the pod
@@ -188,21 +196,25 @@ func (ps *ParameterServer) jobFinish(w http.ResponseWriter, r *http.Request) {
 			zap.Error(err))
 	}
 
-	// delete the pod
-	// TODO should we retry or something here
-	jobPod := task.Job.Pod
-	err = ps.kubeClient.CoreV1().Pods(KubeMlNamespace).Delete(jobPod.Name, &metav1.DeleteOptions{})
-	if err != nil {
-		ps.logger.Error("error deleting pod",
-			zap.String("podName", jobPod.Name),
-			zap.String("JobId", jobId),
-			zap.Error(err))
+	// delete the pod if there are standalone
+	if ps.deployStandaloneJobs {
+		// TODO should we retry or something here
+		jobPod := task.Job.Pod
+		err = ps.kubeClient.CoreV1().Pods(KubeMlNamespace).Delete(jobPod.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			ps.logger.Error("error deleting pod",
+				zap.String("podName", jobPod.Name),
+				zap.String("JobId", jobId),
+				zap.Error(err))
+		}
 	}
 
 	// finally delete the pod from the index
 	ps.mu.Lock()
 	delete(ps.jobIndex, jobId)
 	ps.mu.Unlock()
+
+	taskFinished(TrainTask)
 
 	ps.logger.Debug("Job finished succesfully", zap.String("jobId", jobId))
 	w.WriteHeader(http.StatusOK)

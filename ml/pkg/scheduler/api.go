@@ -108,8 +108,6 @@ func (s *Scheduler) train(w http.ResponseWriter, r *http.Request) {
 		zap.Any("task", task))
 	s.queue.pushTask(&task)
 
-	s.logger.Debug("here")
-
 	w.WriteHeader(http.StatusOK)
 	_, err = w.Write([]byte(id))
 	if err != nil {

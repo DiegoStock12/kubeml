@@ -90,7 +90,13 @@ func NewTrainJob(
 		wgVal:       &sync.WaitGroup{},
 	}
 
-	job.ps = psClient.MakeClient(job.logger, api.PARAMETER_SERVER_URL)
+	var psUrl string
+	if util.IsDebugEnv() {
+		psUrl = fmt.Sprintf("http://localhost:%v", api.PS_DEBUG_PORT)
+	} else {
+		psUrl = api.PARAMETER_SERVER_URL
+	}
+	job.ps = psClient.MakeClient(job.logger, psUrl)
 	job.optimizer = model.MakeParallelSGD(job.logger)
 
 	return job

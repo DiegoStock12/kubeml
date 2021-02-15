@@ -87,19 +87,26 @@ func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error)
 
 	podRef, err := ps.kubeClient.CoreV1().Pods(KubeMlNamespace).Create(pod)
 	if err != nil {
-		ps.logger.Error("Error creating pod for training job",
-			zap.Error(err))
 		return nil, err
 	}
 
+	ps.logger.Debug("data from pod",
+		zap.Any("name", podRef.Name),
+		zap.Any("ip", podRef.Status.PodIP),
+		zap.Any("phase", podRef.Status.Phase))
+
 	err = ps.waitForPodRunning(podRef, 20*time.Second)
 	if err != nil {
-		ps.logger.Error("Error waiting for pod to start",
-			zap.Error(err))
 		return nil, err
 	}
 
 	ps.logger.Debug("Created pod")
 
+
+	// get the reference of the pod with the IP for creation of the client
+	pod, err = ps.kubeClient.CoreV1().Pods(KubeMlNamespace).Get(pod.Name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
 	return pod, nil
 }

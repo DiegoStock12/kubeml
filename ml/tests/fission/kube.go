@@ -6,6 +6,7 @@ import (
 	"github.com/fission/fission/pkg/crd"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"math/rand"
 	"os"
 	"sync"
@@ -75,10 +76,22 @@ func getPod() *corev1.Pod{
 
 }
 
+func getJobPod(client *kubernetes.Clientset)  {
+	
+	pod, err := client.CoreV1().Pods("kubeml").List(metav1.ListOptions{})
+	if err != nil {panic(err)}
+	for _, p := range pod.Items{
+		fmt.Println(p.Name, p.Status.PodIP, p.Status.Phase)
+	}
+	
+}
+
 func main() {
 
 	// The make fission client and so on needs the KUBECONFIG variable to be set
 	_ = os.Setenv("KUBECONFIG", "C:\\Users\\diego\\.kube\\config")
+
+
 
 	//// Access the kubernetes API directly from the code
 	//config, _ := clientcmd.BuildConfigFromFlags("", "C:\\Users\\diego\\.kube\\config")
@@ -95,6 +108,9 @@ func main() {
 		panic(err)
 	}
 
+
+	getJobPod(kubeClient)
+	os.Exit(0)
 
 
 	pods, err := kubeClient.CoreV1().Pods("kubeml").List(metav1.ListOptions{})

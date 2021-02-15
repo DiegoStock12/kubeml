@@ -1,0 +1,38 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubeml-pod-admin-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - create
+      - delete
+      - watch
+      - patch
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubeml-ps
+  namespace: kubeml
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubeml-pod-admin
+  namespace: kubeml
+subjects:
+  - kind: ServiceAccount
+    name: kubeml-ps
+    namespace: kubeml
+roleRef:
+  kind: ClusterRole
+  name: kubeml-pod-admin-role
+  apiGroup: rbac.authorization.k8s.io
