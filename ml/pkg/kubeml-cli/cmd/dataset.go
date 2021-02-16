@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"fmt"
 	controllerClient "github.com/diegostock12/kubeml/ml/pkg/controller/client"
 	"github.com/spf13/cobra"
+	"os"
+	"text/tabwriter"
 )
 
 var (
@@ -35,6 +38,12 @@ upload the files to KubeMl so they can be used in training tasks. Files must be 
 		Short: "Delete a dataset in KubeML",
 		RunE:  deleteDataset,
 	}
+
+	listDatasetCmd = &cobra.Command{
+		Use:   "list",
+		Short: "List dataset information",
+		RunE:  listDatasets,
+	}
 )
 
 // createDataset creates a dataset in KubeML
@@ -53,9 +62,29 @@ func deleteDataset(_ *cobra.Command, _ []string) error {
 	return controller.DeleteDataset(name)
 }
 
+// listDatasets lists the datasets from kubeml
+func listDatasets(_ *cobra.Command, _ []string) error {
+	controller := controllerClient.MakeClient()
+
+	datasets, err := controller.ListDatasets()
+	if err != nil {
+		return err
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 1, 1, 2, ' ', 0)
+	fmt.Fprintf(w, "%v\t%v\t%v\n", "NAME", "TRAINSET", "TESTSET")
+
+	for _, d := range datasets {
+		fmt.Fprintf(w, "%v\t%v\t%v\n", d.Name, d.TrainSetSize, d.TestSetSize)
+	}
+
+	w.Flush()
+	return nil
+}
+
 func init() {
 	rootCmd.AddCommand(datasetCmd)
-	datasetCmd.AddCommand(datasetCreateCmd, datasetDeleteCmd)
+	datasetCmd.AddCommand(datasetCreateCmd, datasetDeleteCmd, listDatasetCmd)
 
 	// Add the flags to each command
 	// Flags for the create command

@@ -22,8 +22,9 @@ func (c *Controller) getHandler() http.Handler {
 	r.HandleFunc("/train", c.train).Methods("POST")
 	r.HandleFunc("/infer", c.infer).Methods("POST")
 
-	// dataset proxy
+	// dataset proxy and methods
 	r.HandleFunc("/dataset/{name}", c.storageServiceProxy)
+	r.HandleFunc("/dataset", c.listDatasets).Methods("GET")
 
 	// history
 	r.HandleFunc("/history/get/{taskId}", c.getHistory).Methods("GET")

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
@@ -51,8 +52,9 @@ func (c *Client) CreateDataset(name, trainData, trainLabels, testData, testLabel
 	}
 
 	err := writer.Close()
-	if err != nil { return errors.Wrap(err, "could not close writer")}
-
+	if err != nil {
+		return errors.Wrap(err, "could not close writer")
+	}
 
 	resp, err := c.httpClient.Post(url, writer.FormDataContentType(), body)
 	if err != nil {
@@ -62,7 +64,9 @@ func (c *Client) CreateDataset(name, trainData, trainLabels, testData, testLabel
 
 	var result map[string]string
 	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {return err}
+	if err != nil {
+		return err
+	}
 	err = json.Unmarshal(respBody, &result)
 
 	if resp.StatusCode != http.StatusOK {
@@ -91,7 +95,9 @@ func (c *Client) DeleteDataset(name string) error {
 
 	var result map[string]string
 	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {return err}
+	if err != nil {
+		return err
+	}
 	err = json.Unmarshal(respBody, &result)
 
 	if resp.StatusCode != http.StatusOK {
@@ -100,4 +106,29 @@ func (c *Client) DeleteDataset(name string) error {
 
 	fmt.Println(result["result"])
 	return nil
+}
+
+// ListDatasets returns a list of the datasets uploaded to kubeml
+func (c *Client) ListDatasets() ([]api.DatasetSummary, error) {
+	url := c.controllerUrl + "/dataset"
+
+	resp, err := c.httpClient.Get(url)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get perform http request")
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read responde body")
+	}
+
+	var result []api.DatasetSummary
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not decode body")
+	}
+
+	return result, nil
+
 }

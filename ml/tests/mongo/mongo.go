@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
-	"go.mongodb.org/mongo-driver/bson"
+	"github.com/globalsign/mgo/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"log"
 )
 
 // Mongo address in minikube
@@ -45,17 +46,40 @@ func main() {
 	err = client.Ping(context.TODO(), nil)
 	panicIf(err)
 
-	opts := options.Find().SetProjection(bson.M{"_id":1, "task":1})
+	res, err := client.ListDatabases(context.TODO(), bson.M{}, &options.ListDatabasesOptions{})
+	panicIf(err)
+	for _, d := range res.Databases {
+		fmt.Println(d.Name, d.SizeOnDisk)
+	}
+
+	cols, err := client.Database("kubeml").ListCollections(context.TODO(), bson.M{}, &options.ListCollectionsOptions{})
+	panicIf(err)
+
+	for cols.Next(context.TODO()) {
+		var col bson.M
+		if err := cols.Decode(&col); err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println(col["name"])
+		fmt.Println(col["info"])
+		for k := range col {
+			fmt.Println(k)
+		}
+	}
+
 	collection := client.Database("kubeml").Collection("history")
-	cursor, err := collection.Find(context.TODO(), bson.M{}, opts)
+	count, err := collection.EstimatedDocumentCount(context.TODO(), nil)
+	panicIf(err)
+	fmt.Println("count is", count)
+	cursor, err := collection.Find(context.TODO(), bson.M{}, nil)
 	panicIf(err)
 
 	var ids []api.History
 	err = cursor.All(context.TODO(), &ids)
 	panicIf(err)
-
-
+	//
+	//
 	fmt.Println(ids)
-
 
 }

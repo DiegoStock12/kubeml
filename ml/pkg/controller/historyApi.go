@@ -40,6 +40,7 @@ func (c *Controller) listHistories(w http.ResponseWriter, r *http.Request)  {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	w.Write(resp)
 
 }
@@ -71,6 +72,7 @@ func (c *Controller) getHistory(w http.ResponseWriter, r *http.Request)  {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	w.Write(resp)
 }
 
@@ -90,5 +92,4 @@ func (c *Controller) deleteHistory(w http.ResponseWriter, r *http.Request)  {
 	}
 
 	w.WriteHeader(http.StatusOK)
-
 }

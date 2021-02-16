@@ -85,4 +85,11 @@ type (
 		Task TrainRequest `json:"task"`
 		Data JobHistory   `json:"data,omitempty"`
 	}
+
+	// DatasetSummary describes the contents a kubeml dataset
+	DatasetSummary struct {
+		Name         string `json:"name"`
+		TrainSetSize int64  `json:"train_set_size"`
+		TestSetSize  int64  `json:"test_set_size"`
+	}
 )
