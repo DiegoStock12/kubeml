@@ -90,24 +90,18 @@ func (c *Client) UpdateMetrics(jobId string, update *api.MetricUpdate) error {
 func (c *Client) JobFinished(jobId string, exitErr error) error {
 	url := c.psUrl + "/finish/" + jobId
 
-	var req *http.Request
 	var err error
+	// if there is an error add it in the body so that the
+	// parameter server reports it
 	if exitErr != nil {
 		body := []byte(exitErr.Error())
-		req, err = http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
-		if err != nil {
-			return errors.Wrap(err, "could not build request")
-		}
+		_, err = c.httpClient.Post(url, "text/plain", bytes.NewReader(body))
 	} else {
-		req, err = http.NewRequest(http.MethodPost, url, nil)
-		if err != nil {
-			return errors.Wrap(err, "could not build request")
-		}
+		_, err = c.httpClient.Post(url, "text/plain", nil)
 	}
 
-	_, err = c.httpClient.Do(req)
 	if err != nil {
-		return errors.Wrap(err, "error sending delete request")
+		return errors.Wrap(err, "could not send finish notification")
 	}
 
 	return nil

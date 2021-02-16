@@ -105,11 +105,8 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 			zap.Any("ip", pod.Status.PodIP),
 			zap.Any("phase", pod.Status.Phase))
 
-
-
 		ps.logger.Debug("Sending task to job",
 			zap.Any("task", task))
-
 
 		// here we should send the request to start the task using the client
 		// TODO here if we are unable we should repeat and if not in the end delete the pod
@@ -223,7 +220,20 @@ func (ps *ParameterServer) jobFinish(w http.ResponseWriter, r *http.Request) {
 
 	taskFinished(TrainTask)
 
-	ps.logger.Debug("Job finished succesfully", zap.String("jobId", jobId))
+	// check if the body is not nil, in that case, report the error to notify of a failure
+	if r.Body == http.NoBody {
+		ps.logger.Info("Job finished successfully", zap.String("jobId", jobId))
+	} else {
+		errorStr, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			ps.logger.Debug("error reading error body", zap.Error(err))
+		} else {
+			ps.logger.Info("Job finished with error message",
+				zap.String("jobId", jobId),
+				zap.String("error", string(errorStr)))
+		}
+	}
+
 	w.WriteHeader(http.StatusOK)
 
 }
@@ -240,7 +250,7 @@ func (ps *ParameterServer) GetHandler() http.Handler {
 	r.HandleFunc("/update/{jobId}", ps.updateTask).Methods("POST")
 	r.HandleFunc("/health", ps.handleHealth).Methods("GET")
 	r.HandleFunc("/metrics/{jobId}", ps.updateJobMetrics).Methods("POST")
-	r.HandleFunc("/finish/{jobId}", ps.jobFinish).Methods("DELETE")
+	r.HandleFunc("/finish/{jobId}", ps.jobFinish).Methods("POST")
 	return r
 }
 
