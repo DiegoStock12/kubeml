@@ -125,7 +125,8 @@ func (job *TrainJob) invokeTrainFunctions() ([]int, error) {
 	}
 
 	wg.Wait()
-	job.logger.Info("Got all the responses, iterating")
+	job.logger.Info("Got all the responses, iterating",
+		zap.Int("number of responses", len(respChan)))
 	close(respChan)
 
 	n := len(respChan)
