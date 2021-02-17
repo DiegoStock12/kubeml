@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/diegostock12/kubeml/ml/pkg/util"
-	"github.com/globalsign/mgo/bson"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 	"net/http"
