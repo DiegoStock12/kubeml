@@ -22,11 +22,11 @@ const CollectionTest = "test"
 
 // defaultDatabases shows the admin or non-dataset databases that we will
 // omit when returning the list of datasets
-var defaultDatabases = map[string]interface{}{
-	"admin":  1,
-	"config": 1,
-	"kubeml": 1,
-	"local":  1,
+var defaultDatabases = map[string]struct{}{
+	"admin":  {},
+	"config": {},
+	"kubeml": {},
+	"local":  {},
 }
 
 // storageServiceProxy returns the reverse proxy that the controller
