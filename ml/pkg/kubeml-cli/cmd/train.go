@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
-	controllerClient "github.com/diegostock12/kubeml/ml/pkg/controller/client"
+	kubemlClient "github.com/diegostock12/kubeml/ml/pkg/controller/client"
 	"github.com/spf13/cobra"
 )
 
@@ -27,8 +27,7 @@ var (
 // train builds the request and sends it to the controller so
 // the job can be scheduled
 func train(_ *cobra.Command, _ []string) error {
-	controller := controllerClient.MakeClient()
-	fmt.Println("Building train request and sending to ", controller)
+	client := kubemlClient.MakeKubemlClient()
 	req := api.TrainRequest{
 		ModelType:    "example",
 		BatchSize:    batchSize,
@@ -38,7 +37,7 @@ func train(_ *cobra.Command, _ []string) error {
 		FunctionName: functionName,
 	}
 	fmt.Println("Request", req)
-	id, err := controller.Train(&req)
+	id, err := client.V1().Networks().Train(&req)
 	if err != nil {
 		return err
 	}

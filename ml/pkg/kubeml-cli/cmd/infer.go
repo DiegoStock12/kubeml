@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
-	controllerClient "github.com/diegostock12/kubeml/ml/pkg/controller/client"
+	kubemlClient "github.com/diegostock12/kubeml/ml/pkg/controller/client"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io/ioutil"
@@ -25,7 +25,7 @@ var (
 
 // infer Creates and submits an inference task
 func infer(_ *cobra.Command, _ []string) error {
-	controller := controllerClient.MakeClient()
+	client := kubemlClient.MakeKubemlClient()
 
 	var data []interface{}
 	// read the data from the file
@@ -44,7 +44,7 @@ func infer(_ *cobra.Command, _ []string) error {
 		Data:    data,
 	}
 
-	resp, err := controller.Infer(&req)
+	resp, err := client.V1().Networks().Infer(&req)
 	if err != nil {
 		return errors.Wrap(err, "could not complete inference")
 	}

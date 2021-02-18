@@ -3,8 +3,8 @@ package client
 import (
 	"fmt"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
+	v1 "github.com/diegostock12/kubeml/ml/pkg/controller/client/v1"
 	"github.com/diegostock12/kubeml/ml/pkg/util"
-	"net/http"
 )
 
 // TODO change this to read the config file from kubernetes
@@ -14,15 +14,18 @@ const (
 )
 
 type (
-	Client struct {
+	Interface interface {
+		V1() v1.V1Interface
+		ServerUrl() string
+	}
+
+	KubemlClient struct {
 		controllerUrl string
-		httpClient *http.Client
+		v1            v1.V1Interface
 	}
 )
 
-// MakeClient gets the kubernetes config and gets the IP address of the controller
-func MakeClient() *Client {
-
+func MakeKubemlClient() *KubemlClient {
 	var controllerUrl string
 	if util.IsDebugEnv() {
 		controllerUrl = fmt.Sprintf("http://%s:%d", "localhost", api.CONTROLLER_DEBUG_PORT)
@@ -32,10 +35,17 @@ func MakeClient() *Client {
 
 	fmt.Println("Using controller address", controllerUrl)
 
-	return &Client{
+	return &KubemlClient{
 		controllerUrl: controllerUrl,
-		httpClient:    &http.Client{},
+		v1:            v1.MakeV1Client(controllerUrl),
 	}
+
 }
 
+func (c *KubemlClient) V1() v1.V1Interface {
+	return c.v1
+}
 
+func (c *KubemlClient) ServerUrl() string {
+	return c.controllerUrl
+}

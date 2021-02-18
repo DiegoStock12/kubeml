@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	controllerClient "github.com/diegostock12/kubeml/ml/pkg/controller/client"
+	kubemlClient "github.com/diegostock12/kubeml/ml/pkg/controller/client"
 	"github.com/spf13/cobra"
 	"os"
 	"text/tabwriter"
@@ -48,25 +48,25 @@ upload the files to KubeMl so they can be used in training tasks. Files must be 
 
 // createDataset creates a dataset in KubeML
 func createDataset(_ *cobra.Command, _ []string) error {
-	controller := controllerClient.MakeClient()
+	client := kubemlClient.MakeKubemlClient()
 
 	// pass the commands to the client creation command
-	return controller.CreateDataset(name, trainData, trainLabels, testData, testLabels)
+	return client.V1().Datasets().Create(name, trainData, trainLabels, testData, testLabels)
 }
 
 // deleteDataset deletes a dataset from KubeML
 func deleteDataset(_ *cobra.Command, _ []string) error {
-	controller := controllerClient.MakeClient()
+	client := kubemlClient.MakeKubemlClient()
 
 	// return the deletion
-	return controller.DeleteDataset(name)
+	return client.V1().Datasets().Delete(name)
 }
 
 // listDatasets lists the datasets from kubeml
 func listDatasets(_ *cobra.Command, _ []string) error {
-	controller := controllerClient.MakeClient()
+	client := kubemlClient.MakeKubemlClient()
 
-	datasets, err := controller.ListDatasets()
+	datasets, err := client.V1().Datasets().List()
 	if err != nil {
 		return err
 	}

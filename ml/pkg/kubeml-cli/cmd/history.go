@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
-	controllerClient "github.com/diegostock12/kubeml/ml/pkg/controller/client"
+	kubemlClient "github.com/diegostock12/kubeml/ml/pkg/controller/client"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"math"
 	"os"
@@ -19,13 +21,13 @@ var (
 
 	historyGetCmd = &cobra.Command{
 		Use:   "get",
-		Short: "Check training history for task",
+		Short: "Get training history for task",
 		RunE:  getHistory,
 	}
 
 	historyDeleteCmd = &cobra.Command{
 		Use:   "delete",
-		Short: "Check training history for task",
+		Short: "Delete training history for task",
 		RunE:  deleteHistory,
 	}
 
@@ -39,21 +41,27 @@ var (
 // getHistory gets a training history based on the taskId and pretty
 // prints it for easy reference
 func getHistory(_ *cobra.Command, _ []string) error {
-	controller := controllerClient.MakeClient()
+	client := kubemlClient.MakeKubemlClient()
 
-	history, err := controller.GetHistory(taskId)
+	history, err := client.V1().Histories().Get(taskId)
 	if err != nil {
 		return err
 	}
-	fmt.Println(history)
+
+	out, err := json.MarshalIndent(history, "", "  ")
+	if err != nil {
+		return errors.Wrap(err, "could not marshal json")
+	}
+
+	fmt.Println(string(out))
 	return nil
 }
 
 // deleteHistory deletes a history from the database given the taskId
 func deleteHistory(_ *cobra.Command, _ []string) error {
-	controller := controllerClient.MakeClient()
+	client := kubemlClient.MakeKubemlClient()
 
-	err := controller.DeleteHistory(taskId)
+	err := client.V1().Histories().Delete(taskId)
 	if err != nil {
 		return err
 	}
@@ -70,9 +78,9 @@ func last(arr []float64) float64 {
 }
 
 func listHistories(_ *cobra.Command, _ []string) error {
-	controller := controllerClient.MakeClient()
+	client := kubemlClient.MakeKubemlClient()
 
-	histories, err := controller.ListHistories()
+	histories, err := client.V1().Histories().List()
 	if err != nil {
 		return err
 	}
