@@ -55,12 +55,12 @@ $ kubectl create namespace $FISSION_NAMESPACE
 # Install fission disabling custom prometheus
 $ helm install --namespace $FISSION_NAMESPACE --name-template fission \
     https://github.com/fission/fission/releases/download/1.12.0/fission-core-1.12.0.tgz \
-    --set prometheus.enabled=false \
+    --set prometheus.enabled=false
 ```
 
 ### Install Prometheus
 
-KubeML exposes metrics to prometheus so you are able to track the process of trainin jobs, 
+KubeML exposes metrics to prometheus so you are able to track the process of training jobs, 
 with metrics such as parallelism, accuracy, train or validation loss or epoch time. To install
 prometheus with Helm:
 
