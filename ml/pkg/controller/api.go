@@ -27,9 +27,9 @@ func (c *Controller) getHandler() http.Handler {
 	r.HandleFunc("/dataset", c.listDatasets).Methods("GET")
 
 	// history
-	r.HandleFunc("/history/get/{taskId}", c.getHistory).Methods("GET")
-	r.HandleFunc("/history/delete/{taskId}", c.deleteHistory).Methods("DELETE")
-	r.HandleFunc("/history/list", c.listHistories).Methods("GET")
+	r.HandleFunc("/history/{taskId}", c.getHistory).Methods("GET")
+	r.HandleFunc("/history/{taskId}", c.deleteHistory).Methods("DELETE")
+	r.HandleFunc("/history", c.listHistories).Methods("GET")
 
 	// k8s health handler
 	r.HandleFunc("/health", c.handleHealth).Methods("GET")

@@ -35,13 +35,23 @@ func newHistories(c *V1) HistoryInterface {
 
 
 func (h *histories) Get(taskId string) (*api.History, error) {
-	url := h.controllerUrl + "/history/get/" + taskId
+	url := h.controllerUrl + "/history/" + taskId
 
 	resp, err := h.httpClient.Get(url)
 	if err != nil {
 		return nil , errors.Wrap(err, "could not perform history request")
 	}
 	defer resp.Body.Close()
+
+
+	if resp.StatusCode != http.StatusOK {
+		// read the http error string and return it
+		errString, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "an error occurred")
+		}
+		return nil, errors.New(string(errString))
+	}
 
 	// return the json parsed to string
 	body, err := ioutil.ReadAll(resp.Body)
@@ -60,7 +70,7 @@ func (h *histories) Get(taskId string) (*api.History, error) {
 
 
 func (h *histories) Delete(taskId string) error {
-	url := h.controllerUrl + "/history/delete/" + taskId
+	url := h.controllerUrl + "/history/" + taskId
 
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
@@ -72,7 +82,7 @@ func (h *histories) Delete(taskId string) error {
 		return errors.Wrap(err, "could not handle request")
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		defer resp.Body.Close()
 		res, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
@@ -86,7 +96,7 @@ func (h *histories) Delete(taskId string) error {
 }
 
 func (h *histories) List() ([]api.History, error) {
-	url := h.controllerUrl + "/history/list"
+	url := h.controllerUrl + "/history"
 
 	resp, err := h.httpClient.Get(url)
 	if err != nil {
