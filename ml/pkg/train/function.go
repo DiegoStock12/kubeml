@@ -85,10 +85,16 @@ func (job *TrainJob) invokeInitFunction() ([]string, error) {
 	var names []string
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		job.logger.Fatal("Could not read layer names",
+		job.logger.Fatal("Could not read function response",
 			zap.Error(err))
-
 		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		funcError, err := parseResponseError(data)
+		if err != nil {
+			return names, err
+		}
+		return names, funcError
 	}
 
 	err = json.Unmarshal(data, &names)
@@ -191,7 +197,15 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 		job.logger.Error("Could not read layer names",
 			zap.Error(err))
 		return
-
+	}
+	if resp.StatusCode != http.StatusOK {
+		funcError, err := parseResponseError(data)
+		if err != nil {
+			job.logger.Error("error parsing function error", zap.Error(err))
+			return
+		}
+		job.logger.Error("Validation function returned an error", zap.Error(funcError))
+		return
 	}
 
 	var results map[string]float64
