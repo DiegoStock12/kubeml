@@ -124,7 +124,7 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 		// if we are deploying them in the same pod, create a channel to communicate
 		ch := make(chan *api.JobState)
 		task.Job.Channel = ch
-		job := train.NewTrainJob(ps.logger, &task, ch, ps.doneChan, ps.scheduler)
+		job := train.NewTrainJob(ps.logger, &task, ch, ps.scheduler)
 		go job.Train()
 	}
 

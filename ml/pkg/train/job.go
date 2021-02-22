@@ -22,35 +22,25 @@ type (
 	TrainJob struct {
 		logger *zap.Logger
 
-		// history gathers the progress of the job
-		// it holds metrics for validation, train loss,
-		// accuracy, parallelism and epoch duration
-		// for every epoch
-		// It is saved to the database after the training process
-		// is complete
-		history api.JobHistory
+		// clients for other components
+		scheduler   *schedulerClient.Client
+		ps          *psClient.Client
+		redisClient *redisai.Client
 
-		// client for the scheduler (shared by all trainjobs)
-		scheduler *schedulerClient.Client
-		ps        *psClient.Client
-
-		// request which has to be satisfied
+		// Training-specific resources
+		history     api.JobHistory
 		task        *api.TrainTask
 		jobId       string
 		parallelism int
 		epoch       int
-
-		// reference model
-		model     *model.Model
-		optimizer model.ParallelSGD
+		model       *model.Model
+		optimizer   model.ParallelSGD
 
 		// channels for communicating with the scheduler
 		// and parameter server to get new tasks and send finish
 		// signal
 		//TODO get rid of the done chan and make all through the api
-		schedChan   chan *api.JobState
-		doneChan    chan<- string
-		redisClient *redisai.Client
+		schedChan chan *api.JobState
 
 		// wait group used when launching a validation
 		// function so we do not accidentally exit the job without
@@ -65,7 +55,6 @@ func NewTrainJob(
 	logger *zap.Logger,
 	task *api.TrainTask,
 	schedChan chan *api.JobState,
-	doneChan chan string,
 	client *schedulerClient.Client) *TrainJob {
 
 	logger.Info("Creating new train job")
@@ -85,7 +74,6 @@ func NewTrainJob(
 		parallelism: task.Job.State.Parallelism,
 		epoch:       1,
 		schedChan:   schedChan,
-		doneChan:    doneChan,
 		redisClient: redisClient,
 		task:        task,
 		history:     api.JobHistory{},
