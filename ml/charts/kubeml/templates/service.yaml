@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: controller
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    svc: controller
+spec:
+  ports:
+    - port: 80
+      targetPort: 9090
+  type: {{.Values.controllerServiceType}}
+  selector:
+    svc: controller
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scheduler
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    svc: scheduler
+spec:
+  ports:
+    - port: 80
+      targetPort: 9090
+  type: {{.Values.serviceType}}
+  selector:
+    svc: scheduler
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: parameter-server
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    svc: parameter-server
+spec:
+  ports:
+    - port: 80
+      targetPort: 9090
+  type: {{.Values.serviceType}}
+  selector:
+    svc: parameter-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storage
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    svc: storage
+spec:
+  ports:
+    - port: 80
+      targetPort: 9090
+  type: {{.Values.serviceType}}
+  selector:
+    svc: storage
+

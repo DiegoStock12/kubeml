@@ -1,0 +1,30 @@
+
+## TODO include here an option for standalone deployment or limit parallelism
+
+## Service type for most components
+serviceType: ClusterIP
+
+## Controller is exposed in a LoadBalancer
+controllerServiceType: LoadBalancer
+
+## KubeML image
+image: diegostock12/kubeml
+
+## Storage service image
+storageImage: diegostock12/storage-svc
+
+## Namespace for the images
+namespace: kubeml
+
+## Instructions for mongo deployment
+mongo:
+  serviceType: LoadBalancer
+
+## RedisAI config
+redisai:
+  serviceType: LoadBalancer
+
+
+
+
+
