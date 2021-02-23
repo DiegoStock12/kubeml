@@ -7,12 +7,17 @@ import (
 	"github.com/diegostock12/kubeml/ml/pkg/ps"
 	"github.com/diegostock12/kubeml/ml/pkg/scheduler"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"log"
 )
 
 func main(){
 
-	logger, err := zap.NewDevelopment()
+	config := zap.NewDevelopmentConfig()
+	config.DisableStacktrace = true
+	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	logger, err := config.Build()
 	if err != nil {
 		log.Fatal("Error building zap logger")
 	}

@@ -1,16 +1,24 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	kubemlClient "github.com/diegostock12/kubeml/ml/pkg/controller/client"
+	"github.com/fission/fission/pkg/crd"
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	maxBatchSize = 1024
+	functionNamespace
 )
 
 var (
 
 	// variables used in the train command
-	// todo functionName should be created with fission on the go
 	dataset      string
 	epochs       int
 	batchSize    int
@@ -44,6 +52,72 @@ func train(_ *cobra.Command, _ []string) error {
 
 	fmt.Println(id)
 	return nil
+
+}
+
+// validateTrainRequest checks for the validity of the request parameters
+// before submitting it to the controller
+func validateTrainRequest(req *api.TrainRequest) error {
+
+	e :=  &multierror.Error{}
+
+	// check appropriate batch size
+	if req.BatchSize <= 0 || req.BatchSize > maxBatchSize {
+		e = multierror.Append(e, errors.New(fmt.Sprintf("batch size should be between %v and %v", 0, maxBatchSize)))
+	}
+
+	// check appropriate epochs
+	if epochs <= 0 {
+		e = multierror.Append(e, errors.New("epochs should be a positive value"))
+	}
+
+	// check learning rate
+	if lr <= 0 {
+		e = multierror.Append(e, errors.New("learning rate should be bigger than zero"))
+	}
+
+	// check dataset exists
+	if exists, err := datasetExists(dataset); err != nil || !exists {
+		e = multierror.Append(e, fmt.Errorf("dataset %v does not exist", name))
+	}
+
+	// check function exists
+	if exists, err := functionExists(functionName); err != nil || !exists {
+		e = multierror.Append(e, fmt.Errorf("function %v does not exist", functionName))
+	}
+
+
+	return e.ErrorOrNil()
+}
+
+// datasetExists returns true if dataset is present in kubeml
+func datasetExists(name string) (bool, error) {
+
+	client := kubemlClient.MakeKubemlClient()
+
+	_, err := client.V1().Datasets().Get(name)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+
+}
+
+// functionExists returns true if function is in kubeml
+func functionExists(name string) (bool, error) {
+
+	fissionClient, _, _, err := crd.MakeFissionClient()
+	if err != nil {
+		return false, err
+	}
+
+	// check if the fission function exists
+	_, err = fissionClient.CoreV1().Functions("").Get(name, metav1.GetOptions{})
+	if err == nil {
+		return true, nil
+	}
+	return false, err
 
 }
 

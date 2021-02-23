@@ -29,6 +29,7 @@ type (
 	DatasetInterface interface {
 		Create(name, trainData, trainLabels, testData, testLabels string) error
 		Delete(name string) error
+		Get(name string) (*api.DatasetSummary, error)
 		List() ([]api.DatasetSummary, error)
 	}
 
@@ -131,6 +132,30 @@ func (d *datasets) Delete(name string) error {
 
 	fmt.Println(result["result"])
 	return nil
+}
+
+func (d *datasets) Get(name string) (*api.DatasetSummary, error) {
+	url := d.controllerUrl + "/dataset/" + name
+
+	resp, err := d.httpClient.Get(url)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get perform http request")
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read responde body")
+	}
+
+	var dataset api.DatasetSummary
+	err = json.Unmarshal(body, &dataset)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not decode body")
+	}
+
+	return &dataset, nil
+
 }
 
 func (d *datasets) List() ([]api.DatasetSummary, error) {

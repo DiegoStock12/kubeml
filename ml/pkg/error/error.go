@@ -7,12 +7,11 @@ import (
 	"strings"
 )
 
-
 // Error is the way the API from both the python environment and
 // the kubeml components will serialize errors as a JSON response
 type Error struct {
-	Code    int `json:"code"`
-	Message string     `json:"error"`
+	Code    int    `json:"code"`
+	Message string `json:"error"`
 }
 
 // Error allows the kubeml error to override the default golang error,

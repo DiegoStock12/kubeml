@@ -72,7 +72,6 @@ func NewTrainJob(
 		scheduler:   client,
 		jobId:       task.Job.JobId,
 		parallelism: task.Job.State.Parallelism,
-		epoch:       1,
 		schedChan:   schedChan,
 		redisClient: redisClient,
 		task:        task,
@@ -111,7 +110,6 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 	job := &TrainJob{
 		logger:      logger.Named(fmt.Sprintf("trainJob-%s", jobId)),
 		jobId:       jobId,
-		epoch:       1,
 		schedChan:   make(chan *api.JobState),
 		redisClient: redisClient,
 		history:     api.JobHistory{},
@@ -154,7 +152,7 @@ func (job *TrainJob) Train() {
 	}
 
 	// Loop for as many epochs as required by the request
-	for ; job.epoch <= job.task.Parameters.Epochs; job.epoch++ {
+	for job.epoch = 1; job.epoch <= job.task.Parameters.Epochs; job.epoch++ {
 
 		// call all the training functions,
 		// gather the stats and return the time taken in the

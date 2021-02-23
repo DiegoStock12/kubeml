@@ -7,8 +7,6 @@ import (
 	"net/http"
 )
 
-
-
 // Handle Kubernetes heartbeats
 func (c *Controller) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
@@ -23,8 +21,10 @@ func (c *Controller) getHandler() http.Handler {
 	r.HandleFunc("/infer", c.infer).Methods("POST")
 
 	// dataset proxy and methods
-	r.HandleFunc("/dataset/{name}", c.storageServiceProxy)
+	r.HandleFunc("/dataset/{name}", c.getDataset).Methods("GET")
+	r.HandleFunc("/dataset/{name}", c.storageServiceProxy).Methods("POST", "DELETE")
 	r.HandleFunc("/dataset", c.listDatasets).Methods("GET")
+
 
 	// history
 	r.HandleFunc("/history/{taskId}", c.getHistory).Methods("GET")

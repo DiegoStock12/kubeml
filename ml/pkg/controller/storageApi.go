@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/diegostock12/kubeml/ml/pkg/util"
+	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
@@ -62,6 +63,68 @@ func (c *Controller) storageServiceProxy(w http.ResponseWriter, r *http.Request)
 	}
 
 	proxy.ServeHTTP(w, r)
+
+}
+
+// getDataset returns the summary of a dataset
+func (c *Controller) getDataset(w http.ResponseWriter, r *http.Request) {
+
+	vars := mux.Vars(r)
+	datasetName := vars["name"]
+
+	c.logger.Debug("getting dataset")
+
+	results, err := c.mongoClient.ListDatabases(context.Background(), bson.M{}, &options.ListDatabasesOptions{})
+	if err != nil {
+		c.logger.Error("error getting list of databases",
+			zap.Error(err))
+		http.Error(w, "error getting list of databases", http.StatusInternalServerError)
+		return
+	}
+
+	for _, dataset := range results.Databases {
+		if _, isDefaultDatabase := defaultDatabases[dataset.Name]; !isDefaultDatabase && datasetName == dataset.Name {
+			summary := api.DatasetSummary{
+				Name: dataset.Name,
+			}
+
+			// get the train and test collections and their size
+			trainCollection := c.mongoClient.Database(dataset.Name).Collection(CollectionTrain)
+			count, err := trainCollection.EstimatedDocumentCount(context.Background(), nil)
+			if err != nil {
+				c.logger.Error("error counting documents of collection",
+					zap.String("dataset", dataset.Name),
+					zap.String("collection", CollectionTrain))
+			} else {
+				summary.TrainSetSize = ((count * defaultBatchSize) / 100) * 100
+			}
+
+			testCollection := c.mongoClient.Database(dataset.Name).Collection(CollectionTest)
+			count, err = testCollection.EstimatedDocumentCount(context.Background(), nil)
+			if err != nil {
+				c.logger.Error("error counting documents of collection",
+					zap.String("dataset", dataset.Name),
+					zap.String("collection", CollectionTest))
+			} else {
+				summary.TestSetSize = ((count * defaultBatchSize) / 100) * 100
+			}
+
+			resp, err := json.Marshal(summary)
+			if err != nil {
+				c.logger.Error("error marshaling dataset data",
+					zap.Error(err))
+				http.Error(w, "error marshaling response", http.StatusInternalServerError)
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(resp)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusNotFound)
+	http.Error(w, "dataset not found", http.StatusNotFound)
 
 }
 

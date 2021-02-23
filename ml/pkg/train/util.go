@@ -104,6 +104,11 @@ func (job *TrainJob) clearTensors() {
 		return
 	}
 
+	if len(tensorNames) == 0 {
+		job.logger.Error("No tensors found in storage")
+		return
+	}
+
 	// delete the temporary tensors in one call
 	deleteArgs := redis.Args{}.AddFlat(tensorNames)
 	num, err := redis.Int(job.redisClient.DoOrSend("DEL", deleteArgs, nil))
