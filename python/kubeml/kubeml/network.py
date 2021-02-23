@@ -1,3 +1,5 @@
+from abc import ABC, abstractmethod
+
 import logging
 import os
 from typing import Dict, List, Tuple, Any, Union
@@ -23,7 +25,7 @@ except KeyError:
     REDIS_PORT = 31618
 
 
-class KubeModel:
+class KubeModel(ABC):
 
     def __init__(self, network: nn.Module):
         self._network = network
@@ -195,14 +197,18 @@ class KubeModel:
 
         return state
 
+    @abstractmethod
     def init(self, model: nn.Module):
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def train(self, model: nn.Module) -> float:
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def validate(self, model: nn.Module) -> Tuple[float, float]:
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def infer(self, model: nn.Module, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
-        raise NotImplementedError
+        pass
