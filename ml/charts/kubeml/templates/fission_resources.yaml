@@ -1,7 +1,7 @@
 apiVersion: fission.io/v1
 kind: Environment
 metadata:
-  name: test
+  name: {{.Values.environment.defaultName}}
   namespace: default
 spec:
   poolsize: {{.Values.environment.poolsize}}
