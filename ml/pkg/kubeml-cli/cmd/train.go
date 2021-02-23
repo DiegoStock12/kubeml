@@ -45,7 +45,7 @@ func train(_ *cobra.Command, _ []string) error {
 	}
 
 	// validate the train request fields
-	if err := validateTrainRequest(&req); err != nil {
+	if err := validateTrainRequest(client, &req); err != nil {
 		return err
 	}
 
@@ -61,7 +61,7 @@ func train(_ *cobra.Command, _ []string) error {
 
 // validateTrainRequest checks for the validity of the request parameters
 // before submitting it to the controller
-func validateTrainRequest(req *api.TrainRequest) error {
+func validateTrainRequest(client *kubemlClient.KubemlClient, req *api.TrainRequest) error {
 
 	e :=  &multierror.Error{}
 
@@ -81,13 +81,13 @@ func validateTrainRequest(req *api.TrainRequest) error {
 	}
 
 	// check dataset exists
-	if exists, err := datasetExists(dataset); err != nil || !exists {
-		e = multierror.Append(e, fmt.Errorf("dataset %v does not exist", name))
+	if exists, err := datasetExists(client, dataset); err != nil || !exists {
+		e = multierror.Append(e, fmt.Errorf("dataset \"%v\" does not exist", dataset))
 	}
 
 	// check function exists
 	if exists, err := functionExists(functionName); err != nil || !exists {
-		e = multierror.Append(e, fmt.Errorf("function %v does not exist", functionName))
+		e = multierror.Append(e, fmt.Errorf("function \"%v\" does not exist", functionName))
 	}
 
 
@@ -95,9 +95,7 @@ func validateTrainRequest(req *api.TrainRequest) error {
 }
 
 // datasetExists returns true if dataset is present in kubeml
-func datasetExists(name string) (bool, error) {
-
-	client := kubemlClient.MakeKubemlClient()
+func datasetExists(client *kubemlClient.KubemlClient, name string) (bool, error) {
 
 	_, err := client.V1().Datasets().Get(name)
 	if err != nil {
@@ -109,7 +107,7 @@ func datasetExists(name string) (bool, error) {
 }
 
 // functionExists returns true if function is in kubeml
-func functionExists(name string) (bool, error) {
+func functionExists(functionName string) (bool, error) {
 
 	fissionClient, _, _, err := crd.MakeFissionClient()
 	if err != nil {
@@ -117,7 +115,7 @@ func functionExists(name string) (bool, error) {
 	}
 
 	// check if the fission function exists
-	_, err = fissionClient.CoreV1().Functions("").Get(name, metav1.GetOptions{})
+	_, err = fissionClient.CoreV1().Functions(metav1.NamespaceDefault).Get(functionName, metav1.GetOptions{})
 	if err == nil {
 		return true, nil
 	}

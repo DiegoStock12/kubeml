@@ -131,10 +131,10 @@ func (job *TrainJob) invokeTrainFunctions() ([]int, error) {
 	}
 
 	wg.Wait()
-	job.logger.Info("Got all the responses, iterating",
-		zap.Int("number of responses", len(respChan)))
-
 	n := len(respChan)
+	job.logger.Info("Got all the responses, iterating",
+		zap.Int("number of responses", n))
+	
 	if n == 0 {
 		// if all the functions failed with the same error, see
 		// which error caused that

@@ -123,7 +123,6 @@ func (c *Controller) getDataset(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.WriteHeader(http.StatusNotFound)
 	http.Error(w, "dataset not found", http.StatusNotFound)
 
 }
