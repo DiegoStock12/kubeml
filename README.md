@@ -85,7 +85,18 @@ $ helm install fission-metrics --namespace monitoring prometheus-community/kube-
 ```
 
 ### Install KubeML
-TODO: write helm charts for easy installation
+
+The best way to install KubeML is to use Helm to install the provided charts. For installing in the preferred namespace,
+you can use the following commands:
+
+```bash
+$ export KUBEML_NAMESPACE=kubeml
+$ kubectl create namespace $KUBEML_NAMESPACE
+
+# Install all the components in the kubeml namespace
+$ helm install --namespace $KUBEML_NAMESPACE --name-template kubeml \
+    https://github.com/diegostock12/kubeml/releases/download/0.1.0/kubeml-0.1.0.tgz
+```
 
 ## Writing a Function
 
