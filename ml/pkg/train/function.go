@@ -2,8 +2,8 @@ package train
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
+	kerror "github.com/diegostock12/kubeml/ml/pkg/error"
 	"github.com/diegostock12/kubeml/ml/pkg/util"
 	"go.uber.org/zap"
 	"io/ioutil"
@@ -70,8 +70,8 @@ func (job *TrainJob) buildFunctionURL(args FunctionArgs, task FunctionTask) stri
 func (job *TrainJob) invokeInitFunction() ([]string, error) {
 
 	job.logger.Info("Invoking init function")
-	query := job.buildFunctionURL(FunctionArgs{}, Init)
-	resp, err := http.Get(query)
+	funcUrl := job.buildFunctionURL(FunctionArgs{}, Init)
+	resp, err := http.Get(funcUrl)
 	if err != nil {
 		job.logger.Error("Could not call the init function",
 			zap.String("funcName", job.task.Parameters.FunctionName),
@@ -124,16 +124,15 @@ func (job *TrainJob) invokeTrainFunctions() ([]int, error) {
 		job.logger.Debug("Invoking function", zap.Int("id", i))
 
 		args := FunctionArgs{Id: i, Num: job.parallelism}
-		query := job.buildFunctionURL(args, Train)
+		funcUrl := job.buildFunctionURL(args, Train)
 
 		wg.Add(1)
-		go job.launchFunction(i, query, wg, respChan, errChan)
+		go job.launchFunction(i, funcUrl, wg, respChan, errChan)
 	}
 
 	wg.Wait()
 	job.logger.Info("Got all the responses, iterating",
 		zap.Int("number of responses", len(respChan)))
-	close(respChan)
 
 	n := len(respChan)
 	if n == 0 {
@@ -152,23 +151,12 @@ func (job *TrainJob) invokeTrainFunctions() ([]int, error) {
 			zap.Int("responses", n))
 	}
 
-	// Iterate through all the responses from the training functions that are in
-	// the channel. Average them onto a single metric which we will publish in the
-	// history and also expose to Prometheus
-	//
-	// It might happen that some of the functions fail. In that case, we count
-	// the number of responses and use that number when averaging the layers
-	var loss float64
-	var funcs []int
-	for response := range respChan {
-		job.logger.Debug("Got result...", zap.Any("Result", response.results))
-		loss += response.results["loss"]
-		funcs = append(funcs, response.funcId)
-	}
+	// get the average loss
+	loss, funcs := getAverageLoss(respChan)
 
-	avgLoss := loss / float64(n)
-	job.logger.Info("Epoch had average loss", zap.Float64("loss", avgLoss))
-	job.history.TrainLoss = append(job.history.TrainLoss, avgLoss)
+
+	job.logger.Info("Epoch had average loss", zap.Float64("loss", loss))
+	job.history.TrainLoss = append(job.history.TrainLoss, loss)
 
 	job.logger.Debug("History updated", zap.Any("history", job.history))
 	return funcs, nil
@@ -181,8 +169,8 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 	defer wg.Done()
 	job.logger.Info("Invoking validation function")
 
-	query := job.buildFunctionURL(FunctionArgs{}, Validation)
-	resp, err := http.Get(query)
+	funcUrl := job.buildFunctionURL(FunctionArgs{}, Validation)
+	resp, err := http.Get(funcUrl)
 	if err != nil {
 		job.logger.Error("Could not call the validation function",
 			zap.String("funcName", job.task.Parameters.FunctionName),
@@ -190,38 +178,33 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 			zap.Error(err))
 		return
 	}
+
+	if err = kerror.CheckFunctionError(resp); err != nil {
+		job.logger.Error("validation function returned an error",
+			zap.Error(err))
+		return
+	}
+
 	defer resp.Body.Close()
-
-	data, err := ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		job.logger.Error("Could not read layer names",
-			zap.Error(err))
-		return
-	}
-	if resp.StatusCode != http.StatusOK {
-		funcError, err := parseResponseError(data)
-		if err != nil {
-			job.logger.Error("error parsing function error", zap.Error(err))
-			return
-		}
-		job.logger.Error("Validation function returned an error", zap.Error(funcError))
-		return
-	}
-
-	var results map[string]float64
-	err = json.Unmarshal(data, &results)
-	if err != nil {
-		job.logger.Error("Could not parse JSON",
-			zap.String("body", string(data)),
+		job.logger.Error("Could not read response body",
 			zap.Error(err))
 		return
 	}
 
-	job.logger.Debug("Got validation results", zap.Any("results", results))
+	res, err := parseFunctionResults(body)
+	if err != nil {
+		job.logger.Error("could not parse validation results",
+			zap.String("body", string(body)),
+			zap.Error(err))
+	}
+
+	job.logger.Debug("Got validation results", zap.Any("results", res))
 
 	// Update the history with the new results
-	job.history.ValidationLoss = append(job.history.ValidationLoss, results["loss"])
-	job.history.Accuracy = append(job.history.Accuracy, results["accuracy"])
+	job.history.ValidationLoss = append(job.history.ValidationLoss, res["loss"])
+	job.history.Accuracy = append(job.history.Accuracy, res["accuracy"])
 	job.logger.Debug("History updated", zap.Any("history", job.history))
 
 }
@@ -230,7 +213,7 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 // invokeTrainFunctions function. Which averages the results and adds them to the history
 func (job *TrainJob) launchFunction(
 	funcId int,
-	query string,
+	funcUrl string,
 	wg *sync.WaitGroup,
 	respChan chan *FunctionResults,
 	errChan chan error) {
@@ -238,40 +221,33 @@ func (job *TrainJob) launchFunction(
 	job.logger.Info("Starting request for function number", zap.Int("func_id", funcId))
 	defer wg.Done()
 
-	resp, err := http.Get(query)
+	resp, err := http.Get(funcUrl)
 	if err != nil {
 		job.logger.Error("Error when performing request",
 			zap.Int("funcId", funcId),
 			zap.Error(err))
 		return
 	}
-	defer resp.Body.Close()
 
+	// Check if we got a KubeML error in the response, if so return it in the error chan
+	if err = kerror.CheckFunctionError(resp); err != nil {
+		errChan <- err
+		return
+	}
+
+	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		job.logger.Error("Could not read response body", zap.Error(err))
 		return
 	}
 
-	var res map[string]float64
-	var funcError error
-	job.logger.Debug(fmt.Sprintf("Received body, %s", string(body)), zap.Int("funcId", funcId))
-	if err = json.Unmarshal(body, &res); err != nil {
-		job.logger.Error("Could not parse the JSON data", zap.Error(err),
-			zap.String("data", string(body)),
-			zap.String("status", resp.Status))
-
-		// TODO maybe make a function directly for this
-		// if we get an error parsing into the results, try
-		// to parse the error in the json data
-		funcError, err = parseResponseError(body)
-		if err != nil {
-			job.logger.Error("error parsing function error",
-				zap.Error(err))
-			errChan <- err
-		} else {
-			errChan <- funcError
-		}
+	job.logger.Debug("Received body",
+		zap.String("body", string(body)),
+		zap.Int("funcId", funcId))
+	res, err := parseFunctionResults(body)
+	if err != nil {
+		errChan <- err
 		return
 	}
 

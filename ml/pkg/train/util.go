@@ -21,6 +21,36 @@ func createMongoURI() string {
 	}
 }
 
+// getAverageLoss iterates through the function results gotten from several
+// training functions and returns the average loss and the ids of the functions that completed
+func getAverageLoss(respChan chan *FunctionResults) (float64, []int) {
+	var funcs []int
+	var loss float64
+
+	// close the channel so it can be iterated over
+	close(respChan)
+	for response := range respChan {
+		loss += response.results["loss"]
+		funcs = append(funcs, response.funcId)
+	}
+
+	avgLoss := loss / float64(len(funcs))
+	return avgLoss, funcs
+}
+
+// parseFunctionResults reads the result from the function and returns
+// a map holding the execution results such as accuracy, loss...
+func parseFunctionResults(body []byte) (map[string]float64, error) {
+
+	var results map[string]float64
+	err := json.Unmarshal(body, &results)
+	if err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
 // parseResponseError gets the error resulting from the function calls
 // ans extracts it from the response
 func parseResponseError(data []byte) (funcError error, err error) {
