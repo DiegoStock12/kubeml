@@ -16,6 +16,20 @@ storageImage: diegostock12/storage-svc
 ## Namespace for the images
 namespace: kubeml
 
+## Configuration for the environment in which functions will run
+## this is a fission CRD with a custom image and dependencies already installed
+environment:
+  defaultName: torch
+  poolsize: 3
+  cpuMin: 100m
+  cpuMax: 500m
+  image: diegostock12/python-env
+  imageVersion: "0.1.4"
+  gracePeriod: 15
+  version: 2
+
+
+
 ## Instructions for mongo deployment
 mongo:
   serviceType: LoadBalancer

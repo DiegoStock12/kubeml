@@ -1,0 +1,16 @@
+apiVersion: fission.io/v1
+kind: Environment
+metadata:
+  name: test
+  namespace: default
+spec:
+  poolsize: {{.Values.environment.poolsize}}
+  resources:
+    limits:
+      cpu: {{.Values.environment.cpuMax}}
+    requests:
+      cpu: {{.Values.environment.cpuMin}}
+  runtime:
+    image: "{{.Values.environment.image}}:{{.Values.environment.imageVersion}}}"
+  terminationGracePeriod: {{.Values.environment.gracePeriod}}
+  version: {{.Values.environment.version}}
