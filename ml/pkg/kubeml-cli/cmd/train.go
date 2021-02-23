@@ -13,7 +13,6 @@ import (
 
 const (
 	maxBatchSize = 1024
-	functionNamespace
 )
 
 var (
@@ -44,13 +43,18 @@ func train(_ *cobra.Command, _ []string) error {
 		LearningRate: lr,
 		FunctionName: functionName,
 	}
-	fmt.Println("Request", req)
+
+	// validate the train request fields
+	if err := validateTrainRequest(&req); err != nil {
+		return err
+	}
+
 	id, err := client.V1().Networks().Train(&req)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(id)
+	fmt.Println("Started train job with Id",id)
 	return nil
 
 }
