@@ -9,11 +9,12 @@ import (
 )
 
 var (
-	tasksCmd = &cobra.Command{
-		Use:     "tasks",
-		Short:   "Manage Running tasks",
-	}
+	short bool
 
+	tasksCmd = &cobra.Command{
+		Use:   "task",
+		Short: "Manage Running tasks",
+	}
 
 	tasksListCmd = &cobra.Command{
 		Use:   "list",
@@ -22,7 +23,6 @@ var (
 	}
 )
 
-
 // listFunctions returns a table with the information of the current functions
 func listTasks(_ *cobra.Command, _ []string) error {
 	// make fission client
@@ -30,7 +30,16 @@ func listTasks(_ *cobra.Command, _ []string) error {
 
 	// get the list of functions and print some of their properties to a table
 	tasks, err := client.V1().Tasks().List()
-	if err != nil {return err}
+	if err != nil {
+		return err
+	}
+
+	if short {
+		for _, task := range tasks {
+			fmt.Println(task.Job.JobId)
+		}
+		return nil
+	}
 
 	w := tabwriter.NewWriter(os.Stdout, 1, 1, 2, ' ', 0)
 	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n", "NAME", "FUNCTION", "DATASET", "MODEL", "EPOCHS", "BATCH", "LR")
@@ -50,6 +59,6 @@ func listTasks(_ *cobra.Command, _ []string) error {
 func init() {
 	rootCmd.AddCommand(tasksCmd)
 	tasksCmd.AddCommand(tasksListCmd)
+
+	tasksListCmd.Flags().BoolVar(&short, "short", false, "Trigger short format")
 }
-
-
