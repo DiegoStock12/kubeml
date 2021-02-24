@@ -6,6 +6,7 @@ import (
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"io/ioutil"
 	"net/http"
 	"strings"
 )
@@ -26,6 +27,28 @@ func MakeClient(logger *zap.Logger, psUrl string) *Client {
 		httpClient: &http.Client{},
 	}
 
+}
+
+// ListTasks returns the response of the tasks in a byte format
+// since the usage will only be internally, the controller will just redirect the bytes
+// to the requester
+func (c *Client) ListTasks() ([]byte, error) {
+	url := c.psUrl + "/tasks"
+
+	c.logger.Debug("Listing tasks")
+
+	resp, err := c.httpClient.Get(url)
+	if err != nil {
+		return nil, errors.Wrap(err, "error performing request")
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "error reading response body")
+	}
+
+	return body, nil
 }
 
 // UpdateTask sends the parameters to the PS for the

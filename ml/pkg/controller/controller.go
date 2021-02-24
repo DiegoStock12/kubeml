@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
+	psClient "github.com/diegostock12/kubeml/ml/pkg/ps/client"
 	schedulerClient "github.com/diegostock12/kubeml/ml/pkg/scheduler/client"
 	"github.com/diegostock12/kubeml/ml/pkg/util"
 	"github.com/pkg/errors"
@@ -21,6 +22,7 @@ type (
 	Controller struct {
 		logger      *zap.Logger
 		scheduler   *schedulerClient.Client
+		ps          *psClient.Client
 		mongoClient *mongo.Client
 	}
 )
@@ -47,7 +49,7 @@ func getMongoClient() (*mongo.Client, error) {
 }
 
 // Start starts the controller in the specified port
-func Start(logger *zap.Logger, port int, schedulerUrl string) {
+func Start(logger *zap.Logger, port int, schedulerUrl, psUrl string) {
 
 	c := &Controller{
 		logger: logger.Named("controller"),
@@ -55,6 +57,8 @@ func Start(logger *zap.Logger, port int, schedulerUrl string) {
 
 	// Set the scheduler and mongo clients
 	c.scheduler = schedulerClient.MakeClient(c.logger, schedulerUrl)
+	c.ps = psClient.MakeClient(c.logger, psUrl)
+
 	client, err := getMongoClient()
 	if err != nil {
 		log.Fatal(err)

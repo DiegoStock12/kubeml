@@ -25,6 +25,9 @@ func (c *Controller) getHandler() http.Handler {
 	r.HandleFunc("/dataset/{name}", c.storageServiceProxy).Methods("POST", "DELETE")
 	r.HandleFunc("/dataset", c.listDatasets).Methods("GET")
 
+	// get current tasks
+	r.HandleFunc("/tasks", c.listTasks).Methods("GET")
+
 
 	// history
 	r.HandleFunc("/history/{taskId}", c.getHistory).Methods("GET")

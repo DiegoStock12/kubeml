@@ -31,8 +31,8 @@ func getPort(logger *zap.Logger, portArg interface{}) int {
 }
 
 // Run the controller
-func runController(logger *zap.Logger, port int, schedulerUrl string) {
-	controller.Start(logger, port, schedulerUrl)
+func runController(logger *zap.Logger, port int, schedulerUrl, psUrl string) {
+	controller.Start(logger, port, schedulerUrl, psUrl)
 	logger.Fatal("Controller exited")
 
 }
@@ -49,8 +49,7 @@ func runParameterServer(logger *zap.Logger, port int, schedulerUrl string, stand
 	logger.Fatal("Parameter Server exited")
 }
 
-
-func runJob(logger *zap.Logger, port int, jobId string){
+func runJob(logger *zap.Logger, port int, jobId string) {
 	job := train.NewBasicJob(logger, jobId)
 	job.Serve(port)
 }
@@ -107,7 +106,7 @@ Options:
 	// Invoke a specific function depending on what we want to run
 	if args["--controllerPort"] != nil {
 		port := getPort(logger, args["--controllerPort"])
-		runController(logger, port, schedulerUrl)
+		runController(logger, port, schedulerUrl, psUrl)
 	}
 
 	// Run ps if it is the passed argument
@@ -122,7 +121,7 @@ Options:
 			sjobs = true
 		} else {
 			sjobs, err = strconv.ParseBool(standaloneJobs)
-			if err != nil{
+			if err != nil {
 				logger.Fatal("could not parse env variable for jobs", zap.Error(err))
 			}
 		}

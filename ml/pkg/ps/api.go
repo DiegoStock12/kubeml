@@ -12,6 +12,29 @@ import (
 	"net/http"
 )
 
+// listTasks returns a list of the currently running tasks
+func (ps *ParameterServer) listTasks(w http.ResponseWriter, r *http.Request) {
+	ps.mu.RLock()
+	defer ps.mu.RUnlock()
+
+	var tasks []*api.TrainTask
+	for _, task := range ps.jobIndex {
+		tasks = append(tasks, task)
+	}
+
+	resp, err := json.Marshal(tasks)
+	if err != nil {
+		ps.logger.Error("error marshalling tasks", zap.Error(err))
+		http.Error(w, "error sending tasks", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(resp)
+
+}
+
 // updateTask Handles the responses from the scheduler to the
 // requests by the parameter servers to
 func (ps *ParameterServer) updateTask(w http.ResponseWriter, r *http.Request) {
@@ -251,6 +274,7 @@ func (ps *ParameterServer) GetHandler() http.Handler {
 	r.HandleFunc("/health", ps.handleHealth).Methods("GET")
 	r.HandleFunc("/metrics/{jobId}", ps.updateJobMetrics).Methods("POST")
 	r.HandleFunc("/finish/{jobId}", ps.jobFinish).Methods("POST")
+	r.HandleFunc("/tasks", ps.listTasks).Methods("GET")
 	return r
 }
 

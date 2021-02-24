@@ -26,7 +26,7 @@ func main() {
 
 	// Create the scheduler which will trigger the parameter server for now
 	// The paramater server will also fetch the layers from the redis db and build a model
-	go controller.Start(logger, api.CONTROLLER_DEBUG_PORT, schedulerUrl)
+	go controller.Start(logger, api.CONTROLLER_DEBUG_PORT, schedulerUrl, psUrl)
 	go scheduler.Start(logger, api.SCHEDULER_DEBUG_PORT, psUrl)
 	go ps.Start(logger, api.PS_DEBUG_PORT, schedulerUrl, false)
 
