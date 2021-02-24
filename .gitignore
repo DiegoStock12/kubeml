@@ -23,3 +23,8 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+
+# compressed files
+*.zip
+*.tar.gz
