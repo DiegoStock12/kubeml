@@ -80,32 +80,30 @@ func (job *TrainJob) invokeInitFunction() ([]string, error) {
 
 		return nil, err
 	}
-	defer resp.Body.Close()
 
+	// check if an error was returned
+	if err = kerror.CheckFunctionError(resp); err != nil {
+		return nil, err
+	}
+
+
+	defer resp.Body.Close()
 	var names []string
-	data, err := ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		job.logger.Fatal("Could not read function response",
+		job.logger.Fatal("Could not read init function response",
 			zap.Error(err))
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
-		funcError, err := parseResponseError(data)
-		if err != nil {
-			return names, err
-		}
-		return names, funcError
-	}
 
-	err = json.Unmarshal(data, &names)
+	err = json.Unmarshal(body, &names)
 	if err != nil {
 		job.logger.Error("Could not unmarshall json",
-			zap.String("body", string(data)),
+			zap.String("body", string(body)),
 			zap.Error(err))
 		return names, err
 	}
 
-	// Set the layer names
 	return names, nil
 
 }

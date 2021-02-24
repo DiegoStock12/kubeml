@@ -143,7 +143,9 @@ func (job *TrainJob) Train() {
 		job.ps.JobFinished(job.jobId, job.exitErr)
 	}()
 
-	err := job.initializeModel()
+	// Call the init function and build the reference model,
+	// fatal if it fails
+	err := job.init()
 	if err != nil {
 		job.logger.Error("Could not initialize model",
 			zap.Error(err))
@@ -151,7 +153,7 @@ func (job *TrainJob) Train() {
 		return
 	}
 
-	// Loop for as many epochs as required by the request
+	// Main training loop
 	for job.epoch = 1; job.epoch <= job.task.Parameters.Epochs; job.epoch++ {
 
 		// call all the training functions,
@@ -215,8 +217,8 @@ func (job *TrainJob) Train() {
 
 }
 
-// initializeModel launches the function and creates the model used by the TrainJob
-func (job *TrainJob) initializeModel() error {
+// init launches the function and creates the model used by the TrainJob
+func (job *TrainJob) init() error {
 
 	job.logger.Debug("Calling init function")
 	layers, err := job.invokeInitFunction()
