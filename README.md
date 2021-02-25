@@ -24,7 +24,25 @@ KubeML runs your ML code on top of Kubernetes, using Fission as the serverless
 platform of choice. Once a function is deployed, you can upload datasets and start 
 training jobs with just a single command.
 
-### Components
+
+## Table of Contents
+
+* [Components](#components)
+* [Installation](#installation)
+    * [Install Fission](#install-fission)
+    * [Install Prometheus](#install-prometheus)
+    * [Install KubeML](#install-kubeml)
+* [Writing a Function](#writing-a-function)
+    * [Define the Dataset](#define-the-dataset-class)
+    * [Define the Network](#define-the-network)
+    * [Define the Function Entrypoint](#define-the-function-entrypoint)
+* [Training a Network](#training-a-network)
+    * [Deploy a Function](#deploying-a-function)
+    * [Upload a dataset](#uploading-a-dataset)
+    * [Start Training](#starting-the-training)
+    
+
+## Components
 
 1. _Controller_: Exposes the KubeML resources to an API
 
@@ -206,14 +224,14 @@ def main():
     return kubenet.start()
 ```
 
-## Training a network
+## Training a Network
 
 ### Deploying a Function
 
 Once you have written you function code, you can deploy it using the KubeML CLI.
 
 ```bash
-$ kubeml function create --name <function name> --code <python file>
+$ kubeml function create --name example --code network.py
 ```
 
 ### Uploading a Dataset
@@ -222,11 +240,11 @@ To upload a dataset, create four different files (.npy or .pkl formats are accep
 After that, you can easily upload it with the CLI.
 
 ```bash
-$ kubeml dataset create --name <name> \
-    --traindata <train file> \
-    --trainlabels <labels file> \
-    --testdata <validation file> \
-    --testlabels <val. labels file>
+$ kubeml dataset create --name mnist \
+    --traindata train.npy \
+    --trainlabels y_train.npy \
+    --testdata test.npy \
+    --testlabels y_test.npy
 ```
 
 ### Starting the Training
@@ -234,8 +252,10 @@ $ kubeml dataset create --name <name> \
 After the dataset and functions are created, start the training using the network and dataset names defined above.
 
 ```bash
-$ kubeml train --function <function name> --dataset <dataset name> \
-    --epochs <num. epochs> \
-    --batch <batch size> \
-    --lr <learning rate> 
+$ kubeml train \
+    --function example \
+    --dataset mnist \
+    --epochs 10 \
+    --batch 128 \
+    --lr 0.01
 ```
