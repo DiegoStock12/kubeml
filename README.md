@@ -1,5 +1,9 @@
 # KubeML
 
+
+![KubeML CI](https://github.com/diegostock12/kubeml/actions/workflows/kubeml.yml/badge.svg)
+
+
 KubeML, Serverless Neural Network Training on Kubernetes with transparent load distribution. 
 Write code as if you were to run it locally, and easily deploy it to a distributed
 training platform.

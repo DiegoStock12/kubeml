@@ -1,4 +1,4 @@
-name: Compile KubeML
+name: KubeML CI
 
 on:
   push:
