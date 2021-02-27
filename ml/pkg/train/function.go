@@ -182,7 +182,7 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 			zap.Error(err))
 		return
 	}
-	
+
 	res, err := parseFunctionResults(resp)
 	if err != nil {
 		job.logger.Error("could not parse validation results",
