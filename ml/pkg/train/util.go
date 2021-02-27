@@ -3,14 +3,16 @@ package train
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/diegostock12/kubeml/ml/pkg/util"
 	"github.com/gomodule/redigo/redis"
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
+	"io/ioutil"
+	"net/http"
 )
 
 func createMongoURI() string {
@@ -38,12 +40,17 @@ func getAverageLoss(respChan chan *FunctionResults) (float64, []int) {
 	return avgLoss, funcs
 }
 
-// parseFunctionResults reads the result from the function and returns
-// a map holding the execution results such as accuracy, loss...
-func parseFunctionResults(body []byte) (map[string]float64, error) {
+// parseFunctionResults takes care of extracting the results from the response body
+func parseFunctionResults(resp *http.Response) (map[string]float64, error) {
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to read response body")
+	}
 
 	var results map[string]float64
-	err := json.Unmarshal(body, &results)
+	err = json.Unmarshal(body, &results)
 	if err != nil {
 		return nil, err
 	}

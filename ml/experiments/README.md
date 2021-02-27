@@ -18,3 +18,4 @@ distributed session. The main points of focus of the experiments are:
     
 3. Developer Related Factors:
     * Number of lines of code needed to go from a local deployment to a distributed training environment
+    * Cost of training when compared to a tensorflow server

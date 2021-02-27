@@ -182,19 +182,10 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 			zap.Error(err))
 		return
 	}
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		job.logger.Error("Could not read response body",
-			zap.Error(err))
-		return
-	}
-
-	res, err := parseFunctionResults(body)
+	
+	res, err := parseFunctionResults(resp)
 	if err != nil {
 		job.logger.Error("could not parse validation results",
-			zap.String("body", string(body)),
 			zap.Error(err))
 	}
 
@@ -233,17 +224,7 @@ func (job *TrainJob) launchFunction(
 		return
 	}
 
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		job.logger.Error("Could not read response body", zap.Error(err))
-		return
-	}
-
-	job.logger.Debug("Received body",
-		zap.String("body", string(body)),
-		zap.Int("funcId", funcId))
-	res, err := parseFunctionResults(body)
+	res, err := parseFunctionResults(resp)
 	if err != nil {
 		errChan <- err
 		return

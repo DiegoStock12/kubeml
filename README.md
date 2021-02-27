@@ -1,7 +1,7 @@
 # KubeML
 
 
-![KubeML CI](https://github.com/diegostock12/kubeml/actions/workflows/kubeml.yml/badge.svg)
+![KubeML CI](https://github.com/diegostock12/kubeml/actions/workflows/kubeml.yml/badge.svg?branch=master)
 
 
 KubeML, Serverless Neural Network Training on Kubernetes with transparent load distribution. 
