@@ -3,7 +3,7 @@ from abc import ABC
 import torch.utils.data as data
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
-from flask import request, current_app
+from flask import request
 import numpy as np
 import pickle
 import os
@@ -14,12 +14,13 @@ from .exceptions import *
 
 # Load from environment the values from th MONGO IP and PORT
 try:
-    MONGO_IP = os.environ['MONGO_IP']
+    MONGO_URL = os.environ['MONGO_IP']
     MONGO_PORT = os.environ['MONGO_PORT']
+    logging.debug(f'Found configuration for storage {MONGO_URL}:{MONGO_PORT}')
 except KeyError:
-    logging.error("Could not find mongo configuration in env, using defaults")
-    MONGO_IP = "192.168.99.101"
-    MONGO_PORT = 30933
+    logging.debug("Could not find mongo configuration in env, using defaults")
+    MONGO_URL = "mongodb.kubeml"
+    MONGO_PORT = 27017
 
 
 class _KubeArgs:
@@ -54,7 +55,7 @@ class _KubeArgs:
             batch_size = request.args.get("batchSize", type=int)
 
         except ValueError as ve:
-            current_app.logger.error(f"Error parsing request arguments: {ve}, args:{request.args}")
+            logging.error(f"Error parsing request arguments: {ve}, args:{request.args}")
             raise InvalidArgsError(ve)
 
         args = cls(job_id, N, task, func_id, lr, batch_size)
@@ -79,7 +80,7 @@ class KubeDataset(data.Dataset, ABC):
         """
 
         self.dataset = dataset
-        self._client = MongoClient(MONGO_IP, MONGO_PORT)
+        self._client = MongoClient(MONGO_URL, MONGO_PORT)
         self._database = self._client[dataset]
         self._args = _KubeArgs.parse()
 
@@ -88,8 +89,8 @@ class KubeDataset(data.Dataset, ABC):
         try:
             dbs = set(self._client.list_database_names())
             if self.dataset not in dbs:
-                current_app.logger.error(f"Dataset not in the storage service. Dataset = {dataset},"
-                                         f"Available = {dbs}")
+                logging.error(f"Dataset not in the storage service. Dataset = {dataset},"
+                              f"Available = {dbs}")
                 self._client.close()
                 raise DatasetNotFoundError
 
@@ -100,7 +101,7 @@ class KubeDataset(data.Dataset, ABC):
         if self._args._task == "train":
             num_docs = self._database["train"].count_documents({})
             minibatches = self.__split_minibatches(range(num_docs), self._args._N)[self._args._func_id]
-            current_app.logger.debug(f"I get minibatches {minibatches}")
+            logging.debug(f"I get minibatches {minibatches}")
             self.data, self.labels = self.__load_data(minibatches)
 
         else:

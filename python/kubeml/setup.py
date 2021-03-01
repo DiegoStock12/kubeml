@@ -9,7 +9,7 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name='kubeml',
-    version='0.1',
+    version='0.1.1',
     description='Python tools for training Neural Networks with KubeML',
     author='Diego Albo Martínez',
     author_email="diego.albo.martinez@gmail.com",
@@ -18,7 +18,6 @@ setup(
     packages=['kubeml'],
     install_requires=[
         'torch>=1.7',
-        'flask',
         'redisai>=1.0.1',
         'pymongo>=3.11.1',
         'flask>=1.1.2'

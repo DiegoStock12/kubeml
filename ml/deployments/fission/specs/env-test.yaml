@@ -1,13 +1,8 @@
 apiVersion: fission.io/v1
 kind: Environment
 metadata:
-  creationTimestamp: null
   name: test
-  namespace: default
 spec:
-  builder: {}
-  imagepullsecret: ""
-  keeparchive: false
   poolsize: 3
   resources:
     limits:
@@ -16,5 +11,15 @@ spec:
       cpu: 100m
   runtime:
     image: diegostock12/python-env:0.1.4
+    podspec:
+      env:
+        - name: REDIS_URL
+          value: "redisai.kubeml"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: MONGO_URL
+          value: "mongodb.kubeml"
+        - name: MONGO_PORT
+          value: "27017"
   terminationGracePeriod: 15
   version: 2

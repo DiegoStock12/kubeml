@@ -11,6 +11,6 @@ spec:
     requests:
       cpu: {{.Values.environment.cpuMin}}
   runtime:
-    image: "{{.Values.environment.image}}:{{.Values.environment.imageVersion}}}"
+    image: "{{.Values.environment.image}}:{{.Values.environment.imageVersion}}"
   terminationGracePeriod: {{.Values.environment.gracePeriod}}
   version: {{.Values.environment.version}}

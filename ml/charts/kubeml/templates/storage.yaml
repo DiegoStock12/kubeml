@@ -24,7 +24,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: mongodb
+  name: {{.Values.mongo.serviceName}}
 spec:
   ports:
     - port: 27017
@@ -60,7 +60,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: redisai
+  name: {{.Values.redisai.serviceName}}
 spec:
   ports:
     - port: 6379

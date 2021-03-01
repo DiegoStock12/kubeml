@@ -8,7 +8,7 @@ import flask
 import numpy as np
 import redisai as rai
 import torch
-from flask import request, jsonify, current_app
+from flask import request, jsonify
 from redis.exceptions import RedisError
 
 from .dataset import _KubeArgs
@@ -17,12 +17,13 @@ from .util import *
 
 # Load from environment the values from th MONGO IP and PORT
 try:
-    REDIS_IP = os.environ['REDIS_IP']
+    REDIS_URL = os.environ['REDIS_URL']
     REDIS_PORT = os.environ['REDIS_PORT']
+    logging.debug(f'Found configuration for redis {REDIS_URL}:{REDIS_PORT}')
 except KeyError:
-    logging.error("Could not find redis configuration in env, using defaults")
-    REDIS_IP = "192.168.99.101"
-    REDIS_PORT = 31618
+    logging.debug("Could not find redis configuration in env, using defaults")
+    REDIS_URL = "redisai.kubeml"
+    REDIS_PORT = 6379
 
 
 class KubeModel(ABC):
@@ -31,7 +32,7 @@ class KubeModel(ABC):
         self._network = network
 
         # initialize redis connection
-        self._redis_client = rai.Client(host=REDIS_IP, port=REDIS_PORT)
+        self._redis_client = rai.Client(host=REDIS_URL, port=REDIS_PORT)
 
     def start(self) -> Tuple[flask.Response, int]:
         """
@@ -115,7 +116,7 @@ class KubeModel(ABC):
     def __infer(self) -> Union[torch.Tensor, np.ndarray, List[float]]:
         data_json = request.json
         if not data_json:
-            current_app.logger.error("JSON not found in request")
+            logging.error("JSON not found in request")
             raise DataError
 
         preds = self.infer(self._network, data_json)
@@ -135,7 +136,7 @@ class KubeModel(ABC):
         """
         state_dict = self.__get_model_dict()
         self._network.load_state_dict(state_dict)
-        current_app.logger.debug("Loaded state dict from redis")
+        logging.debug("Loaded state dict from redis")
 
     def __save_model(self):
         """
@@ -145,12 +146,12 @@ class KubeModel(ABC):
         task = self.args._task
         func_id = self.args._func_id
 
-        current_app.logger.debug("Saving model to the database")
+        logging.debug("Saving model to the database")
         with torch.no_grad():
             for name, layer in self._network.named_modules():
                 if is_optimizable(layer):
                     # Save the weights
-                    current_app.logger.debug(f'Setting weights for layer {name}')
+                    logging.debug(f'Setting weights for layer {name}')
                     weight_key = f'{job_id}:{name}.weight' \
                         if task == 'init' \
                         else f'{job_id}:{name}.weight/{func_id}'
@@ -158,13 +159,13 @@ class KubeModel(ABC):
 
                     # Save the bias if not None
                     if layer.bias is not None:
-                        current_app.logger.debug(f'Setting bias for layer {name}')
+                        logging.debug(f'Setting bias for layer {name}')
                         bias_key = f'{job_id}:{name}.bias' \
                             if task == 'init' \
                             else f'{job_id}:{name}.bias/{func_id}'
                         self._redis_client.tensorset(bias_key, layer.bias.cpu().detach().numpy(), dtype='float32')
 
-        current_app.logger.debug('Saved model to the database')
+        logging.debug('Saved model to the database')
 
     def __get_model_dict(self) -> Dict[str, torch.Tensor]:
         """
@@ -177,7 +178,7 @@ class KubeModel(ABC):
         state = dict()
         for name, layer in self._network.named_modules():
             if is_optimizable(layer):
-                current_app.logger.debug(f"Loading weights for layer {name}")
+                logging.debug(f"Loading weights for layer {name}")
                 weight_key = f'{job_id}:{name}.weight'
                 w = self._redis_client.tensorget(weight_key)
                 # set the weight
@@ -187,13 +188,13 @@ class KubeModel(ABC):
                 # Some of the layers in resnet do not have bias
                 # or it is None. It is not needed with BN, so skip it
                 if layer.bias is not None:
-                    current_app.logger.debug(f'Loading bias for layer {name}')
+                    logging.debug(f'Loading bias for layer {name}')
                     bias_key = f'{job_id}:{name}.bias'
                     w = self._redis_client.tensorget(bias_key)
                     # set the bias
                     state[bias_key[len(job_id) + 1:]] = torch.from_numpy(w)
 
-        current_app.logger.debug(f'Layers are {state.keys()}')
+        logging.debug(f'Layers are {state.keys()}')
 
         return state
 
