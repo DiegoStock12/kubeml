@@ -36,15 +36,15 @@ func (c *Controller) storageServiceProxy(w http.ResponseWriter, r *http.Request)
 	var ssUrl *url.URL
 	var err error
 	if util.IsDebugEnv() {
-		ssUrl, err = url.Parse(api.STORAGE_ADDRESS_DEBUG)
+		ssUrl, err = url.Parse(api.StorageAddressDebug)
 	} else {
-		ssUrl, err = url.Parse(api.STORAGE_ADDRESS)
+		ssUrl, err = url.Parse(api.StorageUrl)
 	}
 	if err != nil {
 		c.logger.Error("Error parsing url",
 			zap.Error(err),
-			zap.String("url", api.STORAGE_ADDRESS_DEBUG))
-		http.Error(w, fmt.Sprintf("Error parsing url %s: %v", api.STORAGE_ADDRESS, err),
+			zap.String("url", api.StorageAddressDebug))
+		http.Error(w, fmt.Sprintf("Error parsing url %s: %v", api.StorageUrl, err),
 			http.StatusInternalServerError)
 		return
 	}

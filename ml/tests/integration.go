@@ -21,14 +21,14 @@ func main() {
 		log.Fatal("Error building zap logger")
 	}
 
-	psUrl := fmt.Sprintf("http://localhost:%d", api.PS_DEBUG_PORT)
-	schedulerUrl := fmt.Sprintf("http://localhost:%d", api.SCHEDULER_DEBUG_PORT)
+	psUrl := fmt.Sprintf("http://localhost:%d", api.ParameterServerPortDebug)
+	schedulerUrl := fmt.Sprintf("http://localhost:%d", api.SchedulerPortDebug)
 
 	// Create the scheduler which will trigger the parameter server for now
 	// The paramater server will also fetch the layers from the redis db and build a model
-	go controller.Start(logger, api.CONTROLLER_DEBUG_PORT, schedulerUrl, psUrl)
-	go scheduler.Start(logger, api.SCHEDULER_DEBUG_PORT, psUrl)
-	go ps.Start(logger, api.PS_DEBUG_PORT, schedulerUrl, false)
+	go controller.Start(logger, api.ControllerPortDebug, schedulerUrl, psUrl)
+	go scheduler.Start(logger, api.SchedulerPortDebug, psUrl)
+	go ps.Start(logger, api.ParameterServerPortDebug, schedulerUrl, false)
 
 	select {}
 

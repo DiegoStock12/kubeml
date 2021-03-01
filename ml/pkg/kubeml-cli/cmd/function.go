@@ -19,11 +19,11 @@ import (
 )
 
 const (
-	DEFAULT_NAMESPACE        = metav1.NamespaceDefault
-	DEFAULT_ENVIRONMENT      = "torch"
-	DEFAULT_CONCURRENCY      = 10
-	DEFAULT_TIMEOUT          = 500
-	DEFAULT_IDLE_TIMEOUT int = 120
+	DefaultNamespace       = metav1.NamespaceDefault
+	DefaultEnvironment     = "torch"
+	DefaultConcurrency     = 10
+	DefaultTimeout         = 500
+	DefaultIdleTimeout int = 120
 )
 
 var (
@@ -32,7 +32,6 @@ var (
 	fnName     string
 	fnCodePath string
 
-	// TODO add a prerun hook so it creates the fission client
 	functionCmd = &cobra.Command{
 		Use:     "function",
 		Aliases: []string{"fn"},
@@ -78,7 +77,7 @@ func createFunction(_ *cobra.Command, _ []string) error {
 	}
 
 	// first check if the function already exists
-	_, err = fissionClient.CoreV1().Functions(DEFAULT_NAMESPACE).Get(fnName, metav1.GetOptions{})
+	_, err = fissionClient.CoreV1().Functions(DefaultNamespace).Get(fnName, metav1.GetOptions{})
 	if err == nil {
 		return errors.New(fmt.Sprintf("function \"%s\" already exists", fnName))
 	}
@@ -92,17 +91,17 @@ func createFunction(_ *cobra.Command, _ []string) error {
 	var secrets []fv1.SecretReference
 	var cfgmaps []fv1.ConfigMapReference
 	var resourceReq = v1.ResourceRequirements{}
-	var idleTimeout = DEFAULT_IDLE_TIMEOUT
+	var idleTimeout = DefaultIdleTimeout
 
 	fun := &fv1.Function{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fnName,
-			Namespace: DEFAULT_NAMESPACE,
+			Namespace: DefaultNamespace,
 		},
 		Spec: fv1.FunctionSpec{
 			Environment: fv1.EnvironmentReference{
-				Namespace: DEFAULT_NAMESPACE,
-				Name:      DEFAULT_ENVIRONMENT,
+				Namespace: DefaultNamespace,
+				Name:      DefaultEnvironment,
 			},
 			Package: fv1.FunctionPackageRef{
 				FunctionName: "",
@@ -122,13 +121,13 @@ func createFunction(_ *cobra.Command, _ []string) error {
 			Secrets:         secrets,
 			ConfigMaps:      cfgmaps,
 			Resources:       resourceReq,
-			FunctionTimeout: DEFAULT_TIMEOUT,
+			FunctionTimeout: DefaultTimeout,
 			IdleTimeout:     &idleTimeout,
-			Concurrency:     DEFAULT_CONCURRENCY,
+			Concurrency:     DefaultConcurrency,
 		},
 	}
 
-	_, err = fissionClient.CoreV1().Functions(DEFAULT_NAMESPACE).Create(fun)
+	_, err = fissionClient.CoreV1().Functions(DefaultNamespace).Create(fun)
 	if err != nil {
 		return errors.Wrap(err, "could not create function")
 	}
@@ -159,12 +158,12 @@ func createPackage(fissionClient *crd.FissionClient, fnName, codePath string) (*
 	pkg := &fv1.Package{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pkgName,
-			Namespace: DEFAULT_NAMESPACE,
+			Namespace: DefaultNamespace,
 		},
 		Spec: fv1.PackageSpec{
 			Environment: fv1.EnvironmentReference{
-				Namespace: DEFAULT_NAMESPACE,
-				Name:      DEFAULT_ENVIRONMENT,
+				Namespace: DefaultNamespace,
+				Name:      DefaultEnvironment,
 			},
 			Deployment: *deployment,
 		},
@@ -174,7 +173,7 @@ func createPackage(fissionClient *crd.FissionClient, fnName, codePath string) (*
 		},
 	}
 
-	pkgRef, err := fissionClient.CoreV1().Packages(DEFAULT_NAMESPACE).Create(pkg)
+	pkgRef, err := fissionClient.CoreV1().Packages(DefaultNamespace).Create(pkg)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create package")
 	}
@@ -238,7 +237,7 @@ func createTrigger(fissionClient *crd.FissionClient, name string, methods []stri
 		ht := &fv1.HTTPTrigger{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("%v-%v", name, strings.ToLower(method)),
-				Namespace: DEFAULT_NAMESPACE,
+				Namespace: DefaultNamespace,
 			},
 			Spec: fv1.HTTPTriggerSpec{
 				RelativeURL: "/" + name,
@@ -256,7 +255,7 @@ func createTrigger(fissionClient *crd.FissionClient, name string, methods []stri
 			},
 		}
 
-		_, err := fissionClient.CoreV1().HTTPTriggers(DEFAULT_NAMESPACE).Create(ht)
+		_, err := fissionClient.CoreV1().HTTPTriggers(DefaultNamespace).Create(ht)
 		if err != nil {
 			return errors.Wrap(err, "unable to create http trigger")
 		}
@@ -279,17 +278,17 @@ func deleteFunction(_ *cobra.Command, _ []string) error {
 	// Should delete the function, the http triggers and the package
 	var result *multierror.Error
 	fmt.Println("Deleting function resource...")
-	err = fissionClient.CoreV1().Functions(DEFAULT_NAMESPACE).Delete(fnName, &metav1.DeleteOptions{})
+	err = fissionClient.CoreV1().Functions(DefaultNamespace).Delete(fnName, &metav1.DeleteOptions{})
 	result = multierror.Append(result, err)
 
 	fmt.Println("Deleting package resource...")
 	pkgName := fmt.Sprintf("%v-%v", fnName, "pkg")
-	err = fissionClient.CoreV1().Packages(DEFAULT_NAMESPACE).Delete(pkgName, &metav1.DeleteOptions{})
+	err = fissionClient.CoreV1().Packages(DefaultNamespace).Delete(pkgName, &metav1.DeleteOptions{})
 	result = multierror.Append(result, err)
 
 	fmt.Println("Deleting triggers...")
 	triggerName := fmt.Sprintf("%s-%s", fnName, strings.ToLower(http.MethodGet))
-	err = fissionClient.CoreV1().HTTPTriggers(DEFAULT_NAMESPACE).Delete(triggerName, &metav1.DeleteOptions{})
+	err = fissionClient.CoreV1().HTTPTriggers(DefaultNamespace).Delete(triggerName, &metav1.DeleteOptions{})
 	result = multierror.Append(result, err)
 
 	if err = result.ErrorOrNil(); err == nil {
@@ -320,7 +319,7 @@ func listFunctions(_ *cobra.Command, _ []string) error {
 
 	// Display functions that use the default environment
 	for _, fun := range funList.Items {
-		if fun.Spec.Environment.Name == DEFAULT_ENVIRONMENT {
+		if fun.Spec.Environment.Name == DefaultEnvironment {
 			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", fun.Name, fun.Spec.Environment.Name, fun.Spec.Concurrency, fun.Spec.FunctionTimeout, fun.CreationTimestamp)
 		}
 	}

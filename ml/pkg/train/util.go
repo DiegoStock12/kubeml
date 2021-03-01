@@ -17,9 +17,9 @@ import (
 
 func createMongoURI() string {
 	if util.IsDebugEnv() {
-		return api.MONGO_ADDRESS_DEBUG
+		return api.MongoUrlDebug
 	} else {
-		return fmt.Sprintf("mongodb://%s:%d", api.MONGO_ADDRESS, api.MONGO_PORT)
+		return fmt.Sprintf("mongodb://%s:%d", api.MongoUrl, api.MongoPort)
 	}
 }
 

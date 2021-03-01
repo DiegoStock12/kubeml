@@ -22,9 +22,9 @@ func buildFunctionURL(funcId, numFunc int, task, funcName, psId string) string {
 
 	var routerAddr string
 	if util.IsDebugEnv() {
-		routerAddr = api.ROUTER_ADDRESS_DEBUG
+		routerAddr = api.FissionRouterUrlDebug
 	} else {
-		routerAddr = api.ROUTER_ADDRESS
+		routerAddr = api.FissionRouterUrl
 	}
 
 	values := url.Values{}

@@ -5,9 +5,16 @@ import (
 	"github.com/RedisAI/redisai-go/redisai"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/gomodule/redigo/redis"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gorgonia.org/tensor"
 	"sync"
+)
+
+const (
+	// Constants to save and retrieve the gradients
+	WeightSuffix = ".weight"
+	BiasSuffix   = ".bias"
 )
 
 type (
@@ -40,17 +47,10 @@ type (
 
 	// Layer keeps the Weights and Bias of a certain layer of the Neural Network
 	Layer struct {
-		Name string
-
+		Name    string
 		Weights *tensor.Dense
-
 		HasBias bool
 		Bias    *tensor.Dense
-	}
-
-	// Just a learning rate scheduler that multiplies the rate by rate when invoked
-	LrScheduler struct {
-		rate float32
 	}
 )
 
@@ -96,7 +96,6 @@ func (m *Model) Build() error {
 	return nil
 }
 
-
 // Summary runs through the layers of a model and prints its info
 func (m *Model) Summary() {
 	for name, layer := range m.StateDict {
@@ -115,39 +114,51 @@ func (m *Model) Save() error {
 	m.logger.Info("Publishing model on the database")
 
 	for name, layer := range m.StateDict {
-
-		m.logger.Debug("Setting weights",
-			zap.String("layer", name),
-			zap.Any("shape", layer.Weights))
-		args, _ := makeArgs(m.jobId, name, api.WeightSuffix, layer.Weights.Shape(), layer.Weights.Data())
-
-		_, err := m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
+		m.logger.Debug("Setting layer", zap.String("name", name))
+		err := m.setLayer(name, layer)
 		if err != nil {
-			m.logger.Error("Error setting weights",
-				zap.String("layer", name),
-				zap.Error(err))
 			return err
 		}
-
-		// Set the bias only if it is needed
-		if layer.HasBias {
-			m.logger.Debug("Setting bias",
-				zap.String("layer", name),
-				zap.Any("shape", layer.Bias))
-			args, _ = makeArgs(m.jobId, name, api.BiasSuffix, layer.Bias.Shape(), layer.Bias.Data())
-
-			_, err = m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
-			if err != nil {
-				m.logger.Error("Error setting bias",
-					zap.String("layer", name),
-					zap.Error(err))
-				return err
-			}
-		}
-
 	}
 
 	m.logger.Info("Model published in the DB")
+	return nil
+
+}
+
+// SetLayer saves a layer's weights and bias if available in the storage
+func (m *Model) setLayer(name string, layer *Layer) error {
+
+	err := m.setWeights(name, layer)
+	if err != nil {
+		return err
+	}
+
+	if layer.HasBias {
+		err = m.setBias(name, layer)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *Model) setWeights(name string, layer *Layer) error {
+	args, _ := makeArgs(m.jobId, name, WeightSuffix, layer.Weights.Shape(), layer.Weights.Data())
+	_, err := m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
+	if err != nil {
+		return errors.Wrapf(err, "could not set weights of layer %v", name)
+	}
+	return nil
+}
+
+func (m *Model) setBias(name string, layer *Layer) error {
+	args, _ := makeArgs(m.jobId, name, BiasSuffix, layer.Bias.Shape(), layer.Bias.Data())
+	_, err := m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
+	if err != nil {
+		return errors.Wrapf(err, "could not set bias of layer %v", name)
+	}
 	return nil
 
 }
@@ -200,8 +211,6 @@ func (m *Model) NewLayer(name string, funcId int) (*Layer, error) {
 	}, nil
 
 }
-
-
 
 // tensorExists simply returns whether the tensor is present in the cache
 // In some networks (i.e resnets) the bias of the layers is not used, so in those

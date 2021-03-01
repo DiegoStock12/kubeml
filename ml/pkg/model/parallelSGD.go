@@ -31,7 +31,6 @@ func (psgd ParallelSGD) Merge(m *Model, funcs ...int) {
 	// Then update the state dict
 	sd := make(map[string]*Layer)
 	for layerName := range m.StateDict {
-		psgd.logger.Debug("Merging layer", zap.String("name", layerName))
 		num := 0
 
 		// First fetch the layer output by all functions

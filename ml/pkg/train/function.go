@@ -2,6 +2,7 @@ package train
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	kerror "github.com/diegostock12/kubeml/ml/pkg/error"
 	"github.com/diegostock12/kubeml/ml/pkg/util"
@@ -45,9 +46,9 @@ func (job *TrainJob) buildFunctionURL(args FunctionArgs, task FunctionTask) stri
 
 	var routerAddr string
 	if util.IsDebugEnv() {
-		routerAddr = api.ROUTER_ADDRESS_DEBUG
+		routerAddr = api.FissionRouterUrlDebug
 	} else {
-		routerAddr = api.ROUTER_ADDRESS
+		routerAddr = api.FissionRouterUrl
 	}
 
 	values := url.Values{}
@@ -86,7 +87,6 @@ func (job *TrainJob) invokeInitFunction() ([]string, error) {
 		return nil, err
 	}
 
-
 	defer resp.Body.Close()
 	var names []string
 	body, err := ioutil.ReadAll(resp.Body)
@@ -111,9 +111,6 @@ func (job *TrainJob) invokeInitFunction() ([]string, error) {
 // invokeTrainFunctions Invokes N functions to start the next epoch
 // returns the function ids from which it got a response
 func (job *TrainJob) invokeTrainFunctions() ([]int, error) {
-
-	job.logger.Debug("Invoking functions", zap.Int("N", job.parallelism))
-
 	wg := &sync.WaitGroup{}
 	respChan := make(chan *FunctionResults, job.parallelism)
 	errChan := make(chan error, job.parallelism)
@@ -129,21 +126,18 @@ func (job *TrainJob) invokeTrainFunctions() ([]int, error) {
 	}
 
 	wg.Wait()
+
 	n := len(respChan)
-	job.logger.Info("Got all the responses, iterating",
-		zap.Int("number of responses", n))
-	
 	if n == 0 {
-		// if all the functions failed with the same error, see
-		// which error caused that
+		if len(errChan) == 0 {
+			return nil, errors.New("all functions returned an unknown error")
+		}
 		funcError := <-errChan
 		job.logger.Error("All the functions failed with no response",
 			zap.Error(funcError))
-
 		return nil, funcError
 
-	}
-	if n != job.parallelism {
+	} else if n != job.parallelism {
 		job.logger.Warn("Some of the functions returned without a result",
 			zap.Int("parallelism", job.parallelism),
 			zap.Int("responses", n))
@@ -151,7 +145,6 @@ func (job *TrainJob) invokeTrainFunctions() ([]int, error) {
 
 	// get the average loss
 	loss, funcs := getAverageLoss(respChan)
-
 
 	job.logger.Info("Epoch had average loss", zap.Float64("loss", loss))
 	job.history.TrainLoss = append(job.history.TrainLoss, loss)
@@ -187,6 +180,7 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 	if err != nil {
 		job.logger.Error("could not parse validation results",
 			zap.Error(err))
+		return
 	}
 
 	job.logger.Debug("Got validation results", zap.Any("results", res))
@@ -207,9 +201,7 @@ func (job *TrainJob) launchFunction(
 	respChan chan *FunctionResults,
 	errChan chan error) {
 
-	job.logger.Info("Starting request for function number", zap.Int("func_id", funcId))
 	defer wg.Done()
-
 	resp, err := http.Get(funcUrl)
 	if err != nil {
 		job.logger.Error("Error when performing request",

@@ -12,7 +12,7 @@ const psID = "026c8b93"
 
 func main() {
 
-	client := redisai.Connect(fmt.Sprintf("redis://%s:%d", api.REDIS_ADDRESS_DEBUG, api.REDIS_PORT_DEBUG), nil)
+	client := redisai.Connect(fmt.Sprintf("redis://%s:%d", api.RedisAddressDebug, api.RedisPortDebug), nil)
 
 	//filter := fmt.Sprintf("%s*/*", psID)
 	// list the tensor names

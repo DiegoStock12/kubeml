@@ -60,7 +60,7 @@ func (tp ThroughputBasedPolicy) calculateParallelism(task api.TrainTask) (parall
 		tp.timeCache[task.Job.JobId] = 0
 		tp.mu.Unlock()
 
-		return api.DEBUG_PARALLELISM, CreateTask
+		return api.DebugParallelism, CreateTask
 
 	} else {
 

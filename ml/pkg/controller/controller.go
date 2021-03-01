@@ -30,9 +30,9 @@ type (
 func getMongoClient() (*mongo.Client, error) {
 	var uri string
 	if util.IsDebugEnv() {
-		uri = api.MONGO_ADDRESS_DEBUG
+		uri = api.MongoUrlDebug
 	} else {
-		uri = fmt.Sprintf("mongodb://%s:%d", api.MONGO_ADDRESS, api.MONGO_PORT)
+		uri = fmt.Sprintf("mongodb://%s:%d", api.MongoUrl, api.MongoPort)
 	}
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(uri))

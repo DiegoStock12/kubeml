@@ -39,7 +39,6 @@ type (
 		// channels for communicating with the scheduler
 		// and parameter server to get new tasks and send finish
 		// signal
-		//TODO get rid of the done chan and make all through the api
 		schedChan chan *api.JobState
 
 		// wait group used when launching a validation
@@ -62,9 +61,9 @@ func NewTrainJob(
 	var redisClient *redisai.Client
 	if util.IsDebugEnv() {
 		redisClient = redisai.Connect(fmt.Sprintf(
-			"redis://%s:%d", api.REDIS_ADDRESS_DEBUG, api.REDIS_PORT_DEBUG), nil)
+			"redis://%s:%d", api.RedisAddressDebug, api.RedisPortDebug), nil)
 	} else {
-		redisClient = redisai.Connect(fmt.Sprintf("redis://%s:%d", api.REDIS_ADDRESS, api.REDIS_PORT), nil)
+		redisClient = redisai.Connect(fmt.Sprintf("redis://%s:%d", api.RedisUrl, api.RedisPort), nil)
 	}
 
 	job := &TrainJob{
@@ -81,9 +80,9 @@ func NewTrainJob(
 
 	var psUrl string
 	if util.IsDebugEnv() {
-		psUrl = fmt.Sprintf("http://localhost:%v", api.PS_DEBUG_PORT)
+		psUrl = fmt.Sprintf("http://localhost:%v", api.ParameterServerPortDebug)
 	} else {
-		psUrl = api.PARAMETER_SERVER_URL
+		psUrl = api.ParameterServerUrl
 	}
 	job.ps = psClient.MakeClient(job.logger, psUrl)
 	job.optimizer = model.MakeParallelSGD(job.logger)
@@ -102,9 +101,9 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 	var redisClient *redisai.Client
 	if util.IsDebugEnv() {
 		redisClient = redisai.Connect(fmt.Sprintf(
-			"redis://%s:%d", api.REDIS_ADDRESS_DEBUG, api.REDIS_PORT_DEBUG), nil)
+			"redis://%s:%d", api.RedisAddressDebug, api.RedisPortDebug), nil)
 	} else {
-		redisClient = redisai.Connect(fmt.Sprintf("redis://%s:%d", api.REDIS_ADDRESS, api.REDIS_PORT), nil)
+		redisClient = redisai.Connect(fmt.Sprintf("redis://%s:%d", api.RedisUrl, api.RedisPort), nil)
 	}
 
 	job := &TrainJob{
@@ -116,8 +115,8 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 		wgVal:       &sync.WaitGroup{},
 	}
 
-	job.scheduler = schedulerClient.MakeClient(job.logger, api.SCHEDULER_URL)
-	job.ps = psClient.MakeClient(job.logger, api.PARAMETER_SERVER_URL)
+	job.scheduler = schedulerClient.MakeClient(job.logger, api.SchedulerUrl)
+	job.ps = psClient.MakeClient(job.logger, api.ParameterServerUrl)
 	job.optimizer = model.MakeParallelSGD(job.logger)
 
 	return job
@@ -190,10 +189,6 @@ func (job *TrainJob) Train() {
 			update := <-job.schedChan
 			job.logger.Info("Received next config from the Scheduler",
 				zap.Int("new parallelism", update.Parallelism))
-			if update.Parallelism < api.DEBUG_PARALLELISM {
-				job.logger.Error("Received bad configuration from the scheduler",
-					zap.Int("parallelism", update.Parallelism))
-			}
 
 			// Get the new parallelism and update it in the history
 			// TODO right now in debug environment keep parallelism untouched

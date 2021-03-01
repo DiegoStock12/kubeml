@@ -25,7 +25,7 @@ func MakeClient() *Client {
 
 	var controllerUrl string
 	if util.IsDebugEnv() {
-		controllerUrl = fmt.Sprintf("http://%s:%d", "localhost", api.CONTROLLER_DEBUG_PORT)
+		controllerUrl = fmt.Sprintf("http://%s:%d", "localhost", api.ControllerPortDebug)
 	} else {
 		controllerUrl = fmt.Sprintf("http://%s:%d", controllerAddrKube, controllerPortKube)
 	}

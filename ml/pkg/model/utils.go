@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/RedisAI/redisai-go/redisai"
-	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/gomodule/redigo/redis"
 	"gorgonia.org/tensor"
 )
@@ -103,11 +102,11 @@ func getWeightKeys(layerName string, jobId string, funcId int) (string, string) 
 	// For times in which we want to load the init or reference model, we pass
 	// -1 in the functionId field
 	if funcId >= 0 {
-		weightName = fmt.Sprintf("%s:%s%s/%d", jobId, layerName, api.WeightSuffix, funcId)
-		biasName = fmt.Sprintf("%s:%s%s/%d", jobId, layerName, api.BiasSuffix, funcId)
+		weightName = fmt.Sprintf("%s:%s%s/%d", jobId, layerName, WeightSuffix, funcId)
+		biasName = fmt.Sprintf("%s:%s%s/%d", jobId, layerName, BiasSuffix, funcId)
 	} else {
-		weightName = fmt.Sprintf("%s:%s%s", jobId, layerName, api.WeightSuffix)
-		biasName = fmt.Sprintf("%s:%s%s", jobId, layerName, api.BiasSuffix)
+		weightName = fmt.Sprintf("%s:%s%s", jobId, layerName, WeightSuffix)
+		biasName = fmt.Sprintf("%s:%s%s", jobId, layerName, BiasSuffix)
 	}
 
 	return weightName, biasName
