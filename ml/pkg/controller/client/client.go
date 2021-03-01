@@ -10,7 +10,7 @@ import (
 // TODO change this to read the config file from kubernetes
 const (
 	controllerAddrKube = "192.168.99.101"
-	controllerPortKube = 30457
+	controllerPortKube = 31156
 )
 
 type (

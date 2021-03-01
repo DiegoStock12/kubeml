@@ -2,6 +2,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: executor-service-app
+  namespace: fission
 spec:
   selector:
     matchLabels:
@@ -13,6 +14,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: router-service-app
+  namespace: fission
 spec:
   selector:
     matchLabels:
