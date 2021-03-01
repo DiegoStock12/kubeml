@@ -34,7 +34,11 @@ var (
 // train builds the request and sends it to the controller so
 // the job can be scheduled
 func train(_ *cobra.Command, _ []string) error {
-	client := kubemlClient.MakeKubemlClient()
+	client, err  := kubemlClient.MakeKubemlClient()
+	if err != nil {
+		return err
+	}
+
 	req := api.TrainRequest{
 		ModelType:    "example",
 		BatchSize:    batchSize,

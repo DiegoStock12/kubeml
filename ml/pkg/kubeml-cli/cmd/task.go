@@ -26,7 +26,10 @@ var (
 // listFunctions returns a table with the information of the current functions
 func listTasks(_ *cobra.Command, _ []string) error {
 	// make fission client
-	client := kubemlClient.MakeKubemlClient()
+	client, err := kubemlClient.MakeKubemlClient()
+	if err != nil {
+		return err
+	}
 
 	// get the list of functions and print some of their properties to a table
 	tasks, err := client.V1().Tasks().List()

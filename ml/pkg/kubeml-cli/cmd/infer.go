@@ -25,7 +25,10 @@ var (
 
 // infer Creates and submits an inference task
 func infer(_ *cobra.Command, _ []string) error {
-	client := kubemlClient.MakeKubemlClient()
+	client, err := kubemlClient.MakeKubemlClient()
+	if err != nil {
+		return err
+	}
 
 	var data []interface{}
 	// read the data from the file

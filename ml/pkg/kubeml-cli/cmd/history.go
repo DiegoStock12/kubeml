@@ -41,7 +41,10 @@ var (
 // getHistory gets a training history based on the taskId and pretty
 // prints it for easy reference
 func getHistory(_ *cobra.Command, _ []string) error {
-	client := kubemlClient.MakeKubemlClient()
+	client, err := kubemlClient.MakeKubemlClient()
+	if err != nil {
+		return err
+	}
 
 	history, err := client.V1().Histories().Get(taskId)
 	if err != nil {
@@ -59,9 +62,12 @@ func getHistory(_ *cobra.Command, _ []string) error {
 
 // deleteHistory deletes a history from the database given the taskId
 func deleteHistory(_ *cobra.Command, _ []string) error {
-	client := kubemlClient.MakeKubemlClient()
+	client, err := kubemlClient.MakeKubemlClient()
+	if err != nil {
+		return err
+	}
 
-	err := client.V1().Histories().Delete(taskId)
+	err = client.V1().Histories().Delete(taskId)
 	if err != nil {
 		return err
 	}
@@ -78,7 +84,10 @@ func last(arr []float64) float64 {
 }
 
 func listHistories(_ *cobra.Command, _ []string) error {
-	client := kubemlClient.MakeKubemlClient()
+	client, err := kubemlClient.MakeKubemlClient()
+	if err != nil {
+		return err
+	}
 
 	histories, err := client.V1().Histories().List()
 	if err != nil {

@@ -7,23 +7,23 @@
 {{/*    name: kubeml*/}}
 {{/*    chart: "{{.Chart.Name}}-{{.Chart.Version}}"*/}}
 
-{{/*---*/}}
-{{/*apiVersion: rbac.authorization.k8s.io/v1*/}}
-{{/*kind: ClusterRole*/}}
-{{/*metadata:*/}}
-{{/*  name: kubeml-pod-admin-role*/}}
-{{/*rules:*/}}
-{{/*  - apiGroups:*/}}
-{{/*      - ""*/}}
-{{/*    resources:*/}}
-{{/*      - pods*/}}
-{{/*    verbs:*/}}
-{{/*      - get*/}}
-{{/*      - list*/}}
-{{/*      - create*/}}
-{{/*      - delete*/}}
-{{/*      - watch*/}}
-{{/*      - patch*/}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubeml-pod-admin-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+      - create
+      - delete
+      - watch
+      - patch
 
 ---
 apiVersion: v1

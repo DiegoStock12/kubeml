@@ -48,7 +48,10 @@ upload the files to KubeMl so they can be used in training tasks. Files must be 
 
 // createDataset creates a dataset in KubeML
 func createDataset(_ *cobra.Command, _ []string) error {
-	client := kubemlClient.MakeKubemlClient()
+	client, err  := kubemlClient.MakeKubemlClient()
+	if err != nil {
+		return err
+	}
 
 	// pass the commands to the client creation command
 	return client.V1().Datasets().Create(name, trainData, trainLabels, testData, testLabels)
@@ -56,7 +59,10 @@ func createDataset(_ *cobra.Command, _ []string) error {
 
 // deleteDataset deletes a dataset from KubeML
 func deleteDataset(_ *cobra.Command, _ []string) error {
-	client := kubemlClient.MakeKubemlClient()
+	client, err  := kubemlClient.MakeKubemlClient()
+	if err != nil {
+		return err
+	}
 
 	// return the deletion
 	return client.V1().Datasets().Delete(name)
@@ -64,7 +70,10 @@ func deleteDataset(_ *cobra.Command, _ []string) error {
 
 // listDatasets lists the datasets from kubeml
 func listDatasets(_ *cobra.Command, _ []string) error {
-	client := kubemlClient.MakeKubemlClient()
+	client, err := kubemlClient.MakeKubemlClient()
+	if err != nil {
+		return err
+	}
 
 	datasets, err := client.V1().Datasets().List()
 	if err != nil {
