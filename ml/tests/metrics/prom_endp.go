@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io/ioutil"
 	"math/rand"
+	"strconv"
 
 	"log"
 	"net/http"
@@ -22,7 +24,6 @@ var (
 
 	id = 0
 )
-
 
 func recordMetrics() {
 	// Simply increment the counter every couple of seconds
@@ -64,15 +65,31 @@ func job(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
+func finish(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, err := strconv.Atoi(vars["funcId"])
+	if err != nil {
+		http.Error(w, "error", http.StatusBadRequest)
+		return
+	}
+
+	//time.Sleep(20 * time.Second)
+
+	fmt.Println("Got response from function", id)
+	w.Write([]byte("hola"))
+	w.WriteHeader(http.StatusOK)
+
+}
+
 // test reads the request body if it is empty
-func test(w http.ResponseWriter, r *http.Request)  {
+func test(w http.ResponseWriter, r *http.Request) {
 	body := r.Body
 	if body == http.NoBody {
 		fmt.Println("Body is nil")
 	} else {
 		received, err := ioutil.ReadAll(body)
 		fmt.Println(len(received))
-		if len(received) == 0{
+		if len(received) == 0 {
 			fmt.Println("Received empty body")
 		}
 		if err != nil {
@@ -83,15 +100,15 @@ func test(w http.ResponseWriter, r *http.Request)  {
 
 }
 
-
-
 func main() {
 	recordMetrics()
 
+	r := mux.NewRouter()
 
 	http.Handle("/metrics", promhttp.Handler())
-	http.HandleFunc("/unregister", unregister)
-	http.HandleFunc("/job", job)
-	http.HandleFunc("/test", test)
-	log.Fatal(http.ListenAndServe(":9999", nil))
+	//r.HandleFunc("/unregister", unregister)
+	//r.HandleFunc("/job", job)
+	//r.HandleFunc("/test", test)
+	r.HandleFunc("/finish/{funcId}", finish).Methods("POST")
+	log.Fatal(http.ListenAndServe(":9999", r))
 }

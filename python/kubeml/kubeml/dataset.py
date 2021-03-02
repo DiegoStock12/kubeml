@@ -8,9 +8,9 @@ import numpy as np
 import pickle
 import os
 import logging
-from typing import List, Generator
 
 from .exceptions import *
+from .util import *
 
 # Load from environment the values from th MONGO IP and PORT
 try:
@@ -26,15 +26,27 @@ except KeyError:
 class _KubeArgs:
     """
     Arguments used by the function to transmit the information needed to perform a
-    training, validation or inference task
+    training, validation or inference task. The arguments are:
     """
 
     def __init__(self, job_id: str,
-                 N: int, task: str,
+                 N: int, K: int,
+                 task: str,
                  func_id: int,
                  lr: float = 0, batch_size: int = 0):
+        """
+        :arg job_id: id of the job\n
+        :arg N: number of functions or parallelism
+        :arg K: parameter for K-averaging, number of forward passes before sync
+        :arg task: type of task (train, inference...)
+        :arg func_id: id of the function
+        :arg lr: learning rate
+        :arg batch_size: size of the batch
+        """
+
         self._job_id = job_id
         self._N = N
+        self._K = K
         self._task = task
         self._func_id = func_id
         self.lr = lr
@@ -49,6 +61,7 @@ class _KubeArgs:
         try:
             job_id = request.args.get("jobId")
             N = request.args.get("N", type=int)
+            K = request.args.get("K", type=int)
             task = request.args.get("task")
             func_id = request.args.get("funcId", type=int)
             lr = request.args.get("lr", type=float)
@@ -58,7 +71,7 @@ class _KubeArgs:
             logging.error(f"Error parsing request arguments: {ve}, args:{request.args}")
             raise InvalidArgsError(ve)
 
-        args = cls(job_id, N, task, func_id, lr, batch_size)
+        args = cls(job_id, N, K, task, func_id, lr, batch_size)
         return args
 
 
@@ -84,6 +97,9 @@ class KubeDataset(data.Dataset, ABC):
         self._database = self._client[dataset]
         self._args = _KubeArgs.parse()
 
+        # data and labels of the dataset
+        self.data, self.labels = None, None
+
         # Check first if the dataset that the user gave as input
         # is available in the configured storage service
         try:
@@ -98,19 +114,31 @@ class KubeDataset(data.Dataset, ABC):
             self._client.close()
             raise StorageError(e)
 
-        if self._args._task == "train":
-            num_docs = self._database["train"].count_documents({})
-            minibatches = self.__split_minibatches(range(num_docs), self._args._N)[self._args._func_id]
-            logging.debug(f"I get minibatches {minibatches}")
-            self.data, self.labels = self.__load_data(minibatches)
+        # Set the range of minibatches that this function will train on
+        self.num_docs = self._database["train"].count_documents({})
+        self.minibatches = split_minibatches(range(self.num_docs), self._args._N)[self._args._func_id]
+        logging.debug(f"I get minibatches {self.minibatches}")
 
-        else:
-            self.data, self.labels = self.__load_data()
+    def _load_train_data(self, index: int, period: int):
+        """
+        For K averaging the data needs to be refreshed with the next K batches
+        after every synchronization step, this is triggered by the KubeModel before
+        starting another iteration
 
-        # finally close the connection since it will not be used in the future
+        :param index: next subset of datapoints to be loaded
+        :param period: how many subsets we need to load
+        """
+        minibatches = range(index, index + period)
+        logging.debug(f"Loading minibatches {minibatches}")
+        self.data, self.labels = self.__load_data(minibatches)
+
+    def _load_validation_data(self):
+        return self.__load_data()
+
+    def _close(self):
         self._client.close()
 
-    def __load_data(self, minibatches: Generator[int, None, None] = None):
+    def __load_data(self, minibatches: range = None):
 
         # If the minibatches are None that means we have
         # to perform the validation so we load all documents in the
@@ -142,12 +170,3 @@ class KubeDataset(data.Dataset, ABC):
                 labels = np.hstack([labels, l])
 
         return data, labels.flatten()
-
-    @staticmethod
-    def __split_minibatches(a, n) -> List[Generator[int, None, None]]:
-        """
-        Based on the number of minibatches return the ones assigned to each
-        function so that the count is approximately the same
-        """
-        k, m = divmod(len(a), n)
-        return [a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n)]

@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Dict, List, Tuple, Any, Union
 
+import requests
 import flask
 import numpy as np
 import redisai as rai
@@ -11,7 +12,7 @@ import torch
 from flask import request, jsonify
 from redis.exceptions import RedisError
 
-from .dataset import _KubeArgs
+from .dataset import _KubeArgs, KubeDataset
 from .exceptions import *
 from .util import *
 
@@ -28,8 +29,10 @@ except KeyError:
 
 class KubeModel(ABC):
 
-    def __init__(self, network: nn.Module):
+    def __init__(self, network: nn.Module, dataset: KubeDataset):
         self._network = network
+        self._dataset = dataset
+        self.args = None
 
         # initialize redis connection
         self._redis_client = rai.Client(host=REDIS_URL, port=REDIS_PORT)
@@ -88,16 +91,29 @@ class KubeModel(ABC):
         :return: The loss of the epoch, as returned by the user function
         """
 
-        # Loads the model, train and save the results after returning the loss
+        loss = 0
 
-        try:
-            self.__load_model()
-            loss = self.train(self._network)
-            self.__save_model()
-        except RedisError as re:
-            raise StorageError(re)
-        finally:
-            self._redis_client.close()
+        # calculate period
+        subsets_per_iter = get_subset_period(self.args._K, self.args.batch_size)
+        logging.debug(f"Subsets per iteration: {subsets_per_iter}")
+
+        for i in range(0, self._dataset.num_docs, subsets_per_iter):
+            # load the appropriate data
+            logging.debug(f"Starting iteration {i}")
+            self._dataset._load_train_data(index=i, period=subsets_per_iter)
+
+            # load the reference model, train and save
+            try:
+                self.__load_model()
+                loss += self.train(self._network)
+                self.__save_model()
+            except RedisError as re:
+                raise StorageError(re)
+            finally:
+                self._redis_client.close()
+
+            # send notification to the train job to refresh the model
+            self.__send_finish_signal()
 
         return loss
 
@@ -130,6 +146,24 @@ class KubeModel(ABC):
         else:
             raise InvalidFormatError
 
+    def __send_finish_signal(self):
+        """Sends a request to the train job communicating that the iteration is over
+        and the model is published in the database.
+
+        The PS will not respond until all the functions have finished the step
+        """
+        url = f"http://{self.args._job_id}.kubeml"
+
+        try:
+            logging.debug(f"Sending request to {url}")
+            resp = requests.post(url)
+        except requests.ConnectionError as e:
+            logging.error("error connecting to the train job")
+            raise ConnectionError(e)
+
+        if not resp.ok:
+            logging.error(f"Received non OK message. Code:{resp.status_code}. Msg: {resp.content.decode()}")
+
     def __load_model(self):
         """
         Loads the model from redis ai and applies it to the network
@@ -137,35 +171,6 @@ class KubeModel(ABC):
         state_dict = self.__get_model_dict()
         self._network.load_state_dict(state_dict)
         logging.debug("Loaded state dict from redis")
-
-    def __save_model(self):
-        """
-        Saves the model to the tensor storage
-        """
-        job_id = self.args._job_id
-        task = self.args._task
-        func_id = self.args._func_id
-
-        logging.debug("Saving model to the database")
-        with torch.no_grad():
-            for name, layer in self._network.named_modules():
-                if is_optimizable(layer):
-                    # Save the weights
-                    logging.debug(f'Setting weights for layer {name}')
-                    weight_key = f'{job_id}:{name}.weight' \
-                        if task == 'init' \
-                        else f'{job_id}:{name}.weight/{func_id}'
-                    self._redis_client.tensorset(weight_key, layer.weight.cpu().detach().numpy(), dtype='float32')
-
-                    # Save the bias if not None
-                    if layer.bias is not None:
-                        logging.debug(f'Setting bias for layer {name}')
-                        bias_key = f'{job_id}:{name}.bias' \
-                            if task == 'init' \
-                            else f'{job_id}:{name}.bias/{func_id}'
-                        self._redis_client.tensorset(bias_key, layer.bias.cpu().detach().numpy(), dtype='float32')
-
-        logging.debug('Saved model to the database')
 
     def __get_model_dict(self) -> Dict[str, torch.Tensor]:
         """
@@ -197,6 +202,35 @@ class KubeModel(ABC):
         logging.debug(f'Layers are {state.keys()}')
 
         return state
+
+    def __save_model(self):
+        """
+        Saves the model to the tensor storage
+        """
+        job_id = self.args._job_id
+        task = self.args._task
+        func_id = self.args._func_id
+
+        logging.debug("Saving model to the database")
+        with torch.no_grad():
+            for name, layer in self._network.named_modules():
+                if is_optimizable(layer):
+                    # Save the weights
+                    logging.debug(f'Setting weights for layer {name}')
+                    weight_key = f'{job_id}:{name}.weight' \
+                        if task == 'init' \
+                        else f'{job_id}:{name}.weight/{func_id}'
+                    self._redis_client.tensorset(weight_key, layer.weight.cpu().detach().numpy(), dtype='float32')
+
+                    # Save the bias if not None
+                    if layer.bias is not None:
+                        logging.debug(f'Setting bias for layer {name}')
+                        bias_key = f'{job_id}:{name}.bias' \
+                            if task == 'init' \
+                            else f'{job_id}:{name}.bias/{func_id}'
+                        self._redis_client.tensorset(bias_key, layer.bias.cpu().detach().numpy(), dtype='float32')
+
+        logging.debug('Saved model to the database')
 
     @abstractmethod
     def init(self, model: nn.Module):
