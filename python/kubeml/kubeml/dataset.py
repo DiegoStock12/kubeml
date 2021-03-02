@@ -128,7 +128,8 @@ class KubeDataset(data.Dataset, ABC):
         :param index: next subset of datapoints to be loaded
         :param period: how many subsets we need to load
         """
-        minibatches = range(index, index + period)
+        start = self.minibatches.start
+        minibatches = range(start + index, start + index + period)
         logging.debug(f"Loading minibatches {minibatches}")
         self.data, self.labels = self.__load_data(minibatches)
 

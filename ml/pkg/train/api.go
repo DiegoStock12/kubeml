@@ -76,6 +76,12 @@ func (job TrainJob) updateTask(w http.ResponseWriter, r *http.Request) {
 	job.schedChan <- &state
 }
 
+// nextIteration receives updates from the functions, and waits for all of the
+// functions to complete the current iteration,
+func (job TrainJob) nextIteration(w http.ResponseWriter, r *http.Request)  {
+
+}
+
 func (job *TrainJob) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
@@ -84,6 +90,7 @@ func (job *TrainJob) GetHandler() http.Handler {
 	r := mux.NewRouter()
 	r.HandleFunc("/start", job.startTask).Methods("POST")
 	r.HandleFunc("/update", job.updateTask).Methods("POST")
+	r.HandleFunc("/next/{funcId}", job.nextIteration).Methods("POST")
 	r.HandleFunc("/health", job.handleHealth).Methods("GET")
 	return r
 }

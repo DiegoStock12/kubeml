@@ -49,6 +49,11 @@ type (
 		// function so we do not accidentally exit the job without
 		wgVal *sync.WaitGroup
 
+		// function synchronization, waitgroup
+		// and index to track functions during an iteration
+		wgIteration *sync.WaitGroup
+		funcIndex   functionIndex
+
 		exitErr error
 	}
 )
@@ -82,6 +87,8 @@ func NewTrainJob(
 		parallelism:   task.Job.State.Parallelism,
 		static:        task.Parameters.Options.StaticParallelism,
 		validateEvery: task.Parameters.Options.ValidateEvery,
+		wgIteration:   &sync.WaitGroup{},
+		funcIndex:     newIndex(task.Job.State.Parallelism),
 	}
 
 	var psUrl string
@@ -172,7 +179,7 @@ func (job *TrainJob) Train() {
 		}
 
 		// Trigger validation if configured
-		if job.validateEvery != 0 && job.validateEvery % job.epoch == 0 {
+		if job.validateEvery != 0 && job.validateEvery%job.epoch == 0 {
 			// Invoke the validation function
 			job.validate()
 		}
