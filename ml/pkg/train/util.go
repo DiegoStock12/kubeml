@@ -16,33 +16,8 @@ import (
 	"time"
 )
 
-func createMongoURI() string {
-	if util.IsDebugEnv() {
-		return api.MongoUrlDebug
-	} else {
-		return fmt.Sprintf("mongodb://%s:%d", api.MongoUrl, api.MongoPort)
-	}
-}
-
-// getAverageLoss iterates through the function results gotten from several
-// training functions and returns the average loss and the ids of the functions that completed
-func getAverageLoss(respChan chan *FunctionResults) (float64, []int) {
-	var funcs []int
-	var loss float64
-
-	// close the channel so it can be iterated over
-	close(respChan)
-	for response := range respChan {
-		loss += response.results["loss"]
-		funcs = append(funcs, response.funcId)
-	}
-
-	avgLoss := loss / float64(len(funcs))
-	return avgLoss, funcs
-}
-
 // updateValidationMetrics updates the validation statistics in the PS
-func (job TrainJob) updateValidationMetrics(valLoss, accuracy float64) error {
+func (job *TrainJob) updateValidationMetrics(valLoss, accuracy float64) error {
 	job.history.ValidationLoss = append(job.history.ValidationLoss, valLoss)
 	job.history.Accuracy = append(job.history.Accuracy, accuracy)
 
@@ -72,6 +47,31 @@ func (job *TrainJob) updateTrainMetrics(loss float64, elapsed time.Duration) err
 	}
 
 	return nil
+}
+
+func createMongoURI() string {
+	if util.IsDebugEnv() {
+		return api.MongoUrlDebug
+	} else {
+		return fmt.Sprintf("mongodb://%s:%d", api.MongoUrl, api.MongoPort)
+	}
+}
+
+// getAverageLoss iterates through the function results gotten from several
+// training functions and returns the average loss and the ids of the functions that completed
+func getAverageLoss(respChan chan *FunctionResults) (float64, []int) {
+	var funcs []int
+	var loss float64
+
+	// close the channel so it can be iterated over
+	close(respChan)
+	for response := range respChan {
+		loss += response.results["loss"]
+		funcs = append(funcs, response.funcId)
+	}
+
+	avgLoss := loss / float64(len(funcs))
+	return avgLoss, funcs
 }
 
 // parseFunctionResults takes care of extracting the results from the response body
