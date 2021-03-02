@@ -43,7 +43,7 @@ type (
 		// channels for communicating with the scheduler
 		// and parameter server to get new tasks and send finish
 		// signal
-		schedChan chan *api.JobState
+		schedulerCh chan *api.JobState
 
 		// wait group used when launching a validation
 		// function so we do not accidentally exit the job without
@@ -51,12 +51,10 @@ type (
 
 		// function synchronization, waitgroup
 		// and index to track functions during an iteration
-		wgIteration *sync.WaitGroup
-		//funcIndex   functionIndex
-		runningFuncs int64
-		start        chan bool
-		funcs        chan int
-		done         chan bool
+		wgIteration   *sync.WaitGroup
+		finishedFuncs int64
+		startMerger   chan chan error
+		finishCh      chan *finishNotification
 
 		exitErr error
 	}
@@ -66,7 +64,7 @@ type (
 func NewTrainJob(
 	logger *zap.Logger,
 	task *api.TrainTask,
-	schedChan chan *api.JobState,
+	schedulerCh chan *api.JobState,
 	client *schedulerClient.Client) *TrainJob {
 
 	logger.Info("Creating new train job")
@@ -83,7 +81,7 @@ func NewTrainJob(
 		logger:        logger.Named(fmt.Sprintf("trainJob-%s", task.Job.JobId)),
 		scheduler:     client,
 		jobId:         task.Job.JobId,
-		schedChan:     schedChan,
+		schedulerCh:   schedulerCh,
 		redisClient:   redisClient,
 		task:          task,
 		history:       api.JobHistory{},
@@ -92,9 +90,7 @@ func NewTrainJob(
 		static:        task.Parameters.Options.StaticParallelism,
 		validateEvery: task.Parameters.Options.ValidateEvery,
 		wgIteration:   &sync.WaitGroup{},
-		start:         make(chan bool),
-		funcs:         make(chan int, task.Job.State.Parallelism),
-
+		startMerger:   make(chan chan error),
 	}
 
 	var psUrl string
@@ -110,7 +106,7 @@ func NewTrainJob(
 
 }
 
-// NewBasicJob creates a job with no task provided yet. It will start the job api and
+// NewBasicJob creates a job with no task provided yet. It will startMerger the job api and
 // wait for its task to be defined there.
 //
 // This is the constructor used when deploying the jobs in separate pods
@@ -128,11 +124,12 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 	job := &TrainJob{
 		logger:      logger.Named(fmt.Sprintf("trainJob-%s", jobId)),
 		jobId:       jobId,
-		schedChan:   make(chan *api.JobState),
+		schedulerCh: make(chan *api.JobState),
 		redisClient: redisClient,
 		history:     api.JobHistory{},
 		wgVal:       &sync.WaitGroup{},
 		wgIteration: &sync.WaitGroup{},
+		startMerger: make(chan chan error),
 	}
 
 	job.scheduler = schedulerClient.MakeClient(job.logger, api.SchedulerUrl)
@@ -200,7 +197,7 @@ func (job *TrainJob) Train() {
 				continue
 			}
 
-			update := <-job.schedChan
+			update := <-job.schedulerCh
 			job.logger.Info("Received next config from the Scheduler",
 				zap.Int("new parallelism", update.Parallelism))
 
@@ -257,10 +254,14 @@ func (job *TrainJob) init() error {
 func (job *TrainJob) train() error {
 	job.logger.Info("Started new epoch", zap.Int("epoch", job.epoch))
 
-	// start the model merger by setting the parallelism also
+	// set the channels and wait groups for the
+	// K-AVG model merger to receive models from the
+	// functions every K local forward passes
+	job.finishCh = make(chan *finishNotification, job.parallelism)
 	job.wgIteration.Add(job.parallelism)
-	job.runningFuncs = 0
-	job.start <- true
+	job.finishedFuncs = 0
+	errChan := make(chan error, 1)
+	job.startMerger <- errChan
 
 	start := time.Now()
 	loss, _, err := job.invokeTrainFunctions()
@@ -268,12 +269,19 @@ func (job *TrainJob) train() error {
 		return errors.Wrap(err, "error invoking functions")
 	}
 
+	// check if there was an error merging the model
+	select {
+	case err := <-errChan:
+		return errors.Wrap(err, "error merging model")
+	default:
+	}
+
 	// update the elapsed time
 	elapsed := time.Since(start)
 	job.task.Job.State.ElapsedTime = elapsed.Seconds()
 
 	// Merge the models and update in the database
-	//job.optimizer.Merge(job.model, funcs...)
+	//job.optimizer.Merge(job.model, finishCh...)
 
 	job.logger.Info("Epoch finished")
 	//err = job.model.Save()

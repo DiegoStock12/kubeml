@@ -163,10 +163,11 @@ class KubeModel(ABC):
             resp = requests.post(url)
         except requests.ConnectionError as e:
             logging.error("error connecting to the train job")
-            raise ConnectionError(e)
+            raise MergeError(e)
 
         if not resp.ok:
             logging.error(f"Received non OK message. Code:{resp.status_code}. Msg: {resp.content.decode()}")
+            raise MergeError()
 
     def __load_model(self):
         """

@@ -22,6 +22,7 @@ func MakeParallelSGD(logger *zap.Logger) ParallelSGD {
 
 // Merge fetches weights from the database and averages them to create a new
 // reference model for the training job
+// TODo this might fail tho
 func (psgd ParallelSGD) Merge(m *Model, funcs ...int) {
 	psgd.logger.Debug("Merging layers...", zap.Any("funcs", funcs))
 

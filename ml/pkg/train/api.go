@@ -11,6 +11,20 @@ import (
 	"strconv"
 )
 
+// finishNotification is received by the merger
+// to know which functions to take into account
+type finishNotification struct {
+	funcId   int
+	respChan chan MergeResult
+}
+
+type MergeResult int
+
+const (
+	MergeSucceeded MergeResult = iota
+	MergeFailed
+)
+
 // startTask receives the task description from the parameter server and starts
 // the training process
 func (job *TrainJob) startTask(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +92,7 @@ func (job TrainJob) updateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job.schedChan <- &state
+	job.schedulerCh <- &state
 }
 
 // nextIteration receives updates from the functions, and waits for all of the
@@ -87,11 +101,24 @@ func (job *TrainJob) nextIteration(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	funcId, _ := strconv.Atoi(vars["funcId"])
 
-	// communicate that this function has finished
-	job.funcs <- funcId
+	// communicate that this function has finished and wait for the
+	// merger to respond once finished
+	respChan := make(chan MergeResult, 1)
+	job.finishCh <- &finishNotification{funcId, respChan}
 	job.wgIteration.Done()
+	result := <-respChan
 
-	<-job.
+	switch result {
+	case MergeSucceeded:
+		job.logger.Debug("Continuing with next iteration", zap.Int("funcId", funcId))
+		w.WriteHeader(http.StatusOK)
+		return
+
+	case MergeFailed:
+		job.logger.Debug("merge failed, critical failure")
+		http.Error(w, "error merging model", http.StatusInternalServerError)
+		return
+	}
 
 }
 
@@ -101,51 +128,70 @@ func (job *TrainJob) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 func (job *TrainJob) GetHandler() http.Handler {
 	r := mux.NewRouter()
-	r.HandleFunc("/start", job.startTask).Methods("POST")
+	r.HandleFunc("/startMerger", job.startTask).Methods("POST")
 	r.HandleFunc("/update", job.updateTask).Methods("POST")
 	r.HandleFunc("/next/{funcId}", job.nextIteration).Methods("POST")
 	r.HandleFunc("/health", job.handleHealth).Methods("GET")
 	return r
 }
 
-// serveMergeModel serves for
+// serveMergeModel starts the routine in charge of receiving the requests for merging the model,
+// it merges
 func (job *TrainJob) serveMergeModel() {
 
 	for {
-		<-job.start
+		errChan := <-job.startMerger
 
 		for {
 			job.logger.Debug("Waiting for functions to finish...")
 			job.wgIteration.Wait()
 
-			// get the functions that we will add to the merge
+			// get the function ids that will be taken into account
+			// when fetching and merging the model
 			var funcs []int
-			close(job.funcs)
-			for funcId := range job.funcs {
-				funcs = append(funcs, funcId)
+			var channels []chan MergeResult
+			close(job.finishCh)
+			for msg := range job.finishCh {
+				funcs = append(funcs, msg.funcId)
+				channels = append(channels, msg.respChan)
 			}
 
 			// once all are done, merge the model and update
-			job.logger.Debug("Merging models after iteration", zap.Ints("funcs", funcs))
+			job.logger.Debug("Merging models after iteration", zap.Ints("finishCh", funcs))
 			job.optimizer.Merge(job.model, funcs...)
 			err := job.model.Save()
 			if err != nil {
-				// TODO handle this error nicely
-				job.logger.Fatal("error saving model")
+				job.logger.Error("error saving model", zap.Error(err))
+				for _, ch := range channels {
+					if ch != nil {
+						ch <- MergeFailed
+					}
+				}
+				errChan <- err
+				break
 			}
 
-			// initialize the waitgroup again by checking the number of finished functions
-			remaining := job.parallelism - int(job.runningFuncs)
+			// initialize the wait group again by checking the number of finished functions
+			remaining := job.parallelism - int(job.finishedFuncs)
 			if remaining == 0 {
-				job.logger.Debug("all functions finished")
-				break
-			} else {
 
-				// reset the wait group and 
+				job.logger.Debug("all functions finished, quiting...")
+				break
+
+			} else {
+				// reset the wait group and reopen the channel with a buffer
+				// size equal to the number of finishCh
 				job.wgIteration.Add(remaining)
-				job.funcs = make(chan int, remaining)
-				for i := 0; i < remaining; i++ {
-					job.funcs <- i
+				job.finishCh = make(chan *finishNotification, remaining)
+
+				// answer to all the non-nil channels
+				// a channel is nil if the functions is completely finished
+				// it might be that some functions have to do 1 more iteration,
+				// so those send a nil channel
+				for _, ch := range channels {
+					if ch != nil {
+						ch <- MergeSucceeded
+					}
 				}
 			}
 		}

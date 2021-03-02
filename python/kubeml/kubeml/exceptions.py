@@ -12,10 +12,12 @@ class KubeMLException(Exception):
         }
 
 
-class ConnectionError(KubeMLException):
-    def __init__(self, e: Exception):
-        super(ConnectionError, self)\
-            .__init__(f"Could not connect to the PS {str(e)}", 500)
+class MergeError(KubeMLException):
+    def __init__(self, e: Exception = None):
+        super(MergeError, self)\
+            .__init__(f"Error merging model: {e}", 500)
+
+
 
 
 class DataError(KubeMLException):

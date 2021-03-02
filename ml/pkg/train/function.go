@@ -109,7 +109,7 @@ func (job *TrainJob) invokeInitFunction() ([]string, error) {
 
 }
 
-// invokeTrainFunctions Invokes N functions to start the next epoch
+// invokeTrainFunctions Invokes N functions to startMerger the next epoch
 // returns the function ids from which it got a response
 func (job *TrainJob) invokeTrainFunctions() (float64, []int, error) {
 	wg := &sync.WaitGroup{}
@@ -124,7 +124,6 @@ func (job *TrainJob) invokeTrainFunctions() (float64, []int, error) {
 		funcUrl := job.buildFunctionURL(args, Train)
 		go job.launchFunction(i, funcUrl, wg, respChan, errChan)
 	}
-
 	wg.Wait()
 
 	n := len(respChan)
@@ -204,8 +203,8 @@ func (job *TrainJob) launchFunction(
 	// after exiting clean the stuff
 	defer func() {
 		wg.Done()
-		job.funcs <- funcId
-		atomic.AddInt64(&job.runningFuncs, -1)
+		job.finishCh <- &finishNotification{funcId: funcId}
+		atomic.AddInt64(&job.finishedFuncs, 1)
 		job.wgIteration.Done()
 	}()
 
