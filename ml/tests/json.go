@@ -1,10 +1,6 @@
 package main
 
-import (
-	"encoding/json"
-	"errors"
-	"fmt"
-)
+import "fmt"
 
 func pIf(err error) {
 	if err != nil {
@@ -18,21 +14,22 @@ type Example struct {
 }
 
 func main() {
-	err := errors.New("Sample error")
+	 ch := make(chan bool, 5)
 
-	e := Example{
-		Par: 2,
+	for i := 0; i < 5; i++ {
+		ch <- true
 	}
 
-	j, err  := json.Marshal(e)
-	fmt.Println("marshalled json")
-	pIf(err)
+	close(ch)
 
+	fmt.Println("Iterating once")
+	for j := range ch {
+		fmt.Println(j)
+	}
 
-	var test Example
-	err = json.Unmarshal(j,&test)
-	pIf(err)
-
-	fmt.Printf("%v",test)
+	fmt.Println("Iterating again")
+	for j := range ch {
+		fmt.Println(j)
+	}
 
 }
