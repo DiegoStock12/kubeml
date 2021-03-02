@@ -207,7 +207,6 @@ func (job *TrainJob) launchFunction(
 	// after exiting clean the stuff
 	defer func() {
 		wg.Done()
-		job.finishCh <- &finishNotification{funcId: funcId}
 		atomic.AddInt64(&job.finishedFuncs, 1)
 		job.wgIteration.Done()
 	}()
@@ -236,6 +235,7 @@ func (job *TrainJob) launchFunction(
 		zap.Int("funcId", funcId),
 		zap.Any("results", res))
 
+	job.finishCh <- &finishNotification{funcId: funcId}
 	respChan <- &FunctionResults{
 		funcId:  funcId,
 		results: res,
