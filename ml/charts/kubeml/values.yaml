@@ -20,13 +20,13 @@ namespace: kubeml
 ## this is a fission CRD with a custom image and dependencies already installed
 environment:
   defaultName: torch
-  poolsize: 3
+  poolsize: 5
   cpuMin: 100m
-  cpuMax: 500m
+  cpuMax: 1500m
   image: diegostock12/python-env
   imageVersion: "0.1.5"
-  gracePeriod: 15
-  version: 2
+  gracePeriod: 10
+  version: 3
 
 
 

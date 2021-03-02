@@ -28,3 +28,4 @@ build/
 # compressed files
 *.zip
 *.tar.gz
+data
