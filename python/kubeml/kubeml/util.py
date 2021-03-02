@@ -42,5 +42,5 @@ def get_subset_period(K: int, batch_size: int) -> int:
     :return: the number of subsets that must be loaded per iteration
     """
 
-    # calculate number of datapoints in K passes
-    return int(math.ceil(batch_size * K) / STORAGE_SUBSET_SIZE)
+    # calculate number of datapoints in K passes and divide to get the number of subsets
+    return int(math.ceil((batch_size * K) / STORAGE_SUBSET_SIZE))
