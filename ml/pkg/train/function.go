@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"sync"
+	"sync/atomic"
 )
 
 type (
@@ -200,7 +201,14 @@ func (job *TrainJob) launchFunction(
 	respChan chan *FunctionResults,
 	errChan chan error) {
 
-	defer wg.Done()
+	// after exiting clean the stuff
+	defer func() {
+		wg.Done()
+		job.funcs <- funcId
+		atomic.AddInt64(&job.runningFuncs, -1)
+		job.wgIteration.Done()
+	}()
+
 	resp, err := http.Get(funcUrl)
 	if err != nil {
 		job.logger.Error("Error when performing request",

@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 )
 
 // startTask receives the task description from the parameter server and starts
@@ -34,11 +35,15 @@ func (job *TrainJob) startTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// assign the task to the job and call start
+	// initialize variables used during training
 	job.task = &task
 	job.parallelism = task.Job.State.Parallelism
 	job.static = task.Parameters.Options.StaticParallelism
 	job.validateEvery = task.Parameters.Options.ValidateEvery
+	job.wgIteration.Add(job.parallelism)
+
+	// start the model merging thread
+	go job.serveMergeModel()
 
 	job.logger.Debug("Assigned new task to the job",
 		zap.Any("task", task))
@@ -78,7 +83,15 @@ func (job TrainJob) updateTask(w http.ResponseWriter, r *http.Request) {
 
 // nextIteration receives updates from the functions, and waits for all of the
 // functions to complete the current iteration,
-func (job TrainJob) nextIteration(w http.ResponseWriter, r *http.Request)  {
+func (job *TrainJob) nextIteration(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	funcId, _ := strconv.Atoi(vars["funcId"])
+
+	// communicate that this function has finished
+	job.funcs <- funcId
+	job.wgIteration.Done()
+
+	<-job.
 
 }
 
@@ -93,6 +106,51 @@ func (job *TrainJob) GetHandler() http.Handler {
 	r.HandleFunc("/next/{funcId}", job.nextIteration).Methods("POST")
 	r.HandleFunc("/health", job.handleHealth).Methods("GET")
 	return r
+}
+
+// serveMergeModel serves for
+func (job *TrainJob) serveMergeModel() {
+
+	for {
+		<-job.start
+
+		for {
+			job.logger.Debug("Waiting for functions to finish...")
+			job.wgIteration.Wait()
+
+			// get the functions that we will add to the merge
+			var funcs []int
+			close(job.funcs)
+			for funcId := range job.funcs {
+				funcs = append(funcs, funcId)
+			}
+
+			// once all are done, merge the model and update
+			job.logger.Debug("Merging models after iteration", zap.Ints("funcs", funcs))
+			job.optimizer.Merge(job.model, funcs...)
+			err := job.model.Save()
+			if err != nil {
+				// TODO handle this error nicely
+				job.logger.Fatal("error saving model")
+			}
+
+			// initialize the waitgroup again by checking the number of finished functions
+			remaining := job.parallelism - int(job.runningFuncs)
+			if remaining == 0 {
+				job.logger.Debug("all functions finished")
+				break
+			} else {
+
+				// reset the wait group and 
+				job.wgIteration.Add(remaining)
+				job.funcs = make(chan int, remaining)
+				for i := 0; i < remaining; i++ {
+					job.funcs <- i
+				}
+			}
+		}
+	}
+
 }
 
 func (job *TrainJob) Serve(port int) {

@@ -97,7 +97,9 @@ class KubeModel(ABC):
         subsets_per_iter = get_subset_period(self.args._K, self.args.batch_size)
         logging.debug(f"Subsets per iteration: {subsets_per_iter}")
 
-        for i in range(0, self._dataset.num_docs, subsets_per_iter):
+        intervals = range(0, self._dataset.num_docs, subsets_per_iter)
+
+        for i in intervals:
             # load the appropriate data
             logging.debug(f"Starting iteration {i}")
             self._dataset._load_train_data(index=i, period=subsets_per_iter)
@@ -112,8 +114,10 @@ class KubeModel(ABC):
             finally:
                 self._redis_client.close()
 
-            # send notification to the train job to refresh the model
-            self.__send_finish_signal()
+            # send notification to the train job to refresh the model if not
+            # the last interval
+            if i != intervals[-1]:
+                self.__send_finish_signal()
 
         return loss
 

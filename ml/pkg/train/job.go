@@ -52,7 +52,11 @@ type (
 		// function synchronization, waitgroup
 		// and index to track functions during an iteration
 		wgIteration *sync.WaitGroup
-		funcIndex   functionIndex
+		//funcIndex   functionIndex
+		runningFuncs int64
+		start        chan bool
+		funcs        chan int
+		done         chan bool
 
 		exitErr error
 	}
@@ -88,7 +92,9 @@ func NewTrainJob(
 		static:        task.Parameters.Options.StaticParallelism,
 		validateEvery: task.Parameters.Options.ValidateEvery,
 		wgIteration:   &sync.WaitGroup{},
-		funcIndex:     newIndex(task.Job.State.Parallelism),
+		start:         make(chan bool),
+		funcs:         make(chan int, task.Job.State.Parallelism),
+
 	}
 
 	var psUrl string
@@ -126,6 +132,7 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 		redisClient: redisClient,
 		history:     api.JobHistory{},
 		wgVal:       &sync.WaitGroup{},
+		wgIteration: &sync.WaitGroup{},
 	}
 
 	job.scheduler = schedulerClient.MakeClient(job.logger, api.SchedulerUrl)
@@ -250,8 +257,13 @@ func (job *TrainJob) init() error {
 func (job *TrainJob) train() error {
 	job.logger.Info("Started new epoch", zap.Int("epoch", job.epoch))
 
+	// start the model merger by setting the parallelism also
+	job.wgIteration.Add(job.parallelism)
+	job.runningFuncs = 0
+	job.start <- true
+
 	start := time.Now()
-	loss, funcs, err := job.invokeTrainFunctions()
+	loss, _, err := job.invokeTrainFunctions()
 	if err != nil {
 		return errors.Wrap(err, "error invoking functions")
 	}
@@ -261,13 +273,13 @@ func (job *TrainJob) train() error {
 	job.task.Job.State.ElapsedTime = elapsed.Seconds()
 
 	// Merge the models and update in the database
-	job.optimizer.Merge(job.model, funcs...)
+	//job.optimizer.Merge(job.model, funcs...)
 
-	job.logger.Info("Epoch finished, saving model")
-	err = job.model.Save()
-	if err != nil {
-		return errors.Wrap(err, "error saving model in the database")
-	}
+	job.logger.Info("Epoch finished")
+	//err = job.model.Save()
+	//if err != nil {
+	//	return errors.Wrap(err, "error saving model in the database")
+	//}
 
 	// update the training metrics
 	err = job.updateTrainMetrics(loss, elapsed)
