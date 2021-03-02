@@ -1,7 +1,6 @@
 package train
 
 import (
-	"errors"
 	"fmt"
 	"github.com/RedisAI/redisai-go/redisai"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
@@ -9,6 +8,7 @@ import (
 	psClient "github.com/diegostock12/kubeml/ml/pkg/ps/client"
 	schedulerClient "github.com/diegostock12/kubeml/ml/pkg/scheduler/client"
 	"github.com/diegostock12/kubeml/ml/pkg/util"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"sync"
 	"time"
@@ -28,13 +28,17 @@ type (
 		redisClient *redisai.Client
 
 		// Training-specific resources
-		history     api.JobHistory
-		task        *api.TrainTask
-		jobId       string
-		parallelism int
-		epoch       int
-		model       *model.Model
-		optimizer   model.ParallelSGD
+		history   api.JobHistory
+		task      *api.TrainTask
+		jobId     string
+		epoch     int
+		model     *model.Model
+		optimizer model.ParallelSGD
+
+		// options of the trainjob
+		parallelism   int
+		static        bool
+		validateEvery int
 
 		// channels for communicating with the scheduler
 		// and parameter server to get new tasks and send finish
@@ -67,15 +71,17 @@ func NewTrainJob(
 	}
 
 	job := &TrainJob{
-		logger:      logger.Named(fmt.Sprintf("trainJob-%s", task.Job.JobId)),
-		scheduler:   client,
-		jobId:       task.Job.JobId,
-		parallelism: task.Job.State.Parallelism,
-		schedChan:   schedChan,
-		redisClient: redisClient,
-		task:        task,
-		history:     api.JobHistory{},
-		wgVal:       &sync.WaitGroup{},
+		logger:        logger.Named(fmt.Sprintf("trainJob-%s", task.Job.JobId)),
+		scheduler:     client,
+		jobId:         task.Job.JobId,
+		schedChan:     schedChan,
+		redisClient:   redisClient,
+		task:          task,
+		history:       api.JobHistory{},
+		wgVal:         &sync.WaitGroup{},
+		parallelism:   task.Job.State.Parallelism,
+		static:        task.Parameters.Options.StaticParallelism,
+		validateEvery: task.Parameters.Options.ValidateEvery,
 	}
 
 	var psUrl string
@@ -158,27 +164,21 @@ func (job *TrainJob) Train() {
 		// call all the training functions,
 		// gather the stats and return the time taken in the
 		// iteration
-		elapsed, err := job.train()
+		err := job.train()
 		if err != nil {
 			job.logger.Error("Error training model", zap.Error(err))
 			job.exitErr = err
 			return
 		}
 
-		// Invoke the validation function
-		//job.validate()
-
-		job.history.Parallelism = append(job.history.Parallelism, float64(job.parallelism))
-		job.history.EpochDuration = append(job.history.EpochDuration, elapsed.Seconds())
-		err = job.ps.UpdateMetrics(job.jobId, getLatestMetrics(&job.history))
-		if err != nil {
-			job.logger.Error("error sending updated metrics to the parameter server",
-				zap.Error(err))
+		// Trigger validation if configured
+		if job.validateEvery != 0 && job.validateEvery % job.epoch == 0 {
+			// Invoke the validation function
+			job.validate()
 		}
 
-		if job.epoch < job.task.Parameters.Epochs {
-
-			job.task.Job.State.ElapsedTime = elapsed.Seconds()
+		// If we need, ask the scheduler for updated settings
+		if !job.static && job.epoch < job.task.Parameters.Epochs {
 			err = job.scheduler.UpdateJob(job.task)
 			if err != nil {
 				job.logger.Error("Error updating parallelism",
@@ -240,23 +240,36 @@ func (job *TrainJob) init() error {
 
 // train invokes the functions in each train stage and
 // returns the total time that the model spent training
-func (job *TrainJob) train() (time.Duration, error) {
-
+func (job *TrainJob) train() error {
 	job.logger.Info("Started new epoch", zap.Int("epoch", job.epoch))
 
 	start := time.Now()
-	funcs, err := job.invokeTrainFunctions()
+	loss, funcs, err := job.invokeTrainFunctions()
 	if err != nil {
-		return time.Duration(0), err
+		return errors.Wrap(err, "error invoking functions")
 	}
+
+	// update the elapsed time
 	elapsed := time.Since(start)
+	job.task.Job.State.ElapsedTime = elapsed.Seconds()
 
 	// Merge the models and update in the database
 	job.optimizer.Merge(job.model, funcs...)
-	err = job.model.Save()
-	job.logger.Info("Epoch finished, saving model")
 
-	return elapsed, err
+	job.logger.Info("Epoch finished, saving model")
+	err = job.model.Save()
+	if err != nil {
+		return errors.Wrap(err, "error saving model in the database")
+	}
+
+	// update the training metrics
+	err = job.updateTrainMetrics(loss, elapsed)
+	if err != nil {
+		job.logger.Error("error updating metrics", zap.Error(err))
+	}
+
+	job.logger.Debug("History updated", zap.Any("history", job.history))
+	return nil
 }
 
 // validate invokes the validation function

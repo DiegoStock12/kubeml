@@ -2,7 +2,9 @@ package client
 
 import (
 	"fmt"
+	"github.com/diegostock12/kubeml/ml/pkg/api"
 	v1 "github.com/diegostock12/kubeml/ml/pkg/controller/client/v1"
+	"github.com/diegostock12/kubeml/ml/pkg/util"
 )
 
 // TODO change this to read the config file from kubernetes
@@ -27,18 +29,17 @@ type (
 )
 
 func MakeKubemlClient() (*KubemlClient, error) {
+
 	var controllerUrl string
-
-	controllerUrl, err := getControllerUrl()
-	if err != nil {
-		return nil, err
+	var err error
+	if util.IsDebugEnv() {
+		controllerUrl = fmt.Sprintf("http://%s:%d", "localhost", api.ControllerPortDebug)
+	} else {
+		controllerUrl, err  = getControllerUrl()
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	//if util.IsDebugEnv() {
-	//	controllerUrl = fmt.Sprintf("http://%s:%d", "localhost", api.ControllerPortDebug)
-	//} else {
-	//	controllerUrl = fmt.Sprintf("http://%s:%d", controllerAddrCloud, controllerPortCloud)
-	//}
 
 	fmt.Println("Using controller address", controllerUrl)
 

@@ -110,18 +110,17 @@ func (job *TrainJob) invokeInitFunction() ([]string, error) {
 
 // invokeTrainFunctions Invokes N functions to start the next epoch
 // returns the function ids from which it got a response
-func (job *TrainJob) invokeTrainFunctions() ([]int, error) {
+func (job *TrainJob) invokeTrainFunctions() (float64, []int, error) {
 	wg := &sync.WaitGroup{}
 	respChan := make(chan *FunctionResults, job.parallelism)
 	errChan := make(chan error, job.parallelism)
 
 	for i := 0; i < job.parallelism; i++ {
-		job.logger.Debug("Invoking function", zap.Int("id", i))
+		wg.Add(1)
 
+		job.logger.Debug("Invoking function", zap.Int("id", i))
 		args := FunctionArgs{Id: i, Num: job.parallelism}
 		funcUrl := job.buildFunctionURL(args, Train)
-
-		wg.Add(1)
 		go job.launchFunction(i, funcUrl, wg, respChan, errChan)
 	}
 
@@ -130,12 +129,12 @@ func (job *TrainJob) invokeTrainFunctions() ([]int, error) {
 	n := len(respChan)
 	if n == 0 {
 		if len(errChan) == 0 {
-			return nil, errors.New("all functions returned an unknown error")
+			return 0, nil, errors.New("all functions returned an unknown error")
 		}
 		funcError := <-errChan
 		job.logger.Error("All the functions failed with no response",
 			zap.Error(funcError))
-		return nil, funcError
+		return 0, nil, funcError
 
 	} else if n != job.parallelism {
 		job.logger.Warn("Some of the functions returned without a result",
@@ -146,11 +145,7 @@ func (job *TrainJob) invokeTrainFunctions() ([]int, error) {
 	// get the average loss
 	loss, funcs := getAverageLoss(respChan)
 
-	job.logger.Info("Epoch had average loss", zap.Float64("loss", loss))
-	job.history.TrainLoss = append(job.history.TrainLoss, loss)
-
-	job.logger.Debug("History updated", zap.Any("history", job.history))
-	return funcs, nil
+	return loss, funcs, nil
 }
 
 // invokeValFunction After getting all the gradients and publishing the new model invoke
@@ -186,8 +181,12 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 	job.logger.Debug("Got validation results", zap.Any("results", res))
 
 	// Update the history with the new results
-	job.history.ValidationLoss = append(job.history.ValidationLoss, res["loss"])
-	job.history.Accuracy = append(job.history.Accuracy, res["accuracy"])
+	err = job.updateValidationMetrics(res["loss"], res["accuracy"])
+	if err != nil {
+		job.logger.Error("error sending val results", zap.Error(err))
+		return
+	}
+
 	job.logger.Debug("History updated", zap.Any("history", job.history))
 
 }

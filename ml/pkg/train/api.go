@@ -37,6 +37,8 @@ func (job *TrainJob) startTask(w http.ResponseWriter, r *http.Request) {
 	// assign the task to the job and call start
 	job.task = &task
 	job.parallelism = task.Job.State.Parallelism
+	job.static = task.Parameters.Options.StaticParallelism
+	job.validateEvery = task.Parameters.Options.ValidateEvery
 
 	job.logger.Debug("Assigned new task to the job",
 		zap.Any("task", task))

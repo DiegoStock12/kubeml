@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
+	"time"
 )
 
 func createMongoURI() string {
@@ -38,6 +39,39 @@ func getAverageLoss(respChan chan *FunctionResults) (float64, []int) {
 
 	avgLoss := loss / float64(len(funcs))
 	return avgLoss, funcs
+}
+
+// updateValidationMetrics updates the validation statistics in the PS
+func (job TrainJob) updateValidationMetrics(valLoss, accuracy float64) error {
+	job.history.ValidationLoss = append(job.history.ValidationLoss, valLoss)
+	job.history.Accuracy = append(job.history.Accuracy, accuracy)
+
+	// send the update to the PS
+	err := job.ps.UpdateMetrics(job.jobId, getLatestMetrics(&job.history))
+	if err != nil {
+		return errors.Wrap(err, "error sending validation update to parameter server")
+	}
+
+	return nil
+
+}
+
+// updateTrainMetrics updates the metrics in the job history and sends an update to the
+// parameter server to publish the new metrics to prometheus
+func (job *TrainJob) updateTrainMetrics(loss float64, elapsed time.Duration) error {
+
+	// add the new metrics to the history
+	job.history.Parallelism = append(job.history.Parallelism, float64(job.parallelism))
+	job.history.EpochDuration = append(job.history.EpochDuration, elapsed.Seconds())
+	job.history.TrainLoss = append(job.history.TrainLoss, loss)
+
+	// send the update to the PS
+	err := job.ps.UpdateMetrics(job.jobId, getLatestMetrics(&job.history))
+	if err != nil {
+		return errors.Wrap(err, "error sending train update to parameter server")
+	}
+
+	return nil
 }
 
 // parseFunctionResults takes care of extracting the results from the response body
