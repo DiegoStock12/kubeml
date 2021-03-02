@@ -85,11 +85,9 @@ func NewTrainJob(
 		redisClient:   redisClient,
 		task:          task,
 		history:       api.JobHistory{},
-		wgVal:         &sync.WaitGroup{},
 		parallelism:   task.Job.State.Parallelism,
 		static:        task.Parameters.Options.StaticParallelism,
 		validateEvery: task.Parameters.Options.ValidateEvery,
-		wgIteration:   &sync.WaitGroup{},
 		startMerger:   make(chan chan error),
 	}
 
@@ -127,8 +125,6 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 		schedulerCh: make(chan *api.JobState),
 		redisClient: redisClient,
 		history:     api.JobHistory{},
-		wgVal:       &sync.WaitGroup{},
-		wgIteration: &sync.WaitGroup{},
 		startMerger: make(chan chan error),
 	}
 
@@ -172,9 +168,6 @@ func (job *TrainJob) Train() {
 	// Main training loop
 	for job.epoch = 1; job.epoch <= job.task.Parameters.Epochs; job.epoch++ {
 
-		// call all the training functions,
-		// gather the stats and return the time taken in the
-		// iteration
 		err := job.train()
 		if err != nil {
 			job.logger.Error("Error training model", zap.Error(err))
@@ -202,7 +195,6 @@ func (job *TrainJob) Train() {
 				zap.Int("new parallelism", update.Parallelism))
 
 			// Get the new parallelism and update it in the history
-			// TODO right now in debug environment keep parallelism untouched
 			job.task.Job.State = *update
 			if !util.IsDebugEnv() && !util.LimitParallelism() {
 				job.logger.Debug("updating parallelism...")
@@ -280,14 +272,7 @@ func (job *TrainJob) train() error {
 	elapsed := time.Since(start)
 	job.task.Job.State.ElapsedTime = elapsed.Seconds()
 
-	// Merge the models and update in the database
-	//job.optimizer.Merge(job.model, finishCh...)
-
 	job.logger.Info("Epoch finished")
-	//err = job.model.Save()
-	//if err != nil {
-	//	return errors.Wrap(err, "error saving model in the database")
-	//}
 
 	// update the training metrics
 	err = job.updateTrainMetrics(loss, elapsed)

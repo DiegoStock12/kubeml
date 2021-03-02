@@ -112,7 +112,8 @@ func (job *TrainJob) invokeInitFunction() ([]string, error) {
 // invokeTrainFunctions Invokes N functions to startMerger the next epoch
 // returns the function ids from which it got a response
 func (job *TrainJob) invokeTrainFunctions() (float64, []int, error) {
-	wg := &sync.WaitGroup{}
+
+	var wg sync.WaitGroup
 	respChan := make(chan *FunctionResults, job.parallelism)
 	errChan := make(chan error, job.parallelism)
 
@@ -122,19 +123,22 @@ func (job *TrainJob) invokeTrainFunctions() (float64, []int, error) {
 		job.logger.Debug("Invoking function", zap.Int("id", i))
 		args := FunctionArgs{Id: i, Num: job.parallelism}
 		funcUrl := job.buildFunctionURL(args, Train)
-		go job.launchFunction(i, funcUrl, wg, respChan, errChan)
+		go job.launchFunction(i, funcUrl, &wg, respChan, errChan)
 	}
 	wg.Wait()
 
 	n := len(respChan)
 	if n == 0 {
-		if len(errChan) == 0 {
+		select {
+		case funcError := <-errChan:
+			job.logger.Error("All the functions failed with no response",
+				zap.Error(funcError))
+			return 0, nil, funcError
+
+		default:
 			return 0, nil, errors.New("all functions returned an unknown error")
+
 		}
-		funcError := <-errChan
-		job.logger.Error("All the functions failed with no response",
-			zap.Error(funcError))
-		return 0, nil, funcError
 
 	} else if n != job.parallelism {
 		job.logger.Warn("Some of the functions returned without a result",
