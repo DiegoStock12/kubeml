@@ -1,6 +1,8 @@
 package api
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+)
 
 // Types used by the APIs of the controller and the scheduler
 
@@ -9,12 +11,21 @@ type (
 	// TrainRequest is sent to the controller api to start a new training job
 	// This is then embedded in the Train Task that is used by the PS
 	TrainRequest struct {
-		ModelType    string  `json:"model_type"`
-		BatchSize    int     `json:"batch_size"`
-		Epochs       int     `json:"epochs"`
-		Dataset      string  `json:"dataset"`
-		LearningRate float32 `json:"lr"`
-		FunctionName string  `json:"function_name"`
+		ModelType    string       `json:"model_type"`
+		BatchSize    int          `json:"batch_size"`
+		Epochs       int          `json:"epochs"`
+		Dataset      string       `json:"dataset"`
+		LearningRate float32      `json:"lr"`
+		FunctionName string       `json:"function_name"`
+		Options      TrainOptions `json:"options,omitempty"`
+	}
+
+	// TrainOptions allows users to define extra configurations for the
+	// train job such as parallelism and validation options
+	TrainOptions struct {
+		DefaultParallelism int  `json:"default_parallelism"`
+		StaticParallelism  bool `json:"static_parallelism"`
+		ValidateEvery      int  `json:"validate_every"`
 	}
 
 	// InferRequest is sent when wanting to get a result back from a trained network

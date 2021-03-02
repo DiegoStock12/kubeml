@@ -24,6 +24,11 @@ var (
 	lr           float32
 	functionName string
 
+	// variables used for the train options
+	validateEvery      int
+	staticParallelism  bool
+	defaultParallelism int
+
 	trainCmd = &cobra.Command{
 		Use:   "train",
 		Short: "Create a train task for KubeML",
@@ -34,7 +39,7 @@ var (
 // train builds the request and sends it to the controller so
 // the job can be scheduled
 func train(_ *cobra.Command, _ []string) error {
-	client, err  := kubemlClient.MakeKubemlClient()
+	client, err := kubemlClient.MakeKubemlClient()
 	if err != nil {
 		return err
 	}
@@ -46,6 +51,11 @@ func train(_ *cobra.Command, _ []string) error {
 		Dataset:      dataset,
 		LearningRate: lr,
 		FunctionName: functionName,
+		Options: api.TrainOptions{
+			DefaultParallelism: defaultParallelism,
+			StaticParallelism:  staticParallelism,
+			ValidateEvery:      validateEvery,
+		},
 	}
 
 	// validate the train request fields
@@ -58,7 +68,7 @@ func train(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	fmt.Println("Started train job with Id",id)
+	fmt.Println("Started train job with Id", id)
 	return nil
 
 }
@@ -67,7 +77,7 @@ func train(_ *cobra.Command, _ []string) error {
 // before submitting it to the controller
 func validateTrainRequest(client *kubemlClient.KubemlClient, req *api.TrainRequest) error {
 
-	e :=  &multierror.Error{}
+	e := &multierror.Error{}
 
 	// check appropriate batch size
 	if req.BatchSize <= 0 || req.BatchSize > maxBatchSize {
@@ -93,7 +103,6 @@ func validateTrainRequest(client *kubemlClient.KubemlClient, req *api.TrainReque
 	if exists, err := functionExists(functionName); err != nil || !exists {
 		e = multierror.Append(e, fmt.Errorf("function \"%v\" does not exist", functionName))
 	}
-
 
 	return e.ErrorOrNil()
 }
@@ -135,6 +144,11 @@ func init() {
 	trainCmd.Flags().IntVarP(&epochs, "epochs", "e", 1, "Number of epochs to run (required)")
 	trainCmd.Flags().IntVarP(&batchSize, "batch", "b", 64, "Batch Size (required)")
 	trainCmd.Flags().Float32Var(&lr, "lr", 0.01, "Learning Rate (required)")
+
+	// optional params
+	trainCmd.Flags().IntVar(&validateEvery, "validate-every", 0, "Validate the network every N epochs")
+	trainCmd.Flags().IntVar(&defaultParallelism, "default-parallelism", api.DebugParallelism, "Starting level of parallelism")
+	trainCmd.Flags().BoolVar(&staticParallelism, "static", false, "Whether to keep parallelism static")
 
 	trainCmd.MarkFlagRequired("dataset")
 	trainCmd.MarkFlagRequired("function")

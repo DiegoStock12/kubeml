@@ -1,0 +1,9 @@
+
+# dist folder and files
+dist/
+kubeml.egg-info/
+
+# build wheel and so on
+build/
+__pycache__/
+

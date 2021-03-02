@@ -16,6 +16,8 @@ const (
 	RedisPort        = 6379
 )
 
+const DefaultParallelism = 5
+
 // Debug
 const (
 	MongoUrlDebug            = "mongodb://192.168.99.101:30933"
