@@ -216,6 +216,7 @@ func (job *TrainJob) launchFunction(
 		job.logger.Error("Error when performing request",
 			zap.Int("funcId", funcId),
 			zap.Error(err))
+		errChan <- err
 		return
 	}
 

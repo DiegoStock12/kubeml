@@ -8,7 +8,6 @@ import (
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
 	"io/ioutil"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 )
 
@@ -114,14 +113,16 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 	// if we are deploying the jobs in different pods
 	// create it and add it to the struct
 	if ps.deployStandaloneJobs {
-		pod, err := ps.createJobPod(task)
+		pod, svc, err := ps.createJobResources(task)
 		if err != nil {
-			ps.logger.Error("error creating pod",
+			ps.logger.Error("error creating resources",
 				zap.Error(err))
-			http.Error(w, "unable to create pod for job", http.StatusInternalServerError)
+			http.Error(w, "unable to create resources for job", http.StatusInternalServerError)
 			return
 		}
 		task.Job.Pod = pod
+		task.Job.Svc = svc
+
 
 		ps.logger.Debug("assigned pod to task",
 			zap.Any("name", pod.Name),
@@ -223,14 +224,13 @@ func (ps *ParameterServer) jobFinish(w http.ResponseWriter, r *http.Request) {
 			zap.Error(err))
 	}
 
-	// delete the pod if there are standalone
+	// delete the pod and service if standalone
 	if ps.deployStandaloneJobs {
 		// TODO should we retry or something here
-		jobPod := task.Job.Pod
-		err = ps.kubeClient.CoreV1().Pods(KubeMlNamespace).Delete(jobPod.Name, &metav1.DeleteOptions{})
+		err := ps.deleteJobResources(task)
 		if err != nil {
-			ps.logger.Error("error deleting pod",
-				zap.String("podName", jobPod.Name),
+			ps.logger.Error("error deleting resources",
+				zap.String("podName", task.Job.Pod.Name),
 				zap.String("JobId", jobId),
 				zap.Error(err))
 		}

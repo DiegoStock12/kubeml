@@ -48,14 +48,15 @@ type (
 	//
 	// This includes training specific parameters such as the elapsed time,
 	// parallelism and so on, but also lower level information such as this job's
-	// pod definition
+	// pod and service definition definition
 	// Also include the channel for backwards compatibility with the thread deploying
 	// method and with a - so it is ignored
 	JobInfo struct {
-		JobId   string         `json:"id"`
-		State   JobState       `json:"state"`
-		Pod     *corev1.Pod    `json:"-"`
-		Channel chan *JobState `json:"-"`
+		JobId   string          `json:"id"`
+		State   JobState        `json:"state"`
+		Pod     *corev1.Pod     `json:"-"`
+		Svc     *corev1.Service `json:"-"`
+		Channel chan *JobState  `json:"-"`
 	}
 
 	// JobState holds the training specific variables of the job

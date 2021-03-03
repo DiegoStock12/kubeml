@@ -30,13 +30,14 @@ echo "Deploying fission..."
 kubectl create namespace $FISSION_NAMESPACE
 helm install --namespace $FISSION_NAMESPACE --name-template fission \
     https://github.com/fission/fission/releases/download/1.12.0/fission-core-1.12.0.tgz \
-    --set prometheus.enabled=false >/dev/null 2>&1
+    --set prometheus.enabled=false \
+    >/dev/null 2>&1
 
 echo "Fission deployed!"
 
 
-# if the env variable is set create the monitoring release
-if [[ ! -z $MONITORING ]]; then
+# if the env variable is not set create monitoring namespace and resources
+if [[ -z $MONITORING ]]; then
   echo "Deploying prometheus..."
 
   kubectl create namespace $MONITORING_NAMESPACE
@@ -44,7 +45,8 @@ if [[ ! -z $MONITORING ]]; then
   --set kubelet.serviceMonitor.https=true \
   --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
   --set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false \
-  --set prometheus.prometheusSpec.ruleSelectorNilUsesHelmValues=false >/dev/null 2>&1
+  --set prometheus.prometheusSpec.ruleSelectorNilUsesHelmValues=false \
+  >/dev/null 2>&1
 
   echo "Prometheus deployed!"
 fi
@@ -54,7 +56,8 @@ echo "Deploying kubeml"
 
 kubectl create namespace $KUBEML_NAMESPACE
 helm install kubeml --namespace $KUBEML_NAMESPACE  \
-    ${KUBEML_HOME}/charts/kubeml-0.1.0.tgz >/dev/null 2>&1
+    ${KUBEML_HOME}/charts/kubeml-0.1.0.tgz \
+    >/dev/null 2>&1
 
 echo "kubeml deployed!! all done"
 

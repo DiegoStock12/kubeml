@@ -1,8 +1,9 @@
 package ps
 
 import (
-	"errors"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
+	"github.com/hashicorp/go-multierror"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,6 +35,70 @@ func (ps *ParameterServer) waitForPodRunning(pod *corev1.Pod, timeout time.Durat
 	return wait.PollImmediate(time.Second, timeout, ps.isPodReady(pod.Name))
 }
 
+// createJobResources creates the pod and service offered by a job
+func (ps *ParameterServer) createJobResources(task api.TrainTask) (*corev1.Pod, *corev1.Service, error) {
+
+	// create the pod
+	pod, err := ps.createJobPod(task)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "error creating pod for job")
+	}
+
+	// create the service
+	svc, err := ps.createJobService(task)
+	if err != nil {
+		ps.logger.Error("error creating service, deleting pod...")
+		var e *multierror.Error
+		e = multierror.Append(err, e)
+
+		err = ps.deleteJobPod(pod)
+		e = multierror.Append(e, err)
+
+		return nil, nil, e.ErrorOrNil()
+	}
+
+	return pod, svc, nil
+
+}
+
+// createJobService creates a service exposing the pod so it can be accessed by the functions
+func (ps *ParameterServer) createJobService(task api.TrainTask) (*corev1.Service, error) {
+
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "job-" + task.Job.JobId,
+			Namespace: KubeMlNamespace,
+			Labels: map[string]string{
+				"svc": "job",
+				"job": task.Job.JobId,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			// select as backing pod the job with the same
+			// id in the labels
+			Selector: map[string]string{
+				"job": task.Job.JobId,
+			},
+			Type: corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
+				{
+					Port:       80,
+					TargetPort: intstr.FromInt(9090),
+				},
+			},
+		},
+	}
+
+	// create the service
+	svcRef, err := ps.kubeClient.CoreV1().Services(KubeMlNamespace).Create(svc)
+	if err != nil {
+		return nil, err
+	}
+
+	return svcRef, nil
+
+}
+
 // createJobPod creates a pod for a new train job with a specific ID
 func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error) {
 
@@ -43,6 +108,7 @@ func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error)
 			Namespace: KubeMlNamespace,
 			Labels: map[string]string{
 				"svc": "job",
+				"job": task.Job.JobId,
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -71,7 +137,7 @@ func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error)
 							Exec: nil,
 							HTTPGet: &corev1.HTTPGetAction{
 								Path:   "/health",
-								Port:   intstr.IntOrString{Type: intstr.Int, IntVal: 9090, StrVal: "9090"},
+								Port:   intstr.FromInt(9090),
 								Scheme: "HTTP",
 							},
 						},
@@ -103,11 +169,45 @@ func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error)
 
 	ps.logger.Debug("Created pod")
 
-
 	// get the reference of the pod with the IP for creation of the client
-	pod, err = ps.kubeClient.CoreV1().Pods(KubeMlNamespace).Get(pod.Name, metav1.GetOptions{})
+	podRef, err = ps.kubeClient.CoreV1().Pods(KubeMlNamespace).Get(pod.Name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	return pod, nil
+
+	return podRef, nil
+
+}
+
+// deleteJobResources deletes the pod and service used for a job
+func (ps *ParameterServer) deleteJobResources(task *api.TrainTask) error {
+	var err *multierror.Error
+
+	e := ps.deleteJobService(task.Job.Svc)
+	err = multierror.Append(err, e)
+
+	e = ps.deleteJobPod(task.Job.Pod)
+	err = multierror.Append(err, e)
+
+	return err.ErrorOrNil()
+}
+
+// deleteJobService deletes the service for a train job
+func (ps *ParameterServer) deleteJobService(svc *corev1.Service) error {
+	err := ps.kubeClient.CoreV1().Services(KubeMlNamespace).Delete(svc.Name, &metav1.DeleteOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// deleteJobPod deletes the pod used for a job
+func (ps *ParameterServer) deleteJobPod(pod *corev1.Pod) error {
+	err := ps.kubeClient.CoreV1().Pods(KubeMlNamespace).Delete(pod.Name, &metav1.DeleteOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
