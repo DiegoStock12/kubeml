@@ -110,7 +110,7 @@ func (job *TrainJob) invokeInitFunction() ([]string, error) {
 
 }
 
-// invokeTrainFunctions Invokes N functions to startMerger the next epoch
+// invokeTrainFunctions Invokes N functions to start the next epoch
 // returns the function ids from which it got a response
 func (job *TrainJob) invokeTrainFunctions() (float64, []int, error) {
 

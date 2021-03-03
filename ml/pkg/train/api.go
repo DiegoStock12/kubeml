@@ -124,7 +124,7 @@ func (job *TrainJob) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 func (job *TrainJob) GetHandler() http.Handler {
 	r := mux.NewRouter()
-	r.HandleFunc("/startMerger", job.startTask).Methods("POST")
+	r.HandleFunc("/start", job.startTask).Methods("POST")
 	r.HandleFunc("/update", job.updateTask).Methods("POST")
 	r.HandleFunc("/next/{funcId}", job.nextIteration).Methods("POST")
 	r.HandleFunc("/health", job.handleHealth).Methods("GET")

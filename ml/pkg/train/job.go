@@ -104,7 +104,7 @@ func NewTrainJob(
 
 }
 
-// NewBasicJob creates a job with no task provided yet. It will startMerger the job api and
+// NewBasicJob creates a job with no task provided yet. It will start the job api and
 // wait for its task to be defined there.
 //
 // This is the constructor used when deploying the jobs in separate pods

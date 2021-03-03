@@ -7,6 +7,7 @@ import (
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"io/ioutil"
 	"net/http"
 )
 
@@ -56,9 +57,23 @@ func (c *Client) StartTask(task *api.TrainTask) error {
 		return errors.Wrap(err, "could not marshal task")
 	}
 
-	_, err = c.httpClient.Post(url, "application/json", bytes.NewReader(body))
+	resp, err := c.httpClient.Post(url, "application/json", bytes.NewReader(body))
 	if err != nil {
 		return errors.Wrap(err, "could not send task to job")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		c.logger.Warn("Start task returned bad code")
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			c.logger.Error("error reading body", zap.Error(err))
+			return nil
+		}
+
+		err = errors.New(string(body))
+		c.logger.Error("returned body:", zap.Error(err))
+		return err
 	}
 
 	return nil
