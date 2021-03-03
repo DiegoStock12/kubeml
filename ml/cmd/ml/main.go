@@ -88,7 +88,9 @@ Options:
 `
 
 	// build development logger that will be passed down
-	logger, err := zap.NewDevelopment()
+	config := zap.NewDevelopmentConfig()
+	config.DisableStacktrace = true
+	logger, err := config.Build()
 	if err != nil {
 		log.Fatalf("Could not build zap logger: %v", err)
 	}

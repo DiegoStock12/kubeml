@@ -1,7 +1,6 @@
 package ps
 
 import (
-	"fmt"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -119,7 +118,7 @@ func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error)
 			Containers: []corev1.Container{
 				{
 					Name:            "job",
-					Image:           fmt.Sprintf("%v:%v", KubeMlContainer, kubemlVersion),
+					Image:           KubeMlContainer,
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Command:         []string{"/kubeml"},
 					Args: []string{
