@@ -34,7 +34,6 @@ func getService() *corev1.Service {
 }
 
 func deleteService(client *kubernetes.Clientset, name string) error {
-
 	err := client.CoreV1().Services("kubeml").Delete(name, &metav1.DeleteOptions{})
 	return err
 }
@@ -46,24 +45,24 @@ func main() {
 		panic(err)
 	}
 
-	err = deleteService(kubeClient, "controller-service-2")
-	if err != nil {
-		panic(err)
-	}
+	//err = deleteService(kubeClient, "controller-service-2")
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	//get a list of services (the controller service)
-	_, err = kubeClient.CoreV1().Services("kubeml").Get("controller", metav1.GetOptions{})
+	svc, err := kubeClient.CoreV1().Services("kubeml").Get("controller", metav1.GetOptions{})
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("creating service")
+	fmt.Println(svc.Status)
 
-	// create
-	svc := getService()
-	svc, err = kubeClient.CoreV1().Services("kubeml").Create(svc)
-	if err != nil {
-		panic(err)
-	}
+	//// create
+	//svc := getService()
+	//svc, err = kubeClient.CoreV1().Services("kubeml").Create(svc)
+	//if err != nil {
+	//	panic(err)
+	//}
 
 }

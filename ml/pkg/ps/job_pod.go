@@ -40,20 +40,23 @@ func (ps *ParameterServer) waitForPodRunning(pod *corev1.Pod, timeout time.Durat
 // createJobResources creates the pod and service offered by a job
 func (ps *ParameterServer) createJobResources(task api.TrainTask) (*corev1.Pod, *corev1.Service, error) {
 
-	// create the pod
-	pod, err := ps.createJobPod(task)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "error creating pod for job")
-	}
-
 	// create the service
 	svc, err := ps.createJobService(task)
 	if err != nil {
-		ps.logger.Error("error creating service, deleting pod...")
+		ps.logger.Error("error creating service...")
+		return nil, nil, errors.Wrap(err, "error creating service")
+	}
+
+	// create the pod
+	pod, err := ps.createJobPod(task)
+	if err != nil {
 		var e *multierror.Error
 		e = multierror.Append(e, errors.Wrap(err, "error creating service"))
 
 		err = ps.deleteJobPod(pod)
+		e = multierror.Append(e, err)
+
+		err = ps.deleteJobService(svc)
 		e = multierror.Append(e, err)
 
 		return nil, nil, e.ErrorOrNil()

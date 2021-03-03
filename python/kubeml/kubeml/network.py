@@ -90,14 +90,13 @@ class KubeModel(ABC):
         :return: The loss of the epoch, as returned by the user function
         """
 
-        loss = 0
-
         # calculate period
         subsets_per_iter = get_subset_period(self.args._K, self.args.batch_size)
         logging.debug(f"Subsets per iteration: {subsets_per_iter}")
-
         intervals = range(0, self._dataset.num_docs, subsets_per_iter)
 
+        loss = 0
+        self._dataset._set_args(self.args)
         for i in intervals:
             # load the appropriate data
             logging.debug(f"Starting iteration {i}")
@@ -121,6 +120,10 @@ class KubeModel(ABC):
         return loss / len(intervals)
 
     def __validate(self):
+
+        # load the validation data
+        self._dataset._set_args(self.args)
+        self._dataset._load_validation_data()
 
         try:
             self.__load_model()

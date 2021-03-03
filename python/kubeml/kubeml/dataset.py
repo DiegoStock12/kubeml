@@ -1,13 +1,13 @@
+import logging
+import os
+import pickle
 from abc import ABC
 
+import numpy as np
 import torch.utils.data as data
+from flask import request
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
-from flask import request
-import numpy as np
-import pickle
-import os
-import logging
 
 from .exceptions import *
 from .util import *
@@ -95,7 +95,7 @@ class KubeDataset(data.Dataset, ABC):
         self.dataset = dataset
         self._client = MongoClient(MONGO_URL, MONGO_PORT)
         self._database = self._client[dataset]
-        self._args = _KubeArgs.parse()
+        self._args = None
 
         # data and labels of the dataset
         self.data, self.labels = None, None
@@ -116,8 +116,10 @@ class KubeDataset(data.Dataset, ABC):
 
         # Set the range of minibatches that this function will train on
         self.num_docs = self._database["train"].count_documents({})
-        self.minibatches = split_minibatches(range(self.num_docs), self._args._N)[self._args._func_id]
-        logging.debug(f"I get minibatches {self.minibatches}")
+        self.minibatches = None
+
+    def _set_args(self, args: _KubeArgs):
+        self._args = args
 
     def _load_train_data(self, index: int, period: int):
         """
@@ -128,13 +130,23 @@ class KubeDataset(data.Dataset, ABC):
         :param index: next subset of datapoints to be loaded
         :param period: how many subsets we need to load
         """
+        if self.minibatches is None:
+            self.__calculate_minibatches()
+
         start = self.minibatches.start
         minibatches = range(start + index, start + index + period)
         logging.debug(f"Loading minibatches {minibatches}")
         self.data, self.labels = self.__load_data(minibatches)
 
     def _load_validation_data(self):
+        if self.minibatches is None:
+            self.__calculate_minibatches()
         return self.__load_data()
+
+    def __calculate_minibatches(self):
+        """Calculates the appropriate minibatches for a function"""
+        self.minibatches = split_minibatches(range(self.num_docs), self._args._N)[self._args._func_id]
+        logging.debug(f"I get minibatches {self.minibatches}")
 
     def _close(self):
         self._client.close()
