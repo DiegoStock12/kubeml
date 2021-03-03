@@ -40,9 +40,12 @@ class Net(nn.Module):
 # Dataset that will load the data from mongo
 class MnistDataset(KubeDataset):
 
-    def __init__(self, transform: transforms = None):
+    def __init__(self):
         super(MnistDataset, self).__init__(dataset="mnist")
-        self.transform = transform
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ])
 
     def __getitem__(self, index):
         x = self.data[index]
@@ -60,19 +63,13 @@ class MnistDataset(KubeDataset):
 # KubeML model trained in data parallel approach
 class KubeNet(KubeModel):
 
-    def __init__(self, network: nn.Module):
-        super().__init__(network, MnistDataset())
+    def __init__(self, network: nn.Module, dataset: KubeDataset):
+        super().__init__(network, dataset)
 
-        self.transf = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))
-        ])
-
-    def train(self, model: nn.Module) -> float:
+    def train(self, model: nn.Module, dataset: KubeDataset) -> float:
         current_app.logger.info("In the train function")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         current_app.logger.info(f'Using device {device}')
-        dataset = MnistDataset(transform=self.transf)
         train_loader = tdata.DataLoader(dataset, batch_size=self.args.batch_size)
         # optimizer = optim.Adam(model.parameters(), lr=self.args.lr)
         optimizer = optim.SGD(model.parameters(), lr=self.args.lr, momentum=0.9)
@@ -100,10 +97,9 @@ class KubeNet(KubeModel):
 
         return total_loss / len(train_loader)
 
-    def validate(self, model: nn.Module) -> Tuple[float, float]:
+    def validate(self, model: nn.Module, dataset: KubeDataset) -> Tuple[float, float]:
         current_app.logger.info("In the validation function")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        dataset = MnistDataset(transform=self.transf)
         val_loader = tdata.DataLoader(dataset, batch_size=self.args.batch_size)
 
         model.eval()
@@ -152,5 +148,6 @@ class KubeNet(KubeModel):
 
 def main():
     torch_model = Net()
-    kube_model = KubeNet(torch_model)
+    dataset = MnistDataset()
+    kube_model = KubeNet(torch_model, dataset)
     return kube_model.start()

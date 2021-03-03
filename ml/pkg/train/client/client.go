@@ -29,8 +29,8 @@ func MakeClient(logger *zap.Logger) *Client {
 
 // UpdateTask sends the updated parameters to the TrainJob
 func (c *Client) UpdateTask(task *api.TrainTask, update api.JobState) error {
-	jobIP := task.Job.Pod.Status.PodIP
-	url := fmt.Sprintf("http://%v:%v/update", jobIP, jobApiPort)
+	serviceName := task.Job.Svc.Name
+	url := fmt.Sprintf("http://%v.kubeml/update", serviceName)
 
 	// send just the job state to the job
 	body, err := json.Marshal(update)
@@ -48,8 +48,8 @@ func (c *Client) UpdateTask(task *api.TrainTask, update api.JobState) error {
 
 // UpdateTask sends the updated parameters to the TrainJob
 func (c *Client) StartTask(task *api.TrainTask) error {
-	jobIP := task.Job.Pod.Status.PodIP
-	url := fmt.Sprintf("http://%v:%v/start", jobIP, jobApiPort)
+	serviceName := task.Job.Svc.Name
+	url := fmt.Sprintf("http://%v.kubeml/start", serviceName)
 
 	// send just the job state to the job
 	body, err := json.Marshal(task)

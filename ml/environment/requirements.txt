@@ -14,4 +14,4 @@ torchvision
 redisai
 pymongo
 gunicorn
-kubeml==0.1.2rc0
+kubeml==0.1.2rc1

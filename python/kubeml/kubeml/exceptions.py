@@ -14,10 +14,8 @@ class KubeMLException(Exception):
 
 class MergeError(KubeMLException):
     def __init__(self, e: Exception = None):
-        super(MergeError, self)\
+        super(MergeError, self) \
             .__init__(f"Error merging model: {e}", 500)
-
-
 
 
 class DataError(KubeMLException):

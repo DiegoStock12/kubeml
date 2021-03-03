@@ -106,7 +106,7 @@ class KubeModel(ABC):
             # load the reference model, train and save
             try:
                 self.__load_model()
-                loss += self.train(self._network)
+                loss += self.train(self._network, self._dataset)
                 self.__save_model()
             except RedisError as re:
                 raise StorageError(re)
@@ -118,13 +118,13 @@ class KubeModel(ABC):
             if i != intervals[-1]:
                 self.__send_finish_signal()
 
-        return loss
+        return loss / len(intervals)
 
     def __validate(self):
 
         try:
             self.__load_model()
-            acc, loss = self.validate(self._network)
+            acc, loss = self.validate(self._network, self._dataset)
         except RedisError as re:
             raise StorageError(re)
         finally:
@@ -243,11 +243,11 @@ class KubeModel(ABC):
         pass
 
     @abstractmethod
-    def train(self, model: nn.Module) -> float:
+    def train(self, model: nn.Module, dataset: KubeDataset) -> float:
         pass
 
     @abstractmethod
-    def validate(self, model: nn.Module) -> Tuple[float, float]:
+    def validate(self, model: nn.Module, dataset: KubeDataset) -> Tuple[float, float]:
         pass
 
     @abstractmethod
