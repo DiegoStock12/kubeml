@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"net/http"
+	"os"
 	"sync"
 )
 
@@ -42,12 +43,14 @@ type (
 		// api will consult the index and send the response to
 		// the appropriate worker
 		jobIndex map[string]*api.TrainTask
-		mu sync.RWMutex
+		mu       sync.RWMutex
 
 		// flag to choose deployment mode for jobs,
 		// false is goroutines and true is in a pod of their own
 		// TODO just for A/B testing, choose best one in future
 		deployStandaloneJobs bool
+
+		kubemlImageVersion string
 	}
 )
 
@@ -61,8 +64,6 @@ func serveMetrics(logger *zap.Logger) {
 	logger.Fatal("metrics endpoint exited", zap.Error(err))
 
 }
-
-
 
 // Start Starts a New parameter server which will execute the tasks
 //1) start the new functions
@@ -89,6 +90,13 @@ func Start(logger *zap.Logger, port int, schedulerUrl string, standaloneJobs boo
 	ps.kubeClient = kubeClient
 	ps.logger.Info("Started new parameter server")
 
+	version := os.Getenv("KUBEML_VERSION")
+	if len(version) > 0 {
+		ps.kubemlImageVersion = version
+	} else {
+		ps.kubemlImageVersion = "latest"
+	}
+	ps.logger.Debug("Set version", zap.String("v", ps.kubemlImageVersion))
 
 	go serveMetrics(ps.logger)
 

@@ -1,11 +1,11 @@
 {{/*---*/}}
-{{/*apiVersion: v1*/}}
-{{/*kind: Namespace*/}}
-{{/*metadata:*/}}
-{{/*  name: {{.Values.namespace}}*/}}
-{{/*  labels:*/}}
-{{/*    name: kubeml*/}}
-{{/*    chart: "{{.Chart.Name}}-{{.Chart.Version}}"*/}}
+  {{/*apiVersion: v1*/}}
+  {{/*kind: Namespace*/}}
+  {{/*metadata:*/}}
+  {{/*  name: {{.Values.namespace}}*/}}
+  {{/*  labels:*/}}
+  {{/*    name: kubeml*/}}
+  {{/*    chart: "{{.Chart.Name}}-{{.Chart.Version}}"*/}}
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -68,9 +68,9 @@ spec:
     spec:
       containers:
         - name: controller
-          image:  "{{.Values.image}}:{{.Values.kubemlVersion}}"
-          command: ["/kubeml"]
-          args: ["--controllerPort", "9090"]
+          image: "{{.Values.image}}:{{.Values.kubemlVersion}}"
+          command: [ "/kubeml" ]
+          args: [ "--controllerPort", "9090" ]
           readinessProbe:
             httpGet:
               path: "/health"
@@ -108,8 +108,8 @@ spec:
       containers:
         - name: scheduler
           image: "{{.Values.image}}:{{.Values.kubemlVersion}}"
-          command: ["/kubeml"]
-          args: ["--schedulerPort", "9090"]
+          command: [ "/kubeml" ]
+          args: [ "--schedulerPort", "9090" ]
           readinessProbe:
             httpGet:
               path: "/health"
@@ -151,8 +151,11 @@ spec:
       containers:
         - name: parameter-server
           image: "{{.Values.image}}:{{.Values.kubemlVersion}}"
-          command: ["/kubeml"]
-          args: ["--psPort", "9090"]
+          command: [ "/kubeml" ]
+          args: [ "--psPort", "9090" ]
+          env:
+            - name: KUBEML_VERSION
+              value: {{.Values.kubemlVersion}}
           readinessProbe:
             httpGet:
               path: "/health"

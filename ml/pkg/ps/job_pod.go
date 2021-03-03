@@ -1,6 +1,7 @@
 package ps
 
 import (
+	"fmt"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -12,7 +13,6 @@ import (
 	"time"
 )
 
-const kubemlVersion = "0.1.2-avg"
 
 func (ps *ParameterServer) isPodReady(podName string) wait.ConditionFunc {
 	return func() (done bool, err error) {
@@ -121,7 +121,7 @@ func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error)
 			Containers: []corev1.Container{
 				{
 					Name:            "job",
-					Image:           KubeMlContainer,
+					Image:           fmt.Sprintf("%v:%v", KubeMlContainer, ps.kubemlImageVersion),
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Command:         []string{"/kubeml"},
 					Args: []string{

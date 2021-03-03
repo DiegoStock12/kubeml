@@ -230,7 +230,7 @@ func (job *TrainJob) init() error {
 	job.logger.Debug("Calling init function")
 	layers, err := job.invokeInitFunction()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error invoking init function")
 	}
 	if len(layers) == 0 {
 		return errors.New("length of the layers is zero")
@@ -243,7 +243,7 @@ func (job *TrainJob) init() error {
 
 	err = m.Build()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error building model")
 	}
 
 	m.Summary()

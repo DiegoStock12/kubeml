@@ -9,7 +9,7 @@ controllerServiceType: LoadBalancer
 
 ## KubeML image
 image: diegostock12/kubeml
-kubemlVersion: "latest"
+kubemlVersion: "0.1.2"
 
 ## Storage service image
 storageImage: diegostock12/storage-svc
@@ -25,7 +25,7 @@ environment:
   cpuMin: 100m
   cpuMax: 1000m
   image: diegostock12/python-env
-  imageVersion: "0.1.6-avg"
+  imageVersion: "0.1.5"
   gracePeriod: 10
   version: 3
 
