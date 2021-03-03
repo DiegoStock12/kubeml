@@ -67,7 +67,7 @@ spec:
     spec:
       containers:
         - name: controller
-          image:  "{{.Values.image}}:latest"
+          image:  "{{.Values.image}}:{{.Values.kubemlVersion}}"
           command: ["/kubeml"]
           args: ["--controllerPort", "9090"]
           readinessProbe:
@@ -106,7 +106,7 @@ spec:
     spec:
       containers:
         - name: scheduler
-          image: "{{.Values.image}}:latest"
+          image: "{{.Values.image}}:{{.Values.kubemlVersion}}"
           command: ["/kubeml"]
           args: ["--schedulerPort", "9090"]
           readinessProbe:
@@ -149,7 +149,7 @@ spec:
     spec:
       containers:
         - name: parameter-server
-          image: "{{.Values.image}}:latest"
+          image: "{{.Values.image}}:{{.Values.kubemlVersion}}"
           command: ["/kubeml"]
           args: ["--psPort", "9090"]
           readinessProbe:
