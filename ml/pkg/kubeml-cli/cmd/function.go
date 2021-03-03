@@ -23,7 +23,7 @@ const (
 	DefaultEnvironment     = "torch"
 	DefaultConcurrency     = 10
 	DefaultTimeout         = 500
-	DefaultIdleTimeout int = 120
+	DefaultIdleTimeout int = 10
 )
 
 var (
@@ -292,7 +292,7 @@ func deleteFunction(_ *cobra.Command, _ []string) error {
 	result = multierror.Append(result, err)
 
 	if err = result.ErrorOrNil(); err == nil {
-		fmt.Printf("Function \"%s\" deleted")
+		fmt.Printf("Function \"%s\" deleted", fnName)
 		return nil
 	}
 

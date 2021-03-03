@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	taskId     string
+	taskId string
 
 	historyCmd = &cobra.Command{
 		Use:   "history",
@@ -95,17 +95,37 @@ func listHistories(_ *cobra.Command, _ []string) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 1, 1, 2, ' ', 0)
-	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n", "NAME", "MODEL", "DATASET", "EPOCHS", "BATCH", "LR", "ACCURACY", "LOSS")
+	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n", "NAME", "MODEL", "DATASET", "EPOCHS", "BATCH", "LR", "PARALLELISM", "STATIC", "ACCURACY", "LOSS", "TIME (s)")
 
 	for _, h := range histories {
-		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 			h.Id, h.Task.ModelType, h.Task.Dataset, h.Task.Epochs, h.Task.BatchSize, h.Task.LearningRate,
-			last(h.Data.Accuracy), last(h.Data.ValidationLoss))
+			getMeanParallelism(h.Data.Parallelism), h.Task.Options.StaticParallelism,
+			last(h.Data.Accuracy), last(h.Data.ValidationLoss), calculateTotalTime(h.Data.EpochDuration...))
 	}
 
 	w.Flush()
 
 	return nil
+}
+
+func getMeanParallelism(parallelisms []float64) float64 {
+	var total float64 = 0
+	for _, p := range parallelisms {
+		total += p
+	}
+
+	return total / float64(len(parallelisms))
+
+}
+
+func calculateTotalTime(epochs ...float64) float64 {
+	var total float64
+	for _, t := range epochs {
+		total += t
+	}
+	return total
+
 }
 
 func init() {

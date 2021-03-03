@@ -74,7 +74,8 @@ class KubeNet(KubeModel):
         current_app.logger.info(f'Using device {device}')
         dataset = MnistDataset(transform=self.transf)
         train_loader = tdata.DataLoader(dataset, batch_size=self.args.batch_size)
-        optimizer = optim.Adam(model.parameters(), lr=self.args.lr)
+        optimizer = optim.SGD(model.parameters(), lr=self.args.lr, momentum=0.9)
+        # optimizer = optim.Adam(model.parameters(), lr=self.args.lr)
 
         model.train()
         loss = None
