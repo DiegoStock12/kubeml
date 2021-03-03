@@ -56,6 +56,7 @@ func (job *TrainJob) buildFunctionURL(args FunctionArgs, task FunctionTask) stri
 	values.Set("task", string(task))
 	values.Set("jobId", job.jobId)
 	values.Set("N", strconv.Itoa(args.Num))
+	values.Set("K", strconv.Itoa(job.K))
 	values.Set("funcId", strconv.Itoa(args.Id))
 	values.Set("batchSize", strconv.Itoa(job.task.Parameters.BatchSize))
 	values.Set("lr", strconv.FormatFloat(float64(job.task.Parameters.LearningRate), 'f', -1, 32))

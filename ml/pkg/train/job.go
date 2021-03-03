@@ -14,51 +14,52 @@ import (
 	"time"
 )
 
-type (
-	// TrainJob is each of the workers launched by the parameter server.
-	// The worker is responsible from managing the reference model, saving the
-	// intermediate accuracy/validation results in the history, and requesting/receiving
-	// new scheduling responses from the scheduler
-	TrainJob struct {
-		logger *zap.Logger
+// TrainJob is each of the workers launched by the parameter server.
+// The worker is responsible from managing the reference model, saving the
+// intermediate accuracy/validation results in the history, and requesting/receiving
+// new scheduling responses from the scheduler
+type TrainJob struct {
+	logger *zap.Logger
 
-		// clients for other components
-		scheduler   *schedulerClient.Client
-		ps          *psClient.Client
-		redisClient *redisai.Client
+	// clients for other components
+	scheduler   *schedulerClient.Client
+	ps          *psClient.Client
+	redisClient *redisai.Client
 
-		// Training-specific resources
-		history   api.JobHistory
-		task      *api.TrainTask
-		jobId     string
-		epoch     int
-		model     *model.Model
-		optimizer model.ParallelSGD
+	// Training-specific resources
+	history   api.JobHistory
+	task      *api.TrainTask
+	jobId     string
+	epoch     int
+	model     *model.Model
+	optimizer model.ParallelSGD
 
-		// options of the trainjob
-		parallelism   int
-		static        bool
-		validateEvery int
+	// options of the trainjob
+	parallelism   int
+	static        bool
+	validateEvery int
+	K             int
 
-		// channels for communicating with the scheduler
-		// and parameter server to get new tasks and send finish
-		// signal
-		schedulerCh chan *api.JobState
+	// channel to receive updates from the scheduler
+	// through the api
+	schedulerCh chan *api.JobState
 
-		// wait group used when launching a validation
-		// function so we do not accidentally exit the job without
-		wgVal *sync.WaitGroup
+	// wait group used when launching a validation
+	// function so we do not accidentally exit the job without saving validation results
+	wgVal *sync.WaitGroup
 
-		// function synchronization, waitgroup
-		// and index to track functions during an iteration
-		wgIteration   *sync.WaitGroup
-		finishedFuncs int64
-		startMerger   chan chan error
-		finishCh      chan *finishNotification
+	// function synchronization, waitgroup
+	// and index to track functions during an iteration
+	wgIteration   *sync.WaitGroup
+	finishedFuncs int64
+	startMerger   chan chan error
+	finishCh      chan *finishNotification
 
-		exitErr error
-	}
-)
+	// exitErr holds the error that caused the job to quit
+	// it is sent to the Ps along the finish signal so it can be
+	// reported
+	exitErr error
+}
 
 // NewTrainJob Creates a new TrainJob that will take care of a specific train request
 func NewTrainJob(
@@ -78,18 +79,17 @@ func NewTrainJob(
 	}
 
 	job := &TrainJob{
-		logger:        logger.Named(fmt.Sprintf("trainJob-%s", task.Job.JobId)),
-		scheduler:     client,
-		jobId:         task.Job.JobId,
-		schedulerCh:   schedulerCh,
-		redisClient:   redisClient,
-		task:          task,
-		history:       api.JobHistory{},
-		parallelism:   task.Job.State.Parallelism,
-		static:        task.Parameters.Options.StaticParallelism,
-		validateEvery: task.Parameters.Options.ValidateEvery,
-		startMerger:   make(chan chan error),
+		logger:      logger.Named(fmt.Sprintf("trainJob-%s", task.Job.JobId)),
+		scheduler:   client,
+		jobId:       task.Job.JobId,
+		schedulerCh: schedulerCh,
+		redisClient: redisClient,
+		history:     api.JobHistory{},
+		startMerger: make(chan chan error),
 	}
+
+	// extract the settings from the task
+	job.extractTaskSettings(*task)
 
 	var psUrl string
 	if util.IsDebugEnv() {
@@ -133,6 +133,15 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 	job.optimizer = model.MakeParallelSGD(job.logger)
 
 	return job
+}
+
+// extractTaskSettings takes the train task and sets the variables used by the job
+func (job *TrainJob) extractTaskSettings(task api.TrainTask) {
+	job.task = &task
+	job.parallelism = task.Job.State.Parallelism
+	job.static = task.Parameters.Options.StaticParallelism
+	job.validateEvery = task.Parameters.Options.ValidateEvery
+	job.K = task.Parameters.Options.K
 }
 
 // Train is the main
@@ -288,4 +297,70 @@ func (job *TrainJob) train() error {
 func (job *TrainJob) validate() {
 	job.wgVal.Add(1)
 	go job.invokeValFunction(job.wgVal)
+}
+
+// mergeModel waits for a signal to start listening to functions requests
+//
+// After all running functions completing, it iterates through the function notifications
+// and merges the layers from those functions before allowing functions to continue to the next iteration
+func (job *TrainJob) mergeModel() {
+
+	for {
+		errChan := <-job.startMerger
+
+		for {
+			job.logger.Debug("Waiting for functions to finish...")
+			job.wgIteration.Wait()
+
+			// get the function ids that will be taken into account
+			// when fetching and merging the model
+			var funcs []int
+			var channels []chan MergeResult
+			close(job.finishCh)
+			for msg := range job.finishCh {
+				funcs = append(funcs, msg.funcId)
+				channels = append(channels, msg.respChan)
+			}
+
+			// once all are done, merge the model and update
+			job.logger.Debug("Merging models after iteration", zap.Ints("finishCh", funcs))
+			job.optimizer.Merge(job.model, funcs...)
+			err := job.model.Save()
+			if err != nil {
+				job.logger.Error("error saving model", zap.Error(err))
+				for _, ch := range channels {
+					if ch != nil {
+						ch <- MergeFailed
+					}
+				}
+				errChan <- err
+				break
+			}
+
+			// initialize the wait group again by checking the number of finished functions
+			remaining := job.parallelism - int(job.finishedFuncs)
+			if remaining == 0 {
+
+				job.logger.Debug("all functions finished, quiting...")
+				break
+
+			} else {
+				// reset the wait group and reopen the channel with a buffer
+				// size equal to the number of finishCh
+				job.wgIteration.Add(remaining)
+				job.finishCh = make(chan *finishNotification, remaining)
+
+				// answer to all the non-nil channels
+				// a channel is nil if the functions is completely finished
+				// it might be that some functions have to do 1 more iteration,
+				// so those send a nil channel
+				for _, ch := range channels {
+					if ch != nil {
+						ch <- MergeSucceeded
+					}
+				}
+			}
+		}
+	}
+
 }

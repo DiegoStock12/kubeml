@@ -49,7 +49,7 @@ func (ps *ParameterServer) createJobResources(task api.TrainTask) (*corev1.Pod, 
 	if err != nil {
 		ps.logger.Error("error creating service, deleting pod...")
 		var e *multierror.Error
-		e = multierror.Append(err, e)
+		e = multierror.Append(e, errors.Wrap(err, "error creating service"))
 
 		err = ps.deleteJobPod(pod)
 		e = multierror.Append(e, err)
@@ -195,19 +195,11 @@ func (ps *ParameterServer) deleteJobResources(task *api.TrainTask) error {
 // deleteJobService deletes the service for a train job
 func (ps *ParameterServer) deleteJobService(svc *corev1.Service) error {
 	err := ps.kubeClient.CoreV1().Services(KubeMlNamespace).Delete(svc.Name, &metav1.DeleteOptions{})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // deleteJobPod deletes the pod used for a job
 func (ps *ParameterServer) deleteJobPod(pod *corev1.Pod) error {
 	err := ps.kubeClient.CoreV1().Pods(KubeMlNamespace).Delete(pod.Name, &metav1.DeleteOptions{})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }

@@ -28,6 +28,7 @@ var (
 	validateEvery      int
 	staticParallelism  bool
 	defaultParallelism int
+	K                  int
 
 	trainCmd = &cobra.Command{
 		Use:   "train",
@@ -55,6 +56,7 @@ func train(_ *cobra.Command, _ []string) error {
 			DefaultParallelism: defaultParallelism,
 			StaticParallelism:  staticParallelism,
 			ValidateEvery:      validateEvery,
+			K:                  K,
 		},
 	}
 
@@ -149,6 +151,7 @@ func init() {
 	trainCmd.Flags().IntVar(&validateEvery, "validate-every", 0, "Validate the network every N epochs")
 	trainCmd.Flags().IntVar(&defaultParallelism, "default-parallelism", api.DebugParallelism, "Starting level of parallelism")
 	trainCmd.Flags().BoolVar(&staticParallelism, "static", false, "Whether to keep parallelism static")
+	trainCmd.Flags().IntVar(&K, "K", 5, "Sync every K updates to the local network")
 
 	trainCmd.MarkFlagRequired("dataset")
 	trainCmd.MarkFlagRequired("function")

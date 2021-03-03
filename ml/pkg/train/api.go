@@ -50,14 +50,10 @@ func (job *TrainJob) startTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// initialize variables used during training
-	job.task = &task
-	job.parallelism = task.Job.State.Parallelism
-	job.static = task.Parameters.Options.StaticParallelism
-	job.validateEvery = task.Parameters.Options.ValidateEvery
-	job.wgIteration.Add(job.parallelism)
+	job.extractTaskSettings(task)
 
 	// start the model merging thread
-	go job.serveMergeModel()
+	go job.mergeModel()
 
 	job.logger.Debug("Assigned new task to the job",
 		zap.Any("task", task))
@@ -135,69 +131,6 @@ func (job *TrainJob) GetHandler() http.Handler {
 	return r
 }
 
-// serveMergeModel starts the routine in charge of receiving the requests for merging the model,
-// it merges
-func (job *TrainJob) serveMergeModel() {
-
-	for {
-		errChan := <-job.startMerger
-
-		for {
-			job.logger.Debug("Waiting for functions to finish...")
-			job.wgIteration.Wait()
-
-			// get the function ids that will be taken into account
-			// when fetching and merging the model
-			var funcs []int
-			var channels []chan MergeResult
-			close(job.finishCh)
-			for msg := range job.finishCh {
-				funcs = append(funcs, msg.funcId)
-				channels = append(channels, msg.respChan)
-			}
-
-			// once all are done, merge the model and update
-			job.logger.Debug("Merging models after iteration", zap.Ints("finishCh", funcs))
-			job.optimizer.Merge(job.model, funcs...)
-			err := job.model.Save()
-			if err != nil {
-				job.logger.Error("error saving model", zap.Error(err))
-				for _, ch := range channels {
-					if ch != nil {
-						ch <- MergeFailed
-					}
-				}
-				errChan <- err
-				break
-			}
-
-			// initialize the wait group again by checking the number of finished functions
-			remaining := job.parallelism - int(job.finishedFuncs)
-			if remaining == 0 {
-
-				job.logger.Debug("all functions finished, quiting...")
-				break
-
-			} else {
-				// reset the wait group and reopen the channel with a buffer
-				// size equal to the number of finishCh
-				job.wgIteration.Add(remaining)
-				job.finishCh = make(chan *finishNotification, remaining)
-
-				// answer to all the non-nil channels
-				// a channel is nil if the functions is completely finished
-				// it might be that some functions have to do 1 more iteration,
-				// so those send a nil channel
-				for _, ch := range channels {
-					if ch != nil {
-						ch <- MergeSucceeded
-					}
-				}
-			}
-		}
-	}
-
-}
 
 func (job *TrainJob) Serve(port int) {
 
