@@ -1,13 +1,12 @@
-from abc import ABC, abstractmethod
-
 import logging
 import os
-from typing import Dict, List, Tuple, Any, Union
+from abc import ABC, abstractmethod
+from typing import Dict, Tuple, Any, Union
 
-import requests
 import flask
 import numpy as np
 import redisai as rai
+import requests
 import torch
 from flask import request, jsonify
 from redis.exceptions import RedisError
@@ -156,7 +155,9 @@ class KubeModel(ABC):
 
         The PS will not respond until all the functions have finished the step
         """
-        url = f"http://{self.args._job_id}.kubeml"
+
+        # create the url for the job service
+        url = f"http://job-{self.args._job_id}.kubeml/next/{self.args._func_id}"
 
         try:
             logging.debug(f"Sending request to {url}")

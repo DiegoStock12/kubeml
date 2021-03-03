@@ -23,7 +23,7 @@ const (
 	DefaultEnvironment     = "torch"
 	DefaultConcurrency     = 10
 	DefaultTimeout         = 500
-	DefaultIdleTimeout int = 20
+	DefaultIdleTimeout int = 15
 )
 
 var (

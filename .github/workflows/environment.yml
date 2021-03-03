@@ -4,6 +4,7 @@ on:
   push:
     branches:
     - master
+    - k-avg
 
 jobs:
   build:
@@ -16,5 +17,5 @@ jobs:
         name: diegostock12/python-env
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-        workdir: fission/environments/python
-        tags: "latest, 0.1.5"
+        workdir: ml/environment
+        tags: "0.1.5-avg"
