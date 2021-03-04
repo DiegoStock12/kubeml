@@ -122,7 +122,7 @@ func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error)
 				{
 					Name:            "job",
 					Image:           fmt.Sprintf("%v:%v", KubeMlContainer, ps.kubemlImageVersion),
-					ImagePullPolicy: corev1.PullIfNotPresent,
+					ImagePullPolicy: corev1.PullAlways,
 					Command:         []string{"/kubeml"},
 					Args: []string{
 						"--jobPort",
