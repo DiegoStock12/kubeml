@@ -71,6 +71,7 @@ spec:
           image: "{{.Values.image}}:{{.Values.kubemlVersion}}"
           command: [ "/kubeml" ]
           args: [ "--controllerPort", "9090" ]
+          imagePullPolicy: Always
           readinessProbe:
             httpGet:
               path: "/health"
@@ -108,6 +109,7 @@ spec:
       containers:
         - name: scheduler
           image: "{{.Values.image}}:{{.Values.kubemlVersion}}"
+          imagePullPolicy: Always
           command: [ "/kubeml" ]
           args: [ "--schedulerPort", "9090" ]
           readinessProbe:
@@ -151,6 +153,7 @@ spec:
       containers:
         - name: parameter-server
           image: "{{.Values.image}}:{{.Values.kubemlVersion}}"
+          imagePullPolicy: Always
           command: [ "/kubeml" ]
           args: [ "--psPort", "9090" ]
           env:
