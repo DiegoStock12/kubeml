@@ -9,7 +9,7 @@ controllerServiceType: LoadBalancer
 
 ## KubeML image
 image: diegostock12/kubeml
-kubemlVersion: "0.1.3-avg"
+kubemlVersion: "0.1.4-avg"
 
 ## Storage service image
 storageImage: diegostock12/storage-svc

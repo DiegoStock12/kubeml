@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -265,7 +266,7 @@ func (job *TrainJob) train() error {
 	// functions every K local forward passes
 	job.finishCh = make(chan *finishNotification, job.parallelism)
 	job.wgIteration.Add(job.parallelism)
-	job.finishedFuncs = 0
+	atomic.StoreInt64(&job.finishedFuncs, 0)
 	errChan := make(chan error, 1)
 	job.startMerger <- errChan
 
@@ -327,6 +328,11 @@ func (job *TrainJob) mergeModel() {
 				channels = append(channels, msg.respChan)
 			}
 
+			if len(funcs) == 0 {
+				errChan <- errors.New("no functions returned for merging")
+				break
+			}
+
 			// once all are done, merge the model and update
 			job.logger.Debug("Merging models after iteration", zap.Ints("finishCh", funcs))
 			job.optimizer.Merge(job.model, funcs...)
@@ -342,14 +348,17 @@ func (job *TrainJob) mergeModel() {
 				break
 			}
 
-			// initialize the wait group again by checking the number of finished functions
-			remaining := job.parallelism - int(job.finishedFuncs)
-			if remaining == 0 {
+			finished := atomic.LoadInt64(&job.finishedFuncs)
+			job.logger.Debug("finished funcs are", zap.Int64("num", finished))
 
+			// initialize the wait group again by checking the number of finished functions
+			remaining := job.parallelism - int(finished)
+			if remaining == 0 {
 				job.logger.Debug("all functions finished, quiting...")
 				break
 
 			} else {
+				job.logger.Debug("remaining functions is", zap.Int("num", remaining))
 				// reset the wait group and reopen the channel with a buffer
 				// size equal to the number of finishCh
 				job.wgIteration.Add(remaining)

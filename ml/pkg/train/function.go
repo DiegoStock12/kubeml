@@ -114,7 +114,7 @@ func (job *TrainJob) invokeInitFunction() ([]string, error) {
 // returns the function ids from which it got a response
 func (job *TrainJob) invokeTrainFunctions() (float64, []int, error) {
 
-	var wg sync.WaitGroup
+	wg := &sync.WaitGroup{}
 	respChan := make(chan *FunctionResults, job.parallelism)
 	errChan := make(chan error, job.parallelism)
 
@@ -124,7 +124,7 @@ func (job *TrainJob) invokeTrainFunctions() (float64, []int, error) {
 		job.logger.Debug("Invoking function", zap.Int("id", i))
 		args := FunctionArgs{Id: i, Num: job.parallelism}
 		funcUrl := job.buildFunctionURL(args, Train)
-		go job.launchFunction(i, funcUrl, &wg, respChan, errChan)
+		go job.launchFunction(i, funcUrl, wg, respChan, errChan)
 	}
 	wg.Wait()
 
@@ -208,6 +208,7 @@ func (job *TrainJob) launchFunction(
 	// after exiting clean the stuff
 	defer func() {
 		wg.Done()
+		job.logger.Debug("adding 1 to the finished functions")
 		atomic.AddInt64(&job.finishedFuncs, 1)
 		job.wgIteration.Done()
 	}()
@@ -221,8 +222,11 @@ func (job *TrainJob) launchFunction(
 		return
 	}
 
+	job.logger.Debug("function finished, checking errors", zap.Int("id", funcId))
+
 	// Check if we got a KubeML error in the response, if so return it in the error chan
 	if err = kerror.CheckFunctionError(resp); err != nil {
+		job.logger.Debug("returning error...")
 		errChan <- err
 		return
 	}

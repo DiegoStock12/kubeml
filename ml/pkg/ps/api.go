@@ -136,7 +136,7 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 		// TODO here if we are unable we should repeat and if not in the end delete the pod
 
 		// try for N times
-		var retries = 5
+		var retries = 10
 		for i := 0; i < retries; i++ {
 			err = ps.jobClient.StartTask(&task)
 			if err != nil {
