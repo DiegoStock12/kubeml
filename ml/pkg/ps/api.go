@@ -124,7 +124,6 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 		task.Job.Pod = pod
 		task.Job.Svc = svc
 
-
 		ps.logger.Debug("assigned pod to task",
 			zap.Any("name", pod.Name),
 			zap.Any("ip", pod.Status.PodIP),
@@ -143,15 +142,16 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				ps.logger.Error("Unable to send the task to the jobClient",
 					zap.Error(err))
-				if i < retries -1 {
+				if i < retries-1 {
 					time.Sleep(50 * time.Duration(2*i) * time.Millisecond)
 					ps.logger.Debug("error sending request to task, retrying...", zap.Error(err))
+					continue
 				}
 				http.Error(w, "unable to send task for job", http.StatusInternalServerError)
 				return
 			}
+			break
 		}
-
 
 		ps.logger.Debug("task sent to job")
 
