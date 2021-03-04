@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
+	"time"
 )
 
 // listTasks returns a list of the currently running tasks
@@ -134,13 +135,23 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 
 		// here we should send the request to start the task using the client
 		// TODO here if we are unable we should repeat and if not in the end delete the pod
-		err = ps.jobClient.StartTask(&task)
-		if err != nil {
-			ps.logger.Error("Unable to send the task to the jobClient",
-				zap.Error(err))
-			http.Error(w, "unable to send task for job", http.StatusInternalServerError)
-			return
+
+		// try for N times
+		var retries = 5
+		for i := 0; i < retries; i++ {
+			err = ps.jobClient.StartTask(&task)
+			if err != nil {
+				ps.logger.Error("Unable to send the task to the jobClient",
+					zap.Error(err))
+				if i < retries -1 {
+					time.Sleep(50 * time.Duration(2*i) * time.Millisecond)
+					ps.logger.Debug("error sending request to task, retrying...", zap.Error(err))
+				}
+				http.Error(w, "unable to send task for job", http.StatusInternalServerError)
+				return
+			}
 		}
+
 
 		ps.logger.Debug("task sent to job")
 
@@ -205,7 +216,8 @@ func (ps *ParameterServer) jobFinish(w http.ResponseWriter, r *http.Request) {
 	jobId := vars["jobId"]
 
 	ps.mu.RLock()
-	task, exists := ps.jobIndex[jobId]
+	// TODO reget task here
+	_, exists := ps.jobIndex[jobId]
 	ps.mu.RUnlock()
 	if !exists {
 		ps.logger.Error("Received finish from untracked job",
@@ -227,13 +239,14 @@ func (ps *ParameterServer) jobFinish(w http.ResponseWriter, r *http.Request) {
 	// delete the pod and service if standalone
 	if ps.deployStandaloneJobs {
 		// TODO should we retry or something here
-		err := ps.deleteJobResources(task)
-		if err != nil {
-			ps.logger.Error("error deleting resources",
-				zap.String("podName", task.Job.Pod.Name),
-				zap.String("JobId", jobId),
-				zap.Error(err))
-		}
+		ps.logger.Debug("skipping resource deletion for testing")
+		//err := ps.deleteJobResources(task)
+		//if err != nil {
+		//	ps.logger.Error("error deleting resources",
+		//		zap.String("podName", task.Job.Pod.Name),
+		//		zap.String("JobId", jobId),
+		//		zap.Error(err))
+		//}
 	}
 
 	// finally delete the pod from the index

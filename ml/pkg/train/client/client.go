@@ -50,6 +50,7 @@ func (c *Client) UpdateTask(task *api.TrainTask, update api.JobState) error {
 func (c *Client) StartTask(task *api.TrainTask) error {
 	jobIP := task.Job.Pod.Status.PodIP
 	url := fmt.Sprintf("http://%v:%v/start", jobIP, jobApiPort)
+	c.logger.Debug("starting task", zap.String("url", url))
 
 	// send just the job state to the job
 	body, err := json.Marshal(task)
