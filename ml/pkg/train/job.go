@@ -86,6 +86,8 @@ func NewTrainJob(
 		redisClient: redisClient,
 		history:     api.JobHistory{},
 		startMerger: make(chan chan error),
+		wgVal:       &sync.WaitGroup{},
+		wgIteration: &sync.WaitGroup{},
 	}
 
 	// extract the settings from the task
@@ -126,6 +128,8 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 		redisClient: redisClient,
 		history:     api.JobHistory{},
 		startMerger: make(chan chan error),
+		wgVal:       &sync.WaitGroup{},
+		wgIteration: &sync.WaitGroup{},
 	}
 
 	job.scheduler = schedulerClient.MakeClient(job.logger, api.SchedulerUrl)
