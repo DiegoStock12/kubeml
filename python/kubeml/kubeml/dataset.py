@@ -116,37 +116,23 @@ class KubeDataset(data.Dataset, ABC):
 
         # Set the range of minibatches that this function will train on
         self.num_docs = self._database["train"].count_documents({})
-        self.minibatches = None
 
-    def _set_args(self, args: _KubeArgs):
-        self._args = args
-
-    def _load_train_data(self, index: int, period: int):
+    def _load_train_data(self, start: int, end: int):
         """
         For K averaging the data needs to be refreshed with the next K batches
         after every synchronization step, this is triggered by the KubeModel before
         starting another iteration
 
-        :param index: next subset of datapoints to be loaded
-        :param period: how many subsets we need to load
+        :param start: first subset to be loaded
+        :param end: last subset to be loaded
         """
-        if self.minibatches is None:
-            self.__calculate_minibatches()
-
-        start = self.minibatches.start
-        minibatches = range(start + index, start + index + period)
+        # load the minibatches given by the network
+        minibatches = range(start, end)
         logging.debug(f"Loading minibatches {minibatches}")
         self.data, self.labels = self.__load_data(minibatches)
 
     def _load_validation_data(self):
-        if self.minibatches is None:
-            self.__calculate_minibatches()
-        return self.__load_data()
-
-    def __calculate_minibatches(self):
-        """Calculates the appropriate minibatches for a function"""
-        self.minibatches = split_minibatches(range(self.num_docs), self._args._N)[self._args._func_id]
-        logging.debug(f"I get minibatches {self.minibatches}")
+        self.data, self.labels = self.__load_data()
 
     def _close(self):
         self._client.close()

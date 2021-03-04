@@ -169,7 +169,7 @@ func (job *TrainJob) Train() {
 		// server
 		job.clearTensors()
 		job.redisClient.Close()
-		job.logger.Debug("closing job", zap.String("error", job.exitErr.Error()))
+		job.logger.Debug("closing job", zap.Error(job.exitErr))
 		job.ps.JobFinished(job.jobId, job.exitErr)
 	}()
 

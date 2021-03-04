@@ -80,8 +80,6 @@ class KubeModel(ABC):
 
         return [name for name, layer in self._network.named_modules() if is_optimizable(layer)]
 
-    # TODO if we want to implement K-AVG... we could tune it here or in the PS directly
-    # TODO I think it is better that the PS chooses how big N is depending on the size of the dataset
     def __train(self) -> float:
         """
         Function called to train the network. Loads the reference model from the database,
@@ -90,17 +88,27 @@ class KubeModel(ABC):
         :return: The loss of the epoch, as returned by the user function
         """
 
-        # calculate period
+        # calculate the number of subsets that we need to train on
+        # per epoch given the K parameter: the number of forward
+        # passes before synchronization
         subsets_per_iter = get_subset_period(self.args._K, self.args.batch_size)
         logging.debug(f"Subsets per iteration: {subsets_per_iter}")
-        intervals = range(0, self._dataset.num_docs, subsets_per_iter)
+
+        # Determine the batches that we need to train on and the first
+        # subset id that we need to get each iteration
+        assigned_subsets = split_minibatches(range(self._dataset.num_docs), self.args._N)[self.args._func_id]
+        intervals = range(assigned_subsets.start, assigned_subsets.stop, subsets_per_iter)
 
         loss = 0
-        self._dataset._set_args(self.args)
         for i in intervals:
-            # load the appropriate data
+
+            # Tell the dataset to load the data from the start to the end of the
+            # interval. If it is the last interval, choose to stop in the last subset
+            # of the ones assigned to us, if not just add the period
+            # i.e) I get batches (27 --> 53) and K = 5 --> 10 subsets per iteration before sync
+            # First interval (27 -> 37), second (37 -> 47), third (47 -> 53) that's why the min()
             logging.debug(f"Starting iteration {i}")
-            self._dataset._load_train_data(index=i, period=subsets_per_iter)
+            self._dataset._load_train_data(start=i, end=min(assigned_subsets.stop, i + subsets_per_iter))
 
             # load the reference model, train and save
             try:
@@ -122,7 +130,7 @@ class KubeModel(ABC):
     def __validate(self):
 
         # load the validation data
-        self._dataset._set_args(self.args)
+        # self._dataset._set_args(self.args)
         self._dataset._load_validation_data()
 
         try:
