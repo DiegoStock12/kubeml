@@ -55,6 +55,7 @@ type TrainJob struct {
 	finishedFuncs int64
 	startMerger   chan chan error
 	finishCh      chan *finishNotification
+	merged        chan struct{}
 
 	// exitErr holds the error that caused the job to quit
 	// it is sent to the Ps along the finish signal so it can be
@@ -89,6 +90,7 @@ func NewTrainJob(
 		startMerger: make(chan chan error),
 		wgVal:       &sync.WaitGroup{},
 		wgIteration: &sync.WaitGroup{},
+		merged:      make(chan struct{}),
 	}
 
 	// extract the settings from the task
@@ -131,6 +133,7 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 		startMerger: make(chan chan error),
 		wgVal:       &sync.WaitGroup{},
 		wgIteration: &sync.WaitGroup{},
+		merged:      make(chan struct{}),
 	}
 
 	job.scheduler = schedulerClient.MakeClient(job.logger, api.SchedulerUrl)
@@ -217,6 +220,10 @@ func (job *TrainJob) Train() {
 			}
 
 		}
+
+		// receive signal that the models are merged
+		job.logger.Debug("Waiting for merge to complete...")
+		<-job.merged
 	}
 
 	job.validate()
@@ -355,6 +362,10 @@ func (job *TrainJob) mergeModel() {
 			remaining := job.parallelism - int(finished)
 			if remaining == 0 {
 				job.logger.Debug("all functions finished, quiting...")
+
+				// communicate that the model is ready
+				job.merged <- struct{}{}
+
 				break
 
 			} else {

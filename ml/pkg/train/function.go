@@ -226,7 +226,7 @@ func (job *TrainJob) launchFunction(
 
 	// Check if we got a KubeML error in the response, if so return it in the error chan
 	if err = kerror.CheckFunctionError(resp); err != nil {
-		job.logger.Debug("returning error...")
+		job.logger.Debug("returning error...", zap.Error(err))
 		errChan <- err
 		return
 	}
