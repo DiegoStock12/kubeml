@@ -50,7 +50,7 @@ func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error)
 			Containers: []corev1.Container{
 				{
 					Name:            "job",
-					Image:           KubeMlContainer,
+					Image:           KubeMlContainer+":latest",
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Command:         []string{"/kubeml"},
 					Args: []string{
