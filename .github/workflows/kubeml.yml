@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - develop
-      - k-avg
 
 
 
@@ -21,4 +20,4 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           workdir: ml
-          tags: "0.1.4-avg"
+          tags: "0.1.5"

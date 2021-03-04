@@ -59,23 +59,21 @@ class MnistDataset(KubeDataset):
 
 # KubeML model trained in data parallel approach
 class KubeNet(KubeModel):
+    transf = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))
+    ])
 
     def __init__(self, network: nn.Module):
-        super().__init__(network)
+        super().__init__(network, MnistDataset(self.transf))
 
-        self.transf = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))
-        ])
-
-    def train(self, model: nn.Module) -> float:
+    def train(self, model: nn.Module, dataset: KubeDataset) -> float:
         current_app.logger.info("In the train function")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         current_app.logger.info(f'Using device {device}')
-        dataset = MnistDataset(transform=self.transf)
         train_loader = tdata.DataLoader(dataset, batch_size=self.args.batch_size)
-        optimizer = optim.SGD(model.parameters(), lr=self.args.lr, momentum=0.9)
         # optimizer = optim.Adam(model.parameters(), lr=self.args.lr)
+        optimizer = optim.SGD(model.parameters(), lr=self.args.lr, momentum=0.9)
 
         model.train()
         loss = None
@@ -100,10 +98,9 @@ class KubeNet(KubeModel):
 
         return total_loss / len(train_loader)
 
-    def validate(self, model: nn.Module) -> Tuple[float, float]:
+    def validate(self, model: nn.Module, dataset: KubeDataset) -> Tuple[float, float]:
         current_app.logger.info("In the validation function")
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        dataset = MnistDataset(transform=self.transf)
         val_loader = tdata.DataLoader(dataset, batch_size=self.args.batch_size)
 
         model.eval()

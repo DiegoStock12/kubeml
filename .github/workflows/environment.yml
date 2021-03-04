@@ -4,7 +4,6 @@ on:
   push:
     branches:
     - master
-    - k-avg
 
 jobs:
   build:
@@ -18,4 +17,4 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         workdir: ml/environment
-        tags: "0.1.8-avg"
+        tags: "0.1.8"
