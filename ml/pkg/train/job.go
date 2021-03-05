@@ -40,6 +40,7 @@ type TrainJob struct {
 	static        bool
 	validateEvery int
 	K             int
+	goalAccuracy  float64 // validation accuracy that marks the stop moment
 
 	// channel to receive updates from the scheduler
 	// through the api
@@ -47,7 +48,9 @@ type TrainJob struct {
 
 	// wait group used when launching a validation
 	// function so we do not accidentally exit the job without saving validation results
-	wgVal *sync.WaitGroup
+	wgVal           *sync.WaitGroup
+	accuracyCh      chan struct{}
+	accuracyReached bool
 
 	// function synchronization, waitgroup
 	// and index to track functions during an iteration
@@ -89,6 +92,7 @@ func NewTrainJob(
 		history:     api.JobHistory{},
 		startMerger: make(chan chan error),
 		wgVal:       &sync.WaitGroup{},
+		accuracyCh:  make(chan struct{}),
 		wgIteration: &sync.WaitGroup{},
 		merged:      make(chan struct{}),
 	}
@@ -132,6 +136,7 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 		history:     api.JobHistory{},
 		startMerger: make(chan chan error),
 		wgVal:       &sync.WaitGroup{},
+		accuracyCh:  make(chan struct{}, 1),
 		wgIteration: &sync.WaitGroup{},
 		merged:      make(chan struct{}),
 	}
@@ -150,6 +155,7 @@ func (job *TrainJob) extractTaskSettings(task api.TrainTask) {
 	job.static = task.Parameters.Options.StaticParallelism
 	job.validateEvery = task.Parameters.Options.ValidateEvery
 	job.K = task.Parameters.Options.K
+	job.goalAccuracy = task.Parameters.Options.GoalAccuracy
 }
 
 // Train is the main
@@ -195,8 +201,7 @@ func (job *TrainJob) Train() {
 
 		// Trigger validation if configured
 		if job.validateEvery != 0 && job.validateEvery%job.epoch == 0 {
-			// Invoke the validation function
-			job.validate()
+			go job.validate()
 		}
 
 		// If we need, ask the scheduler for updated settings
@@ -224,9 +229,20 @@ func (job *TrainJob) Train() {
 		// receive signal that the models are merged
 		job.logger.Debug("Waiting for merge to complete...")
 		<-job.merged
+
+		// check if the validation returned and we reached the goal average
+		select {
+		case <-job.accuracyCh:
+			job.logger.Debug("goal accuracy reached!, exiting")
+			job.accuracyReached = true
+			break
+		default:
+		}
 	}
 
-	job.validate()
+	if !job.accuracyReached {
+		job.validate()
+	}
 
 	// Wait for the val functions to finish
 	job.wgVal.Wait()
@@ -308,8 +324,10 @@ func (job *TrainJob) train() error {
 
 // validate invokes the validation function
 func (job *TrainJob) validate() {
+	// wait to only launch one validation function at a time
+	job.wgVal.Wait()
 	job.wgVal.Add(1)
-	go job.invokeValFunction(job.wgVal)
+	job.invokeValFunction(job.wgVal)
 }
 
 // mergeModel waits for a signal to start listening to functions requests

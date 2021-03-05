@@ -88,15 +88,16 @@ class KubeModel(ABC):
         :return: The loss of the epoch, as returned by the user function
         """
 
-        # calculate the number of subsets that we need to train on
-        # per epoch given the K parameter: the number of forward
-        # passes before synchronization
-        subsets_per_iter = get_subset_period(self.args._K, self.args.batch_size)
-        logging.debug(f"Subsets per iteration: {subsets_per_iter}")
-
         # Determine the batches that we need to train on and the first
         # subset id that we need to get each iteration
         assigned_subsets = split_minibatches(range(self._dataset.num_docs), self.args._N)[self.args._func_id]
+
+        # calculate the number of subsets that we need to train on
+        # per epoch given the K parameter: the number of forward
+        # passes before synchronization
+        subsets_per_iter = get_subset_period(self.args._K, self.args.batch_size, assigned_subsets)
+        logging.debug(f"Subsets per iteration: {subsets_per_iter}")
+
         intervals = range(assigned_subsets.start, assigned_subsets.stop, subsets_per_iter)
 
         loss = 0

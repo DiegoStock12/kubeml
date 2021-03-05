@@ -30,7 +30,7 @@ type (
 		// updates we sync with the PS
 		K int `json:"k"`
 		// GoalAccuracy accuracy objective, after which we'll stop the training
-		GoalAccuracy int `json:"goal_accuracy"`
+		GoalAccuracy float64 `json:"goal_accuracy"`
 	}
 
 	// InferRequest is sent when wanting to get a result back from a trained network

@@ -183,9 +183,8 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 		return
 	}
 
-	job.logger.Debug("Got validation results", zap.Any("results", res))
-
 	// Update the history with the new results
+	job.logger.Debug("Got validation results", zap.Any("results", res))
 	err = job.updateValidationMetrics(res["loss"], res["accuracy"])
 	if err != nil {
 		job.logger.Error("error sending val results", zap.Error(err))
@@ -194,6 +193,13 @@ func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
 
 	job.logger.Debug("History updated", zap.Any("history", job.history))
 
+	// if the accuracy reached the goal, send the notification
+	if res["accuracy"] >= job.goalAccuracy {
+		job.logger.Debug("goal accuracy reached, sending message",
+			zap.Float64("goal", job.goalAccuracy),
+			zap.Float64("acc", res["accuracy"]))
+		job.accuracyCh <- struct{}{}
+	}
 }
 
 // launchFunction launches a training function and sends the results to the
