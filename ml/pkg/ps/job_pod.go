@@ -10,14 +10,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	"net/http"
 	"time"
 )
 
-
-func (ps *ParameterServer) isPodReady(podName string) wait.ConditionFunc {
+func isPodReady(kubeClient *kubernetes.Clientset, podName string) wait.ConditionFunc {
 	return func() (done bool, err error) {
 
-		pod, err := ps.kubeClient.CoreV1().Pods(KubeMlNamespace).Get(podName, metav1.GetOptions{})
+		pod, err := kubeClient.CoreV1().Pods(KubeMlNamespace).Get(podName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -33,22 +34,46 @@ func (ps *ParameterServer) isPodReady(podName string) wait.ConditionFunc {
 	}
 }
 
-func (ps *ParameterServer) waitForPodRunning(pod *corev1.Pod, timeout time.Duration) error {
-	return wait.PollImmediate(time.Second, timeout, ps.isPodReady(pod.Name))
+// isServiceReady waits until the service created for the pod answers requests from the
+// parameter server before sending the train request to the trainjob
+func isServiceReady(svcName string) wait.ConditionFunc {
+
+	// send a request to the health handler until receiving a response
+	url := fmt.Sprintf("http://%v.kubeml/health", svcName)
+
+	return func() (done bool, err error) {
+		resp, err := http.Get(url)
+		if err != nil || resp.StatusCode != http.StatusOK {
+			return false, err
+		}
+
+		return true, nil
+
+	}
+}
+
+// waitForPodRunning polls the status of the pod until it is ready
+func waitForPodRunning(kubeClient *kubernetes.Clientset, pod *corev1.Pod, timeout time.Duration) error {
+	return wait.PollImmediate(time.Second, timeout, isPodReady(kubeClient, pod.Name))
+}
+
+// waitForServiceRunning polls the service until it starts answering requests
+func waitForServiceRunning(svc *corev1.Service, timeout time.Duration) error {
+	return wait.PollImmediate(time.Second, timeout, isServiceReady(svc.Name))
 }
 
 // createJobResources creates the pod and service offered by a job
 func (ps *ParameterServer) createJobResources(task api.TrainTask) (*corev1.Pod, *corev1.Service, error) {
 
-	// create the service
-	svc, err := ps.createJobService(task)
-	if err != nil {
-		ps.logger.Error("error creating service...")
-		return nil, nil, errors.Wrap(err, "error creating service")
-	}
-
 	// create the pod
 	pod, err := ps.createJobPod(task)
+	if err != nil {
+		ps.logger.Error("error creating pod...")
+		return nil, nil, errors.Wrap(err, "error creating pod")
+	}
+
+	// create the service
+	svc, err := ps.createJobService(task)
 	if err != nil {
 		var e *multierror.Error
 		e = multierror.Append(e, errors.Wrap(err, "error creating service"))
@@ -98,6 +123,12 @@ func (ps *ParameterServer) createJobService(task api.TrainTask) (*corev1.Service
 	svcRef, err := ps.kubeClient.CoreV1().Services(KubeMlNamespace).Create(svc)
 	if err != nil {
 		return nil, err
+	}
+
+	// wait for the service to be running
+	err = waitForServiceRunning(svcRef, 20*time.Second)
+	if err != nil {
+		return nil, errors.Wrap(err, "error waiting for service startup")
 	}
 
 	return svcRef, nil
@@ -167,9 +198,9 @@ func (ps *ParameterServer) createJobPod(task api.TrainTask) (*corev1.Pod, error)
 		zap.Any("ip", podRef.Status.PodIP),
 		zap.Any("phase", podRef.Status.Phase))
 
-	err = ps.waitForPodRunning(podRef, 20*time.Second)
+	err = waitForPodRunning(ps.kubeClient, podRef, 20*time.Second)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error waiting for pod to start")
 	}
 
 	ps.logger.Debug("Created pod")
