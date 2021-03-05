@@ -48,7 +48,12 @@ type TrainJob struct {
 
 	// wait group used when launching a validation
 	// function so we do not accidentally exit the job without saving validation results
-	wgVal           *sync.WaitGroup
+	wgVal *sync.WaitGroup
+	// this channel needs to be buffered to prevent deadlock, if the validation
+	// reaches the accuracy in the final validation outside of the loop,
+	// it will try to reach the loop by sending to the channel, but the main
+	// loop will no longer be waiting on the other side, but on the waitgroup, causing a deadlock
+	// in this way the validation function can finish and return
 	accuracyCh      chan struct{}
 	accuracyReached bool
 
@@ -92,7 +97,7 @@ func NewTrainJob(
 		history:     api.JobHistory{},
 		startMerger: make(chan chan error),
 		wgVal:       &sync.WaitGroup{},
-		accuracyCh:  make(chan struct{}),
+		accuracyCh:  make(chan struct{}, 1),
 		wgIteration: &sync.WaitGroup{},
 		merged:      make(chan struct{}),
 	}
@@ -136,7 +141,7 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 		history:     api.JobHistory{},
 		startMerger: make(chan chan error),
 		wgVal:       &sync.WaitGroup{},
-		accuracyCh:  make(chan struct{}),
+		accuracyCh:  make(chan struct{}, 1),
 		wgIteration: &sync.WaitGroup{},
 		merged:      make(chan struct{}),
 	}
@@ -201,7 +206,7 @@ func (job *TrainJob) Train() {
 
 		// Trigger validation if configured
 		if job.validateEvery != 0 && job.validateEvery%job.epoch == 0 {
-			go job.validate()
+			job.validate()
 		}
 
 		// If we need, ask the scheduler for updated settings
@@ -240,11 +245,14 @@ func (job *TrainJob) Train() {
 		}
 	}
 
+	// if the accuracy is already reached, no need to
+	// validate again
 	if !job.accuracyReached {
 		job.validate()
 	}
 
-	// Wait for the val functions to finish
+	// Wait for the val functions to finish if there
+	// are still some running
 	job.wgVal.Wait()
 	job.saveTrainingHistory()
 
@@ -324,9 +332,9 @@ func (job *TrainJob) train() error {
 
 // validate invokes the validation function
 func (job *TrainJob) validate() {
-	// wait to only launch one validation function at a time
+	// invoke the validation function concurrently
 	job.wgVal.Add(1)
-	job.invokeValFunction(job.wgVal)
+	go job.invokeValFunction(job.wgVal)
 }
 
 // mergeModel waits for a signal to start listening to functions requests
