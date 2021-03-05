@@ -27,6 +27,8 @@ func main() {
 	time.Sleep(1 * time.Second)
 
 	go doStuff(wg, 2)
+	go doStuff(wg, 3)
+	go doStuff(wg, 4)
 
 	time.Sleep(15 * time.Second)
 

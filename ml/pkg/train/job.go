@@ -136,7 +136,7 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 		history:     api.JobHistory{},
 		startMerger: make(chan chan error),
 		wgVal:       &sync.WaitGroup{},
-		accuracyCh:  make(chan struct{}, 1),
+		accuracyCh:  make(chan struct{}),
 		wgIteration: &sync.WaitGroup{},
 		merged:      make(chan struct{}),
 	}
@@ -325,7 +325,6 @@ func (job *TrainJob) train() error {
 // validate invokes the validation function
 func (job *TrainJob) validate() {
 	// wait to only launch one validation function at a time
-	job.wgVal.Wait()
 	job.wgVal.Add(1)
 	job.invokeValFunction(job.wgVal)
 }
