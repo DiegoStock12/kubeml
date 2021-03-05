@@ -29,6 +29,8 @@ var (
 	staticParallelism  bool
 	defaultParallelism int
 	K                  int
+	sparseAvg          bool // if true, it means we only synchronize once per epoch
+	goalAccuracy       int  // accuracy objective, after which we'll stop the training
 
 	trainCmd = &cobra.Command{
 		Use:   "train",
@@ -45,6 +47,12 @@ func train(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
+	// set the K to -1 in order to only
+	// synchronize once per epoch if sparse averaging is set
+	if sparseAvg {
+		K = -1
+	}
+
 	req := api.TrainRequest{
 		ModelType:    "example",
 		BatchSize:    batchSize,
@@ -57,6 +65,7 @@ func train(_ *cobra.Command, _ []string) error {
 			StaticParallelism:  staticParallelism,
 			ValidateEvery:      validateEvery,
 			K:                  K,
+			GoalAccuracy:       goalAccuracy,
 		},
 	}
 
@@ -152,6 +161,8 @@ func init() {
 	trainCmd.Flags().IntVar(&defaultParallelism, "default-parallelism", api.DebugParallelism, "Starting level of parallelism")
 	trainCmd.Flags().BoolVar(&staticParallelism, "static", false, "Whether to keep parallelism static")
 	trainCmd.Flags().IntVar(&K, "K", 5, "Sync every K updates to the local network")
+	trainCmd.Flags().BoolVar(&sparseAvg, "sparse-avg", false, "If true, average only once per epoch, no matter the value of K")
+	trainCmd.Flags().IntVar(&goalAccuracy, "goal-accuracy", 0, "Accuracy after which the training will stop")
 
 	trainCmd.MarkFlagRequired("dataset")
 	trainCmd.MarkFlagRequired("function")

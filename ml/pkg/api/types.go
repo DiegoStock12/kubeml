@@ -26,10 +26,11 @@ type (
 		DefaultParallelism int  `json:"default_parallelism"`
 		StaticParallelism  bool `json:"static_parallelism"`
 		ValidateEvery      int  `json:"validate_every"`
-
 		// K is the parameter of the K-avg algorithm, after how many
 		// updates we sync with the PS
-		K                  int  `json:"k"`
+		K int `json:"k"`
+		// GoalAccuracy accuracy objective, after which we'll stop the training
+		GoalAccuracy int `json:"goal_accuracy"`
 	}
 
 	// InferRequest is sent when wanting to get a result back from a trained network
