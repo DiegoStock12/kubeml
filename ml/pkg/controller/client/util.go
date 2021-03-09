@@ -1,13 +1,13 @@
 package client
 
 import (
-"fmt"
-"github.com/fission/fission/pkg/crd"
-"github.com/pkg/errors"
-corev1 "k8s.io/api/core/v1"
-metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-"net/url"
-"strings"
+	"fmt"
+	"github.com/fission/fission/pkg/crd"
+	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/url"
+	"strings"
 )
 
 const KubeMLNamespace = "kubeml"
@@ -63,4 +63,3 @@ func isLoadBalanced(svc *corev1.Service) bool {
 func getLoadBalancerIP(svc *corev1.Service) string {
 	return svc.Status.LoadBalancer.Ingress[0].IP
 }
-

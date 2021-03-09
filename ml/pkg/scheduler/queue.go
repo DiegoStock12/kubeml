@@ -7,7 +7,6 @@ import (
 	"sync"
 )
 
-
 // queue is the internal type used to queue
 // the elements in the scheduler
 type queue = list.List
@@ -37,7 +36,7 @@ func NewQueue() SchedulerQueue {
 
 // pushTrainTask pushes the task so it can be analyzed
 // and given a new parallelism level
-func (sq *SchedulerQueue) pushTask(task *api.TrainTask)  {
+func (sq *SchedulerQueue) pushTask(task *api.TrainTask) {
 	sq.lock.Lock()
 	defer sq.lock.Unlock()
 
@@ -47,7 +46,7 @@ func (sq *SchedulerQueue) pushTask(task *api.TrainTask)  {
 }
 
 // popTask returns the next element from the training queue
-func (sq *SchedulerQueue) popTask() (*api.TrainTask, error)  {
+func (sq *SchedulerQueue) popTask() (*api.TrainTask, error) {
 	sq.lock.Lock()
 	defer sq.lock.Unlock()
 
@@ -74,7 +73,7 @@ func (sq *SchedulerQueue) pushRequest(req *api.TrainRequest) {
 
 	// right now just create a task and push it to queue
 	t := &api.TrainTask{
-		Parameters:  *req,
+		Parameters: *req,
 		Job: api.JobInfo{
 			JobId: createJobId(),
 		},
@@ -82,5 +81,3 @@ func (sq *SchedulerQueue) pushRequest(req *api.TrainRequest) {
 	sq.trainQ.PushBack(t)
 
 }
-
-

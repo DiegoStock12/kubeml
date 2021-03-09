@@ -30,7 +30,6 @@ func (c *Controller) train(w http.ResponseWriter, r *http.Request) {
 
 	// TODO filter if the dataset exists before submitting
 
-
 	// Forward the request to the scheduler
 	id, err := c.scheduler.SubmitTrainTask(req)
 	if err != nil {
@@ -40,7 +39,7 @@ func (c *Controller) train(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c.logger.Debug("got job id",zap.String("id", id))
+	c.logger.Debug("got job id", zap.String("id", id))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(id))
 }
@@ -66,7 +65,7 @@ func (c *Controller) infer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c.logger.Debug("got response",zap.String("predictions", string(resp)))
+	c.logger.Debug("got response", zap.String("predictions", string(resp)))
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(resp)

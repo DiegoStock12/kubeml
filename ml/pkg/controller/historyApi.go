@@ -11,14 +11,14 @@ import (
 )
 
 // listHistories returns a list of the histories in the database
-func (c *Controller) listHistories(w http.ResponseWriter, r *http.Request)  {
+func (c *Controller) listHistories(w http.ResponseWriter, r *http.Request) {
 
 	c.logger.Debug("Listing histories")
 
 	var histories []api.History
 	collection := c.mongoClient.Database("kubeml").Collection("history")
 	//opts := options.Find().SetProjection(bson.M{"_id":1, "task":1})
-	cursor, err := collection.Find(context.TODO(),bson.M{})
+	cursor, err := collection.Find(context.TODO(), bson.M{})
 	if err != nil {
 		c.logger.Error("Could not get document lists", zap.Error(err))
 		http.Error(w, "Could not get document lists", http.StatusNotFound)
@@ -46,7 +46,7 @@ func (c *Controller) listHistories(w http.ResponseWriter, r *http.Request)  {
 }
 
 // getHistory gets a history from mongoDB
-func (c *Controller) getHistory(w http.ResponseWriter, r *http.Request)  {
+func (c *Controller) getHistory(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	taskId := vars["taskId"]
 
@@ -55,11 +55,11 @@ func (c *Controller) getHistory(w http.ResponseWriter, r *http.Request)  {
 	// Use the mongo client to get the history
 	var history api.History
 	collection := c.mongoClient.Database("kubeml").Collection("history")
-	err := collection.FindOne(context.TODO(), bson.M{"_id":taskId}).Decode(&history)
+	err := collection.FindOne(context.TODO(), bson.M{"_id": taskId}).Decode(&history)
 	if err != nil {
 		c.logger.Error("Could not find history",
 			zap.Error(err))
-		http.Error(w, "Could not find history for request" ,http.StatusNotFound)
+		http.Error(w, "Could not find history for request", http.StatusNotFound)
 		return
 	}
 
@@ -67,7 +67,7 @@ func (c *Controller) getHistory(w http.ResponseWriter, r *http.Request)  {
 	if err != nil {
 		c.logger.Error("Could not marshal history",
 			zap.Error(err))
-		http.Error(w, "Error marshaling request" ,http.StatusInternalServerError)
+		http.Error(w, "Error marshaling request", http.StatusInternalServerError)
 		return
 	}
 
@@ -77,14 +77,14 @@ func (c *Controller) getHistory(w http.ResponseWriter, r *http.Request)  {
 }
 
 // deleteHistory deletes a training history from the database given its ID
-func (c *Controller) deleteHistory(w http.ResponseWriter, r *http.Request)  {
+func (c *Controller) deleteHistory(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	taskId := vars["taskId"]
 
 	c.logger.Debug("Deleting history", zap.String("taskId", taskId))
 
 	collection := c.mongoClient.Database("kubeml").Collection("history")
-	_, err := collection.DeleteOne(context.TODO(), bson.M{"_id":taskId}, nil)
+	_, err := collection.DeleteOne(context.TODO(), bson.M{"_id": taskId}, nil)
 	if err != nil {
 		c.logger.Error("Could not find history", zap.Error(err))
 		http.Error(w, "Could not find history to delete", http.StatusNotFound)

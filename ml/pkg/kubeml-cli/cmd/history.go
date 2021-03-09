@@ -99,7 +99,6 @@ func listHistories(_ *cobra.Command, _ []string) error {
 
 	for _, h := range histories {
 
-
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 			h.Id, h.Task.ModelType, h.Task.Dataset, h.Task.Epochs, h.Task.BatchSize, h.Task.LearningRate,
 			getMeanParallelism(h.Data.Parallelism), h.Task.Options.StaticParallelism,
@@ -120,7 +119,6 @@ func getMeanParallelism(parallelisms []float64) float64 {
 	return total / float64(len(parallelisms))
 
 }
-
 
 func calculateTotalTime(epochs ...float64) float64 {
 	var total float64

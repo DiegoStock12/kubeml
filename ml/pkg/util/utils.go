@@ -23,8 +23,7 @@ func FindFreePort() (int, error) {
 	return port, nil
 }
 
-
-func IsDebugEnv () bool {
+func IsDebugEnv() bool {
 	d := os.Getenv("DEBUG_ENV")
 	if len(d) == 0 {
 		return false
@@ -36,7 +35,6 @@ func IsDebugEnv () bool {
 	}
 	return debug
 }
-
 
 func LimitParallelism() bool {
 	d := os.Getenv("LIMIT_PARALLELISM")

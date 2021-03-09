@@ -101,7 +101,6 @@ func (c *Client) SubmitInferenceTask(req []byte) ([]byte, error) {
 	return body, nil
 }
 
-
 // sendTask submits the request to the scheduler
 // and returns the response as a string and an error if needed
 func (c *Client) sendTask(body []byte, url string) (string, error) {

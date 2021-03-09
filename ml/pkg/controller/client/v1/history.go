@@ -32,17 +32,14 @@ func newHistories(c *V1) HistoryInterface {
 	}
 }
 
-
-
 func (h *histories) Get(taskId string) (*api.History, error) {
 	url := h.controllerUrl + "/history/" + taskId
 
 	resp, err := h.httpClient.Get(url)
 	if err != nil {
-		return nil , errors.Wrap(err, "could not perform history request")
+		return nil, errors.Wrap(err, "could not perform history request")
 	}
 	defer resp.Body.Close()
-
 
 	if resp.StatusCode != http.StatusOK {
 		// read the http error string and return it
@@ -67,7 +64,6 @@ func (h *histories) Get(taskId string) (*api.History, error) {
 
 	return &history, nil
 }
-
 
 func (h *histories) Delete(taskId string) error {
 	url := h.controllerUrl + "/history/" + taskId
@@ -118,6 +114,3 @@ func (h *histories) List() ([]api.History, error) {
 	return histories, nil
 
 }
-
-
-

@@ -16,7 +16,7 @@ const (
 type (
 	Client struct {
 		controllerUrl string
-		httpClient *http.Client
+		httpClient    *http.Client
 	}
 )
 
@@ -37,5 +37,3 @@ func MakeClient() *Client {
 		httpClient:    &http.Client{},
 	}
 }
-
-

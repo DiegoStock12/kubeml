@@ -14,7 +14,6 @@ type (
 		Networks() NetworkInterface
 	}
 
-
 	NetworkInterface interface {
 		Train(req *api.TrainRequest) (string, error)
 		Infer(req *api.InferRequest) ([]byte, error)
@@ -24,8 +23,6 @@ type (
 		controllerUrl string
 		httpClient    *http.Client
 	}
-
-
 )
 
 func newNetworks(c *V1) NetworkInterface {

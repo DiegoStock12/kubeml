@@ -35,7 +35,7 @@ func MakeKubemlClient() (*KubemlClient, error) {
 	if util.IsDebugEnv() {
 		controllerUrl = fmt.Sprintf("http://%s:%d", "localhost", api.ControllerPortDebug)
 	} else {
-		controllerUrl, err  = getControllerUrl()
+		controllerUrl, err = getControllerUrl()
 		if err != nil {
 			return nil, err
 		}

@@ -85,7 +85,6 @@ func init() {
 	tasksRunning.WithLabelValues("inference").Set(0)
 }
 
-
 // updateMetrics takes the history of the job and refreshes the
 // ps metrics for that job using the jobId as the filtering label
 func updateMetrics(jobId string, metrics api.MetricUpdate) {

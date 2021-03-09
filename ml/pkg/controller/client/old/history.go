@@ -13,7 +13,7 @@ func (c *Client) ListHistories() ([]api.History, error) {
 
 	resp, err := c.httpClient.Get(url)
 	if err != nil {
-		return nil , errors.Wrap(err, "could not perform history request")
+		return nil, errors.Wrap(err, "could not perform history request")
 	}
 	defer resp.Body.Close()
 
@@ -31,14 +31,13 @@ func (c *Client) ListHistories() ([]api.History, error) {
 	return histories, nil
 }
 
-
 // GetHistory returns the training history of a certain task
 func (c *Client) GetHistory(taskId string) (string, error) {
 	url := c.controllerUrl + "/history/get/" + taskId
 
 	resp, err := c.httpClient.Get(url)
 	if err != nil {
-		return "" , errors.Wrap(err, "could not perform history request")
+		return "", errors.Wrap(err, "could not perform history request")
 	}
 	defer resp.Body.Close()
 
@@ -51,7 +50,7 @@ func (c *Client) GetHistory(taskId string) (string, error) {
 	return string(history), nil
 }
 
-func (c *Client) DeleteHistory(taskId string)  error  {
+func (c *Client) DeleteHistory(taskId string) error {
 	url := c.controllerUrl + "/history/delete/" + taskId
 
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
@@ -75,4 +74,3 @@ func (c *Client) DeleteHistory(taskId string)  error  {
 
 	return nil
 }
-

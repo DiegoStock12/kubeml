@@ -28,7 +28,6 @@ func (c *Controller) getHandler() http.Handler {
 	// get current tasks
 	r.HandleFunc("/tasks", c.listTasks).Methods("GET")
 
-
 	// history
 	r.HandleFunc("/history/{taskId}", c.getHistory).Methods("GET")
 	r.HandleFunc("/history/{taskId}", c.deleteHistory).Methods("DELETE")

@@ -5,9 +5,8 @@ import (
 	"net/http"
 )
 
-
 // listTasks gets the tasks from the ps and simply redirects them
-func (c *Controller) listTasks(w http.ResponseWriter, r *http.Request)  {
+func (c *Controller) listTasks(w http.ResponseWriter, r *http.Request) {
 	taskBytes, err := c.ps.ListTasks()
 	if err != nil {
 		c.logger.Error("error getting tasks from ps", zap.Error(err))

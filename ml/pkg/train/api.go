@@ -131,7 +131,6 @@ func (job *TrainJob) GetHandler() http.Handler {
 	return r
 }
 
-
 func (job *TrainJob) Serve(port int) {
 
 	job.logger.Info("starting job API", zap.String("JobID", job.jobId))
