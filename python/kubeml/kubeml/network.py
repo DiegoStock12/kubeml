@@ -78,7 +78,7 @@ class KubeModel(ABC):
         finally:
             self._redis_client.close()
 
-        return [name for name, layer in self._network.named_modules() if is_optimizable(layer)]
+        return [name for name in self._network.state_dict()]
 
     def __train(self) -> float:
         """
@@ -199,23 +199,15 @@ class KubeModel(ABC):
         job_id = self.args._job_id
 
         state = dict()
-        for name, layer in self._network.named_modules():
-            if is_optimizable(layer):
-                logging.debug(f"Loading weights for layer {name}")
-                weight_key = f'{job_id}:{name}.weight'
-                w = self._redis_client.tensorget(weight_key)
-                # set the weight
-                state[weight_key[len(job_id) + 1:]] = torch.from_numpy(w)
+        for name in self._network.state_dict():
 
-                # If the layer has an active bias retrieve it
-                # Some of the layers in resnet do not have bias
-                # or it is None. It is not needed with BN, so skip it
-                if layer.bias is not None:
-                    logging.debug(f'Loading bias for layer {name}')
-                    bias_key = f'{job_id}:{name}.bias'
-                    w = self._redis_client.tensorget(bias_key)
-                    # set the bias
-                    state[bias_key[len(job_id) + 1:]] = torch.from_numpy(w)
+            # load each of the layers in the statedict
+            # TODO we could see if the BN are included, in the resnet they have running stats
+            logging.debug(f"Loading weights for layer {name}")
+            weight_key = f'{job_id}:{name}'
+            w = self._redis_client.tensorget(weight_key)
+            # set the weight
+            state[weight_key[len(job_id) + 1:]] = torch.from_numpy(w)
 
         logging.debug(f'Layers are {state.keys()}')
 
@@ -231,22 +223,13 @@ class KubeModel(ABC):
 
         logging.debug("Saving model to the database")
         with torch.no_grad():
-            for name, layer in self._network.named_modules():
-                if is_optimizable(layer):
-                    # Save the weights
-                    logging.debug(f'Setting weights for layer {name}')
-                    weight_key = f'{job_id}:{name}.weight' \
-                        if task == 'init' \
-                        else f'{job_id}:{name}.weight/{func_id}'
-                    self._redis_client.tensorset(weight_key, layer.weight.cpu().detach().numpy(), dtype='float32')
-
-                    # Save the bias if not None
-                    if layer.bias is not None:
-                        logging.debug(f'Setting bias for layer {name}')
-                        bias_key = f'{job_id}:{name}.bias' \
-                            if task == 'init' \
-                            else f'{job_id}:{name}.bias/{func_id}'
-                        self._redis_client.tensorset(bias_key, layer.bias.cpu().detach().numpy(), dtype='float32')
+            for name, layer in self._network.state_dict().items():
+                # Save the weights
+                logging.debug(f'Setting layer {name}')
+                weight_key = f'{job_id}:{name}' \
+                    if task == 'init' \
+                    else f'{job_id}:{name}/{func_id}'
+                self._redis_client.tensorset(weight_key, layer.cpu().detach().numpy(), dtype='float32')
 
         logging.debug('Saved model to the database')
 
