@@ -16,4 +16,4 @@ COPY  utils.py /app
 
 EXPOSE 9090
 
-CMD ["gunicorn", "-b", "0.0.0.0:9090", "-w 4", "api:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:9090", "-t", "200", "-w 4", "api:app"]
