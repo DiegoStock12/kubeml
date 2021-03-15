@@ -31,3 +31,5 @@ build/
 data
 *.tgz
 datasets/
+
+*.exe
