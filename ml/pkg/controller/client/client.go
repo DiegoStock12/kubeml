@@ -41,7 +41,7 @@ func MakeKubemlClient() (*KubemlClient, error) {
 		}
 	}
 
-	fmt.Println("Using controller address", controllerUrl)
+	//fmt.Println("Using controller address", controllerUrl)
 
 	return &KubemlClient{
 		controllerUrl: controllerUrl,

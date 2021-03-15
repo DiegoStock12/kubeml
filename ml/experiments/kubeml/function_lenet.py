@@ -6,8 +6,9 @@ import torch
 import logging
 
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.utils.data as data
-from torch.optim import Adam
+from torch.optim import SGD
 import torchvision.transforms as transforms
 from kubeml import KubeModel, KubeDataset
 
@@ -62,7 +63,7 @@ class MnistDataset(KubeDataset):
 
     def __getitem__(self, index):
         x = self.data[index]
-        y = self.data[index]
+        y = self.labels[index]
 
         return self.transf(x), y.astype('int64')
 
@@ -88,7 +89,7 @@ class KubeLeNet(KubeModel):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         train_loader = data.DataLoader(dataset, batch_size=batch)
         loss_fn = nn.CrossEntropyLoss()
-        optimizer = Adam(model.parameters(), lr=lr)
+        optimizer = SGD(model.parameters(), lr=lr, momentum=0.9)
 
         model.train()
         total_loss = 0
@@ -100,6 +101,7 @@ class KubeLeNet(KubeModel):
             output = model(x)
 
             # compute loss and backprop
+            logging.debug(f'Shape of the output is {output.shape}, y is {y.shape}')
             loss = loss_fn(output, y)
             loss.backward()
 
@@ -127,12 +129,12 @@ class KubeLeNet(KubeModel):
         correct = 0
         for x, y in val_loader:
             x, y = x.to(device), y.to(device)
-            output = model(data)
-            test_loss += loss_fn(output, y, reduction='sum').item()  # sum up batch loss
+            output = model(x)
+            test_loss += loss_fn(output, y).item()  # sum up batch loss
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct += pred.eq(y.view_as(pred)).sum().item()
 
-        test_loss /= len(val_loader.dataset)
+        test_loss /= len(val_loader)
         accuracy = 100. * correct / len(val_loader.dataset)
 
         return accuracy, test_loss

@@ -79,7 +79,7 @@ func train(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	fmt.Println("Started train job with Id", id)
+	fmt.Println(id)
 	return nil
 
 }

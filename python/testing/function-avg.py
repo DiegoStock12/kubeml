@@ -82,6 +82,7 @@ class KubeNet(KubeModel):
             optimizer.zero_grad()
             output = model(data)
 
+            current_app.logger.debug(f'Shape of the output is {output.shape}, y is {target.shape}')
             loss = F.nll_loss(output, target)
             loss.backward()
 

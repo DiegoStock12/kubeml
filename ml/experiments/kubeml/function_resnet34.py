@@ -22,7 +22,7 @@ class Cifar10Dataset(KubeDataset):
 
     def __getitem__(self, index):
         x = self.data[index]
-        y = self.data[index]
+        y = self.labels[index]
 
         return self.transf(x), y.astype('int64')
 
@@ -76,12 +76,12 @@ class KubeResnet34(KubeModel):
             inputs, labels = inputs.to(device), labels.to(device)
             output = model(inputs)
             _, predicted = torch.max(output.data, 1)
-            test_loss += criterion(output, labels, reduction='sum').item()
+            test_loss += criterion(output, labels).item()
             total += labels.size(0)
             correct += predicted.eq(labels).sum().item()
 
         accuracy = correct / total * 100
-        test_loss /= len(loader.dataset)
+        test_loss /= len(loader)
 
         return accuracy, test_loss
 

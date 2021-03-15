@@ -9,13 +9,16 @@ import time
 from .utils import check_stderr
 
 
+kubeml = '/mnt/c/Users/diego/CS/thesis/ml/pkg/kubeml-cli/kubeml'
+
+
 @dataclass_json
 @dataclass
 class TrainOptions:
     default_parallelism: int
     static_parallelism: bool
     validate_every: int
-    K: int
+    k: int
     goal_accuracy: float
 
 
@@ -79,6 +82,7 @@ class KubemlExperiment(Experiment):
         - TODO save the history somewhere
         """
         self.network_id = self.run_task()
+        time.sleep(30)
         self.wait_for_task_finished()
         self.history = self.get_model_history()
 
@@ -91,29 +95,35 @@ class KubemlExperiment(Experiment):
             done = self.check_if_task_finished()
             if done:
                 return
-            time.sleep(2)
+            time.sleep(10)
 
     def run_task(self) -> str:
         """ Runs a task and returns the id assigned by kubeml"""
-        command = f"kubeml train  \
+        command = f"{kubeml} train  \
                     --function {self.request.function_name} \
                     --dataset {self.request.dataset} \
                     --epochs {self.request.epochs} \
                     --batch {self.request.batch_size} \
-                    --lr {self.request.lr}"
+                    --lr {self.request.lr} \
+                    --default-parallelism {self.request.options.default_parallelism} \
+                    --goal-accuracy {self.request.options.goal_accuracy} \
+                    --K {self.request.options.k} \
+                    --validate-every {self.request.options.validate_every} \
+                    --static"
+
         print("starting training with command", command)
 
         res = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         check_stderr(res)
 
-        id = res.stdout.decode()
+        id = res.stdout.decode().strip()
 
         print("Received id", id)
         return id
 
     def check_if_task_finished(self) -> bool:
         """Check if the task is the the list of running tasks"""
-        command = "kubeml task list --short"
+        command = f"{kubeml} task list --short"
         print("Checking running tasks", command)
 
         res = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -123,13 +133,15 @@ class KubemlExperiment(Experiment):
         tasks = res.stdout.decode().splitlines()
 
         for id in tasks:
+            print(id, end=' ')
             if id == self.network_id:
-                return True
-        return False
+                print()
+                return False
+        return True
 
     def get_model_history(self) -> History:
         """Gets the training history for a certain model"""
-        command = f"kubeml history get --network {self.network_id}"
+        command = f"{kubeml} history get --network {self.network_id}"
         print("Getting model history with command", command)
 
         res = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -142,6 +154,9 @@ class KubemlExperiment(Experiment):
 
         print(h)
         return h
+
+    def __str__(self):
+        return f'KubeMLExperiment(title:{self.title})'
 
 
 

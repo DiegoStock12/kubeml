@@ -205,7 +205,7 @@ func (job *TrainJob) Train() {
 		}
 
 		// Trigger validation if configured
-		if job.validateEvery != 0 && job.validateEvery%job.epoch == 0 {
+		if job.validateEvery != 0 && job.epoch%job.validateEvery == 0 {
 			job.validate()
 		}
 

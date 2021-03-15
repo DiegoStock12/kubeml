@@ -56,6 +56,8 @@ def handle_dataset(name: str):
 # and according to that it divides the dataset in batches
 # of constant size and saves them to the mongo database
 def upload_dataset(dataset_name: str):
+
+    # TODO move this below so we check before if dataset exists
     if not request.files:
         logging.error('Request does not include a file')
         return jsonify(error='Request does not include a file'), 400

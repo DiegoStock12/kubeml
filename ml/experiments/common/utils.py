@@ -2,7 +2,7 @@ import subprocess
 from .experiment import *
 
 
-def get_title(req: TrainRequest) -> str:
+def get_title(req) -> str:
     return f'{req.model_type}-batch{req.batch_size}-k{req.options.K}-parallel{req.options.default_parallelism}-TTA{req.options.goal_accuracy}'
 
 
