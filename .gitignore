@@ -29,3 +29,5 @@ build/
 *.zip
 *.tar.gz
 data
+*.tgz
+datasets/

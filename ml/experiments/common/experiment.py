@@ -1,12 +1,23 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from dataclasses_json import dataclass_json
+from dataclasses_json import dataclass_json, Undefined, CatchAll
 from typing import List, Dict, Any
 import logging
 import subprocess
 import time
 
 
+@dataclass_json
+@dataclass
+class TrainOptions:
+    default_parallelism: int
+    static_parallelism: bool
+    validate_every: int
+    K: int
+    goal_accuracy: float
+
+
+@dataclass_json
 @dataclass
 class TrainRequest:
     """ Request holding the settings to run an experiment
@@ -17,14 +28,25 @@ class TrainRequest:
     dataset: str
     lr: float
     function_name: str
+    options: TrainOptions
+
+
+@dataclass_json
+@dataclass
+class TrainMetrics:
+    validation_loss: List[float]
+    accuracy: List[float]
+    train_loss: List[float]
+    parallelism: List[int]
+    epoch_duration: List[float]
 
 
 @dataclass_json
 @dataclass
 class History:
     id: str
-    task: Dict[str, Any]
-    data: Dict[str, List[float]]
+    task: TrainRequest
+    data: TrainMetrics
 
 
 class Experiment(ABC):
