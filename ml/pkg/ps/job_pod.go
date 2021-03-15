@@ -75,14 +75,16 @@ func (ps *ParameterServer) createJobResources(task api.TrainTask) (*corev1.Pod, 
 	// create the service
 	svc, err := ps.createJobService(task)
 	if err != nil {
+		ps.logger.Error("error starting service", zap.Error(err))
+
 		var e *multierror.Error
 		e = multierror.Append(e, errors.Wrap(err, "error creating service"))
 
 		err = ps.deleteJobPod(pod)
 		e = multierror.Append(e, err)
 
-		err = ps.deleteJobService(svc)
-		e = multierror.Append(e, err)
+		//err = ps.deleteJobService(svc)
+		//e = multierror.Append(e, err)
 
 		return nil, nil, e.ErrorOrNil()
 	}
@@ -126,10 +128,10 @@ func (ps *ParameterServer) createJobService(task api.TrainTask) (*corev1.Service
 	}
 
 	// wait for the service to be running
-	err = waitForServiceRunning(svcRef, 20*time.Second)
-	if err != nil {
-		return nil, errors.Wrap(err, "error waiting for service startup")
-	}
+	//err = waitForServiceRunning(svcRef, 20*time.Second)
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "error waiting for service startup")
+	//}
 
 	return svcRef, nil
 

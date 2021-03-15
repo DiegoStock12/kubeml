@@ -143,7 +143,7 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 				ps.logger.Error("Unable to send the task to the jobClient",
 					zap.Error(err))
 				if i < retries-1 {
-					time.Sleep(50 * time.Duration(2*i) * time.Millisecond)
+					time.Sleep(200 * time.Duration(2*i) * time.Millisecond)
 					ps.logger.Debug("error sending request to task, retrying...", zap.Error(err))
 					continue
 				}
