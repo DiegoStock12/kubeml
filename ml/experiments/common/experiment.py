@@ -6,6 +6,8 @@ import logging
 import subprocess
 import time
 
+from .utils import check_stderr
+
 
 @dataclass_json
 @dataclass
@@ -66,6 +68,7 @@ class KubemlExperiment(Experiment):
 
         # Network ID is created when task is started through the CLI
         self.network_id = None
+        self.history = None
 
     def run(self):
         """ RUn an experiment on KubeML
@@ -77,9 +80,9 @@ class KubemlExperiment(Experiment):
         """
         self.network_id = self.run_task()
         self.wait_for_task_finished()
-        history = self.get_model_history()
+        self.history = self.get_model_history()
 
-        print(history.to_json())
+        print(self.history.to_json())
 
         # TODO save the history in the file related to the experiment title
 
@@ -101,7 +104,7 @@ class KubemlExperiment(Experiment):
         print("starting training with command", command)
 
         res = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        self.check_stderr(res)
+        check_stderr(res)
 
         id = res.stdout.decode()
 
@@ -111,10 +114,10 @@ class KubemlExperiment(Experiment):
     def check_if_task_finished(self) -> bool:
         """Check if the task is the the list of running tasks"""
         command = "kubeml task list --short"
-        print("Checking running tasks"), command
+        print("Checking running tasks", command)
 
         res = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        self.check_stderr(res)
+        check_stderr(res)
 
         # get all the tasks running
         tasks = res.stdout.decode().splitlines()
@@ -130,7 +133,7 @@ class KubemlExperiment(Experiment):
         print("Getting model history with command", command)
 
         res = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        self.check_stderr(res)
+        check_stderr(res)
 
         print("got history", res.stdout.decode())
 
@@ -140,12 +143,8 @@ class KubemlExperiment(Experiment):
         print(h)
         return h
 
-    @staticmethod
-    def check_stderr(res: subprocess.CompletedProcess):
-        if len(res.stderr) == 0:
-            return
-        print("error running command", res.args, res.stderr.decode())
-        exit(-1)
+
+
 
 
 class TensorflowExperiment(Experiment):
