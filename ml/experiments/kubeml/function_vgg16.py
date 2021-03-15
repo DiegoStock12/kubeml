@@ -18,10 +18,10 @@ class Cifar100Dataset(KubeDataset):
     def __init__(self):
         super(Cifar100Dataset, self).__init__("cifar100")
         self.transf = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5070751592371323, 0.48654887331495095, 0.4409178433670343),
-                             (0.2673342858792401, 0.2564384629170883, 0.27615047132568404))
-    ])
+            transforms.ToTensor(),
+            transforms.Normalize((0.5070751592371323, 0.48654887331495095, 0.4409178433670343),
+                                 (0.2673342858792401, 0.2564384629170883, 0.27615047132568404))
+        ])
 
     def __getitem__(self, index):
         x = self.data[index]
@@ -35,14 +35,14 @@ class Cifar100Dataset(KubeDataset):
 
 class KubeVGG(KubeModel):
 
-    def __init__(self, network):
-        super(KubeVGG, self).__init__(network)
+    def __init__(self, network, dataset: Cifar100Dataset):
+        super(KubeVGG, self).__init__(network, dataset)
 
     def init(self, model: nn.Module):
         pass
 
-    def train(self, model: nn.Module) -> float:
-        dataset = Cifar100Dataset()
+    def train(self, model: nn.Module, dataset: Cifar100Dataset) -> float:
+
         loader = data.DataLoader(dataset, batch_size=self.args.batch_size)
         criterion = nn.CrossEntropyLoss()
         optimizer = Adam(model.parameters(), lr=self.args.lr)
@@ -66,8 +66,28 @@ class KubeVGG(KubeModel):
 
         return total_loss / len(loader)
 
-    def validate(self, model: nn.Module) -> Tuple[float, float]:
-        pass
+    def validate(self, model: nn.Module, dataset: Cifar100Dataset) -> Tuple[float, float]:
+
+        loader = data.DataLoader(dataset, batch_size=self.args.batch_size)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        criterion = nn.CrossEntropyLoss()
+
+        model.eval()
+        total = 0
+        correct = 0
+        test_loss = 0
+        for i, (inputs, labels) in enumerate(loader):
+            inputs, labels = inputs.to(device), labels.to(device)
+            output = model(inputs)
+            _, predicted = torch.max(output.data, 1)
+            test_loss += criterion(output, labels, reduction='sum').item()
+            total += labels.size(0)
+            correct += predicted.eq(labels).sum().item()
+
+        accuracy = correct / total * 100
+        test_loss /= len(loader.dataset)
+
+        return accuracy, test_loss
 
     def infer(self, model: nn.Module, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
         pass
@@ -75,5 +95,6 @@ class KubeVGG(KubeModel):
 
 def main():
     vgg = vgg16()
-    kubenet = KubeVGG(vgg)
+    dataset = Cifar100Dataset()
+    kubenet = KubeVGG(vgg, dataset)
     return kubenet.start()

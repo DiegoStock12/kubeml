@@ -72,13 +72,13 @@ class MnistDataset(KubeDataset):
 
 class KubeLeNet(KubeModel):
 
-    def __init__(self, network: nn.Module):
-        super().__init__(network)
+    def __init__(self, network: nn.Module, dataset: MnistDataset):
+        super().__init__(network, dataset)
 
     def init(self, model: nn.Module):
         pass
 
-    def train(self, model: nn.Module) -> float:
+    def train(self, model: nn.Module, dataset: KubeDataset) -> float:
 
         # parse the kubernetes args
         batch = self.args.batch_size
@@ -86,7 +86,6 @@ class KubeLeNet(KubeModel):
 
         # define the device for training and load the data
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        dataset = MnistDataset()
         train_loader = data.DataLoader(dataset, batch_size=batch)
         loss_fn = nn.CrossEntropyLoss()
         optimizer = Adam(model.parameters(), lr=lr)
@@ -114,12 +113,11 @@ class KubeLeNet(KubeModel):
 
         return total_loss / len(train_loader)
 
-    def validate(self, model: nn.Module) -> Tuple[float, float]:
+    def validate(self, model: nn.Module, dataset: KubeDataset) -> Tuple[float, float]:
         batch = self.args.batch_size
 
         # define the device for training and load the data
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        dataset = MnistDataset()
         val_loader = data.DataLoader(dataset, batch_size=batch)
         loss_fn = nn.CrossEntropyLoss()
 
@@ -145,5 +143,6 @@ class KubeLeNet(KubeModel):
 
 def main():
     lenet = LeNet()
-    kubenet = KubeModel(lenet)
+    dataset = MnistDataset()
+    kubenet = KubeLeNet(lenet, dataset)
     return kubenet.start()

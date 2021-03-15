@@ -9,7 +9,7 @@ import torch.utils.data as data
 from torch.optim import Adam
 import torchvision.transforms as transforms
 from kubeml import KubeModel, KubeDataset
-from torchvision.models.resnet import resnet18
+from torchvision.models.resnet import resnet34
 
 
 class Cifar10Dataset(KubeDataset):
@@ -30,15 +30,15 @@ class Cifar10Dataset(KubeDataset):
         return len(self.data)
 
 
-class KubeResnet18(KubeModel):
-    def __init__(self, network):
-        super(KubeResnet18, self).__init__(network)
+class KubeResnet34(KubeModel):
+    def __init__(self, network, dataset: Cifar10Dataset):
+        super(KubeResnet34, self).__init__(network, dataset)
 
     def init(self, model: nn.Module):
         pass
 
-    def train(self, model: nn.Module) -> float:
-        dataset = Cifar10Dataset()
+    def train(self, model: nn.Module, dataset: KubeDataset) -> float:
+
         loader = data.DataLoader(dataset, batch_size=self.args.batch_size)
         criterion = nn.CrossEntropyLoss()
         optimizer = Adam(model.parameters(), lr=self.args.lr)
@@ -62,8 +62,8 @@ class KubeResnet18(KubeModel):
 
         return total_loss / len(loader)
 
-    def validate(self, model: nn.Module) -> Tuple[float, float]:
-        dataset = Cifar10Dataset()
+    def validate(self, model: nn.Module, dataset: KubeDataset) -> Tuple[float, float]:
+
         loader = data.DataLoader(dataset, batch_size=self.args.batch_size)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         criterion = nn.CrossEntropyLoss()
@@ -90,6 +90,7 @@ class KubeResnet18(KubeModel):
 
 
 def main():
-    resnet = resnet18()
-    kubenet = KubeResnet18(resnet)
+    resnet = resnet34()
+    dataset = Cifar10Dataset()
+    kubenet = KubeResnet34(resnet, dataset)
     return kubenet.start()
