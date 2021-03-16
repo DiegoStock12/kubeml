@@ -55,13 +55,6 @@ func (psgd ParallelSGD) Merge(m *Model, funcs ...int) {
 					psgd.logger.Error("Error adding weights",
 						zap.Error(err))
 				}
-				if layer.HasBias {
-					total.Bias, err = total.Bias.Add(layer.Bias)
-					if err != nil {
-						psgd.logger.Error("Error adding bias",
-							zap.Error(err))
-					}
-				}
 			}
 			num++
 
@@ -74,15 +67,6 @@ func (psgd ParallelSGD) Merge(m *Model, funcs ...int) {
 		if err != nil {
 			psgd.logger.Error("Error dividing weights",
 				zap.Error(err))
-		}
-
-		if layer.HasBias {
-			layer.Bias, err = layer.Bias.DivScalar(float32(num), true)
-			if err != nil {
-				psgd.logger.Error("Error dividing bias",
-					zap.Error(err))
-			}
-
 		}
 
 	}

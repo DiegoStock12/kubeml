@@ -90,9 +90,9 @@ func makeArgs(id, name, suffix string, shape tensor.Shape, values interface{}) (
 
 // getWeightKeys returns the proper formatted name of the weights and bias for a specific
 // parameter server id and function Id
-func getWeightKeys(layerName string, jobId string, funcId int) (string, string) {
+func getWeightKeys(layerName string, jobId string, funcId int) (string) {
 
-	var weightName, biasName string
+	var weightName string
 
 	// If we have a function Id is because it is not the init model
 	// When creating the init model or saving the reference model the tags
@@ -102,12 +102,10 @@ func getWeightKeys(layerName string, jobId string, funcId int) (string, string) 
 	// For times in which we want to load the init or reference model, we pass
 	// -1 in the functionId field
 	if funcId >= 0 {
-		weightName = fmt.Sprintf("%s:%s%s/%d", jobId, layerName, WeightSuffix, funcId)
-		biasName = fmt.Sprintf("%s:%s%s/%d", jobId, layerName, BiasSuffix, funcId)
+		weightName = fmt.Sprintf("%s:%s/%d", jobId, layerName, funcId)
 	} else {
-		weightName = fmt.Sprintf("%s:%s%s", jobId, layerName, WeightSuffix)
-		biasName = fmt.Sprintf("%s:%s%s", jobId, layerName, BiasSuffix)
+		weightName = fmt.Sprintf("%s:%s", jobId, layerName)
 	}
 
-	return weightName, biasName
+	return weightName
 }

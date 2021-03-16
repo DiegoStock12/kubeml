@@ -45,12 +45,11 @@ type (
 		mu sync.Mutex
 	}
 
-	// Layer keeps the Weights and Bias of a certain layer of the Neural Network
+	// Layer keeps the Weights of a certain layer of the Neural Network
+	// the weights can be either the weights or bias indistinctly
 	Layer struct {
 		Name    string
 		Weights *tensor.Dense
-		HasBias bool
-		Bias    *tensor.Dense
 	}
 )
 
@@ -102,7 +101,6 @@ func (m *Model) Summary() {
 		m.logger.Info("Layer",
 			zap.String("name", name),
 			zap.Any("shape", layer.Weights.Shape()),
-			zap.Bool("bias", layer.HasBias),
 		)
 	}
 
@@ -134,13 +132,6 @@ func (m *Model) setLayer(name string, layer *Layer) error {
 		return err
 	}
 
-	if layer.HasBias {
-		err = m.setBias(name, layer)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -153,15 +144,16 @@ func (m *Model) setWeights(name string, layer *Layer) error {
 	return nil
 }
 
-func (m *Model) setBias(name string, layer *Layer) error {
-	args, _ := makeArgs(m.jobId, name, BiasSuffix, layer.Bias.Shape(), layer.Bias.Data())
-	_, err := m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
-	if err != nil {
-		return errors.Wrapf(err, "could not set bias of layer %v", name)
-	}
-	return nil
-
-}
+//
+//func (m *Model) setBias(name string, layer *Layer) error {
+//	args, _ := makeArgs(m.jobId, name, BiasSuffix, layer.Bias.Shape(), layer.Bias.Data())
+//	_, err := m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
+//	if err != nil {
+//		return errors.Wrapf(err, "could not set bias of layer %v", name)
+//	}
+//	return nil
+//
+//}
 
 // NewLayer fetches a layer from the database. It first queries
 // to see whether the layer contains bias or not, and then gets the layer
@@ -174,7 +166,7 @@ func (m *Model) setBias(name string, layer *Layer) error {
 func (m *Model) NewLayer(name string, funcId int) (*Layer, error) {
 
 	// Get the redis keys
-	weightName, biasName := getWeightKeys(name, m.jobId, funcId)
+	weightName := getWeightKeys(name, m.jobId, funcId)
 	sWeights, weightValues, err := fetchTensor(m.redisClient, weightName)
 	if err != nil {
 		return nil, err
@@ -183,31 +175,10 @@ func (m *Model) NewLayer(name string, funcId int) (*Layer, error) {
 	dimWeights := shapeToIntArray(sWeights...)
 	w := tensor.New(tensor.WithShape(dimWeights...), tensor.WithBacking(weightValues))
 
-	// If we have to build the bias tensor
-	var b *tensor.Dense
-	biasExists, err := tensorExists(m.redisClient, biasName)
-	if err != nil {
-		return nil, err
-	}
-
-	hasBias := false
-	if biasExists {
-		sBias, biasValues, err := fetchTensor(m.redisClient, biasName)
-		if err != nil {
-			return nil, err
-		}
-
-		// Cast the shape to an int array and build the layer tensor
-		dimBias := shapeToIntArray(sBias...)
-		b = tensor.New(tensor.WithShape(dimBias...), tensor.WithBacking(biasValues))
-		hasBias = true
-	}
 
 	return &Layer{
 		Name:    name,
 		Weights: w,
-		HasBias: hasBias,
-		Bias:    b,
 	}, nil
 
 }
