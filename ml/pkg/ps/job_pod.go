@@ -65,26 +65,25 @@ func waitForServiceRunning(svc *corev1.Service, timeout time.Duration) error {
 // createJobResources creates the pod and service offered by a job
 func (ps *ParameterServer) createJobResources(task api.TrainTask) (*corev1.Pod, *corev1.Service, error) {
 
-	// create the pod
-	pod, err := ps.createJobPod(task)
-	if err != nil {
-		ps.logger.Error("error creating pod...")
-		return nil, nil, errors.Wrap(err, "error creating pod")
-	}
-
 	// create the service
 	svc, err := ps.createJobService(task)
 	if err != nil {
 		ps.logger.Error("error starting service", zap.Error(err))
 
+		return nil, nil, errors.Wrap(err, "error creating service")
+	}
+
+	// create the pod
+	pod, err := ps.createJobPod(task)
+	if err != nil {
+		ps.logger.Error("error creating pod...")
+
 		var e *multierror.Error
-		e = multierror.Append(e, errors.Wrap(err, "error creating service"))
+		e = multierror.Append(e, errors.Wrap(err, "error creating pod"))
 
-		err = ps.deleteJobPod(pod)
+		// delete the service
+		err = ps.deleteJobService(svc)
 		e = multierror.Append(e, err)
-
-		//err = ps.deleteJobService(svc)
-		//e = multierror.Append(e, err)
 
 		return nil, nil, e.ErrorOrNil()
 	}

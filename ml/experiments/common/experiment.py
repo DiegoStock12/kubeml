@@ -2,12 +2,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json, Undefined, CatchAll
 from typing import List, Dict, Any
-import logging
 import subprocess
 import time
 
-from .utils import check_stderr
+import pandas as pd
 
+from .utils import check_stderr
 
 kubeml = '/mnt/c/Users/diego/CS/thesis/ml/pkg/kubeml-cli/kubeml'
 
@@ -155,11 +155,37 @@ class KubemlExperiment(Experiment):
         print(h)
         return h
 
+    def to_dataframe(self) -> pd.DataFrame:
+        """Converts this experiment to a pandas dataframe"""
+        if not self.history:
+            return None
+
+        # simply flatten the dict and convert it into a dataframe
+        # for this we use the to_dict func of the dataclass_json object
+        flattened = {
+            "id": self.history.id,
+            **self.history.task.to_dict(),
+            **self.history.task.options.to_dict()
+        }
+        del flattened['options']
+
+        # add the arrays wrapped in a list so they all are considered
+        # as 1 value, so all arrays are the same length
+        for k, v in self.history.data.to_dict().items():
+            flattened[k] = [v]
+
+        return pd.DataFrame(flattened)
+
+    def save(self, path: str) -> None:
+        """Saves the experiment with the id as name in pickle format and as a pandas daframe"""
+
+        # convert it to dataframe
+        d = self.to_dataframe()
+        _path = f'{path.rstrip("/")}/{self.network_id}.pkl'
+        d.to_pickle(_path)
+
     def __str__(self):
         return f'KubeMLExperiment(title:{self.title})'
-
-
-
 
 
 class TensorflowExperiment(Experiment):

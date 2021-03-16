@@ -159,6 +159,10 @@ class KubeDataset(data.Dataset, ABC):
 
         data, labels = None, None
         for batch in batches:
+
+            # load the data and the labels as numpy arrays
+            # flatten the labels so instead of i.e (64,1) they're (64,)
+            # thus we can call hstack on them
             d = pickle.loads(batch['data'])
             l = pickle.loads(batch['labels'])
 
@@ -166,6 +170,6 @@ class KubeDataset(data.Dataset, ABC):
                 data, labels = d, l
             else:
                 data = np.vstack([data, d])
-                labels = np.hstack([labels, l])
+                labels = np.hstack([labels, l.flatten()])
 
         return data, labels.flatten()

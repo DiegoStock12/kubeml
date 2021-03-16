@@ -367,6 +367,9 @@ func (job *TrainJob) mergeModel() {
 
 			// once all are done, merge the model and update
 			job.logger.Debug("Merging models after iteration", zap.Ints("finishCh", funcs))
+
+			// time the merge time for tests
+			mergeStart := time.Now()
 			job.optimizer.Merge(job.model, funcs...)
 			err := job.model.Save()
 			if err != nil {
@@ -379,6 +382,8 @@ func (job *TrainJob) mergeModel() {
 				errChan <- err
 				break
 			}
+			job.logger.Debug("Merge and save took", zap.Float64("time", time.Since(mergeStart).Seconds()))
+
 
 			finished := atomic.LoadInt64(&job.finishedFuncs)
 			job.logger.Debug("finished funcs are", zap.Int64("num", finished))
