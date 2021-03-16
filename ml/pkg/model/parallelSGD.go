@@ -31,16 +31,29 @@ func (psgd ParallelSGD) Merge(m *Model, funcs ...int) {
 	// by the total number of successful functions
 	// Then update the state dict
 	sd := make(map[string]*Layer)
-	for layerName := range m.StateDict {
+	for _, layerName := range m.layerNames {
 		num := 0
 
-		// First fetch the layer output by all functions
-		// if it doesn't exists in the new state dict assign it,
-		// if it does, simply add it
+		// Fetch the layers and add them to the pipeline
 		for _, fId := range funcs {
-			layer, err := m.NewLayer(layerName, fId)
+			err := m.fetchLayer(layerName, fId)
 			if err != nil {
-				psgd.logger.Error("Could not load layer from database",
+				psgd.logger.Error("could not fetch layer",
+					zap.Error(err),
+					zap.String("name", layerName),
+					zap.Int("funcId", fId))
+				continue
+			}
+		}
+
+		m.redisClient.Flush()
+
+		// now read all the layers from the pipelined response
+		for _, fId := range funcs {
+
+			layer, err := m.buildLayer(layerName)
+			if err != nil {
+				psgd.logger.Error("Could not build layer from database",
 					zap.Error(err),
 					zap.String("name", layerName),
 					zap.Int("funcId", fId))

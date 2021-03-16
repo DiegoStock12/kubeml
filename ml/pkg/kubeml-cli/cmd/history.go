@@ -95,13 +95,13 @@ func listHistories(_ *cobra.Command, _ []string) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 1, 1, 2, ' ', 0)
-	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n", "NAME", "MODEL", "DATASET", "EPOCHS", "BATCH", "LR", "PARALLELISM", "STATIC", "ACCURACY", "LOSS", "TIME (s)")
+	fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n", "NAME", "MODEL", "DATASET", "EPOCHS", "BATCH", "LR", "PARALLELISM", "K", "STATIC", "ACCURACY", "LOSS", "TIME (s)")
 
 	for _, h := range histories {
 
-		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 			h.Id, h.Task.ModelType, h.Task.Dataset, h.Task.Epochs, h.Task.BatchSize, h.Task.LearningRate,
-			getMeanParallelism(h.Data.Parallelism), h.Task.Options.StaticParallelism,
+			getMeanParallelism(h.Data.Parallelism), h.Task.Options.K, h.Task.Options.StaticParallelism,
 			last(h.Data.Accuracy), last(h.Data.ValidationLoss), calculateTotalTime(h.Data.EpochDuration...))
 	}
 

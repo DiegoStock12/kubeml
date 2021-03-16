@@ -61,6 +61,9 @@ func NewModel(
 	layerNames []string,
 	client *redisai.Client) *Model {
 
+	// set the client to use a pipeline
+	client.Pipeline(10)
+
 	return &Model{
 		logger:      logger.Named("model"),
 		Name:        task.ModelType,
@@ -77,19 +80,33 @@ func (m *Model) Build() error {
 	// For each layer name create a new layer with the tensors from the database
 	m.logger.Debug("Building the model", zap.String("jobId", m.jobId))
 
-	for _, layerName := range m.layerNames {
+	// fetch the layers, they will be pipelined
+	// so we perform one loop to query, flush, and then parse all in another loop
+	for _, name := range m.layerNames {
+		m.logger.Debug("Creating new layer", zap.String("layerName", name))
 
-		m.logger.Debug("Creating new layer", zap.String("layerName", layerName))
-		l, err := m.NewLayer(layerName, -1)
+		err := m.fetchLayer(name, -1)
 		if err != nil {
 			m.logger.Error("Error building layer",
-				zap.String("layer", layerName),
+				zap.String("layer", name),
 				zap.Error(err))
 			return err
 		}
 
-		// Add it to the statedict
-		m.StateDict[layerName] = l
+	}
+
+	err := m.redisClient.Flush()
+	if err != nil {
+		return errors.Wrap(err, "error flushing commands")
+	}
+
+	// parse all responses
+	for _, name := range m.layerNames {
+		layer, err := m.buildLayer(name)
+		if err != nil {
+			return errors.Wrapf(err, "error loading layer %s", name)
+		}
+		m.StateDict[name] = layer
 	}
 
 	return nil
@@ -111,12 +128,20 @@ func (m *Model) Summary() {
 func (m *Model) Save() error {
 	m.logger.Info("Publishing model on the database")
 
+	// start the transaction in the redis client
+	m.redisClient.DoOrSend("MULTI", nil, nil)
 	for name, layer := range m.StateDict {
 		m.logger.Debug("Setting layer", zap.String("name", name))
 		err := m.setLayer(name, layer)
 		if err != nil {
 			return err
 		}
+	}
+
+	// execute all commands as a batch and empty response buffer
+	_, err := m.redisClient.ActiveConn.Do("EXEC")
+	if err != nil {
+		return errors.Wrap(err, "could not save tensors")
 	}
 
 	m.logger.Info("Model published in the DB")
@@ -155,6 +180,47 @@ func (m *Model) setWeights(name string, layer *Layer) error {
 //
 //}
 
+// fetchLayer calls the tensor get function in the pipelined client
+// the results are pipelined and are thus gathered later on in the buildLayer
+// function
+func (m *Model) fetchLayer(name string, funcId int) error {
+
+	// call get blob but ignore the results cause those are pipelined
+	tensorName := getWeightKeys(name, m.jobId, funcId)
+	_, _, _, err := m.redisClient.TensorGetBlob(tensorName)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+// buildLayer reads the pipelined response, parses it and returns the Layer
+func (m *Model) buildLayer(name string) (*Layer, error) {
+
+	// get the next response in the pipelined client
+	resp, err := m.redisClient.Receive()
+	err, _, shapeInt64, blob := redisai.ProcessTensorGetReply(resp, err)
+	if err != nil {
+		return nil, err
+	}
+
+	values, err := blobToFloatArray(blob.([]byte), shapeInt64)
+	if err != nil {
+		return nil, err
+	}
+	shapeInt := shapeToIntArray(shapeInt64...)
+
+	t := tensor.New(tensor.WithShape(shapeInt...), tensor.WithBacking(values))
+
+	return &Layer{
+		Name:    name,
+		Weights: t,
+	}, nil
+
+}
+
 // NewLayer fetches a layer from the database. It first queries
 // to see whether the layer contains bias or not, and then gets the layer
 // indexed by the function ID which saved it in the first place.
@@ -175,7 +241,6 @@ func (m *Model) NewLayer(name string, funcId int) (*Layer, error) {
 
 	dimWeights := shapeToIntArray(sWeights...)
 	w := tensor.New(tensor.WithShape(dimWeights...), tensor.WithBacking(weightValues))
-
 
 	return &Layer{
 		Name:    name,
