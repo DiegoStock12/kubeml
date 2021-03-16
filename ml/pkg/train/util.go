@@ -151,6 +151,8 @@ func (job *TrainJob) clearTensors() {
 		return
 	}
 
+	job.logger.Debug("Deleting tensors...", zap.Strings("names", tensorNames))
+
 	// delete the temporary tensors in one call
 	deleteArgs := redis.Args{}.AddFlat(tensorNames)
 	num, err := redis.Int(job.redisClient.DoOrSend("DEL", deleteArgs, nil))

@@ -67,7 +67,7 @@ func fetchTensor(client *redisai.Client, name string) ([]int64, []float32, error
 
 // REDIS gives an error if the layer is too big, we must save the
 // layer as a blob directly
-func makeArgs(id, name, suffix string, shape tensor.Shape, values interface{}) (*redis.Args, error) {
+func makeArgs(id, name string, shape tensor.Shape, values interface{}) (*redis.Args, error) {
 
 	// Need to get the blob
 	valBlob := new(bytes.Buffer)
@@ -78,7 +78,7 @@ func makeArgs(id, name, suffix string, shape tensor.Shape, values interface{}) (
 	}
 
 	// build layer name
-	entryName := fmt.Sprintf("%s:%s%s", id, name, suffix)
+	entryName := fmt.Sprintf("%s:%s", id, name)
 
 	// Save the weights and the bias
 	args := redis.Args{}

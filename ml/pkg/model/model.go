@@ -136,7 +136,7 @@ func (m *Model) setLayer(name string, layer *Layer) error {
 }
 
 func (m *Model) setWeights(name string, layer *Layer) error {
-	args, _ := makeArgs(m.jobId, name, WeightSuffix, layer.Weights.Shape(), layer.Weights.Data())
+	args, _ := makeArgs(m.jobId, name, layer.Weights.Shape(), layer.Weights.Data())
 	_, err := m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
 	if err != nil {
 		return errors.Wrapf(err, "could not set weights of layer %v", name)
@@ -167,6 +167,7 @@ func (m *Model) NewLayer(name string, funcId int) (*Layer, error) {
 
 	// Get the redis keys
 	weightName := getWeightKeys(name, m.jobId, funcId)
+	m.logger.Debug("Loading layer", zap.String("layer", weightName))
 	sWeights, weightValues, err := fetchTensor(m.redisClient, weightName)
 	if err != nil {
 		return nil, err

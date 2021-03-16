@@ -2,10 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/RedisAI/redisai-go/redisai"
-	"github.com/diegostock12/kubeml/ml/pkg/api"
-	"github.com/diegostock12/kubeml/ml/pkg/model"
-	"go.uber.org/zap"
+	"github.com/gomodule/redigo/redis"
 )
 
 func pif(err error){
@@ -16,28 +13,32 @@ func pif(err error){
 
 func main()  {
 
-	logger, _ := zap.NewDevelopment()
+	//logger, _ := zap.NewDevelopment()
 
-	client := redisai.Connect(fmt.Sprintf("redis://%s:%d", api.RedisAddressDebug, api.RedisPortDebug), nil)
+	//client := redisai.Connect(fmt.Sprintf("redis://%s:%d", api.RedisAddressDebug, api.RedisPortDebug), nil)
 
-	m := model.NewModel(logger, "b8df46ec", api.TrainRequest{
-		ModelType:    "resnet",
-		BatchSize:    128,
-		Epochs:       5,
-		Dataset:      "mnist",
-		LearningRate: 0.01,
-		FunctionName: "network",
-	}, []string{"conv1", "conv2", "fc1", "fc2"}, client )
+	args := redis.Args{}
+	args = args.Add("hola", "Float")
+	fmt.Println(args[0])
 
-	err := m.Build()
-	pif(err)
+	//m := model.NewModel(logger, "b8df46ec", api.TrainRequest{
+	//	ModelType:    "resnet",
+	//	BatchSize:    128,
+	//	Epochs:       5,
+	//	Dataset:      "mnist",
+	//	LearningRate: 0.01,
+	//	FunctionName: "network",
+	//}, []string{"conv1.weight", "conv2.weight", "fc1.weight", "fc2.weight"}, client )
+	//
+	//err := m.Build()
+	//pif(err)
+	//
+	//m.Summary()
 
-	m.Summary()
-
-	err = m.Update("1")
-	pif(err)
-
-	err = m.Save()
-	pif(err)
+	//err = m.Update("1")
+	//pif(err)
+	//
+	//err = m.Save()
+	//pif(err)
 
 }
