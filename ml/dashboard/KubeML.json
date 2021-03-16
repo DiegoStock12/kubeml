@@ -15,8 +15,8 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 29,
-  "iteration": 1610995701741,
+  "id": 25,
+  "iteration": 1615916671134,
   "links": [],
   "panels": [
     {
@@ -82,7 +82,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "kubeml_functions_running{type=~\"$task\"}",
+          "expr": "kubeml_job_running_total{type=~\"$task\"}",
           "interval": "",
           "legendFormat": "{{type}}",
           "refId": "A"
@@ -193,7 +193,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "kubeml_job_train_loss{jobid=~\"$jobs\"}",
+          "expr": "kubeml_job_validation_loss{jobid=~\"$jobs\"}",
           "interval": "",
           "legendFormat": "{{jobid}}",
           "refId": "A"
@@ -203,7 +203,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Train Loss",
+      "title": "Validation Loss",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -387,7 +387,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "kubeml_job_accuracy{jobid=~\"$jobs\"}",
+          "expr": "kubeml_job_validation_accuracy{jobid=~\"$jobs\"}",
           "interval": "",
           "legendFormat": "{{jobid}}",
           "refId": "A"
@@ -668,6 +668,7 @@
         "allValue": null,
         "current": {
           "selected": true,
+          "tags": [],
           "text": [
             "All"
           ],
@@ -699,7 +700,6 @@
         "allValue": null,
         "current": {
           "selected": true,
-          "tags": [],
           "text": [
             "All"
           ],
@@ -708,7 +708,7 @@
           ]
         },
         "datasource": "Prometheus",
-        "definition": "label_values(kubeml_functions_running, type)",
+        "definition": "label_values(kubeml_job_running_total, type)",
         "error": null,
         "hide": 0,
         "includeAll": true,
@@ -716,7 +716,7 @@
         "multi": true,
         "name": "task",
         "options": [],
-        "query": "label_values(kubeml_functions_running, type)",
+        "query": "label_values(kubeml_job_running_total, type)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -730,12 +730,12 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-30m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "KubeML",
   "uid": "ewhon2fGz",
-  "version": 2
+  "version": 4
 }

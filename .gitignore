@@ -11,6 +11,7 @@ buildtest/
 uploads/
 data/
 *.npy
+*.pkl
 
 # Python cache stuff
 __pycache__/

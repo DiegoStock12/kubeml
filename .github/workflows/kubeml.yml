@@ -3,8 +3,8 @@ name: KubeML CI
 on:
   push:
     branches:
-      - develop
-      - experiments
+      - master
+#      - experiments
 
 
 jobs:
@@ -20,4 +20,4 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           workdir: ml
-          tags: "0.1.5"
+          tags: "0.1.6"

@@ -87,7 +87,8 @@ class KubemlExperiment(Experiment):
         self.wait_for_task_finished()
         self.history = self.get_model_history()
 
-        print(self.history.to_json())
+        # print(self.history.to_json())
+        print('Experiment', self.network_id, 'finished')
 
         # TODO save the history in the file related to the experiment title
 
@@ -183,6 +184,7 @@ class KubemlExperiment(Experiment):
         # convert it to dataframe
         d = self.to_dataframe()
         _path = f'{path.rstrip("/")}/{self.network_id}.pkl'
+        print('saving to', _path)
         d.to_pickle(_path)
 
     def __str__(self):

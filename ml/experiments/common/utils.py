@@ -3,7 +3,7 @@ from .experiment import *
 
 
 def get_title(req) -> str:
-    return f'{req.model_type}-batch{req.batch_size}-k{req.options.K}-parallel{req.options.default_parallelism}-TTA{req.options.goal_accuracy}'
+    return f'{req.model_type}-batch{req.batch_size}-k{req.options.k}-parallel{req.options.default_parallelism}-TTA{req.options.goal_accuracy}'
 
 
 def check_stderr(res: subprocess.CompletedProcess):
