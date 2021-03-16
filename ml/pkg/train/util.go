@@ -137,6 +137,9 @@ func getLatestMetrics(history *api.JobHistory) *api.MetricUpdate {
 // to save space
 func (job *TrainJob) clearTensors() {
 
+	// disable the pipeline in the client
+	job.redisClient.DisablePipeline()
+
 	// delete all of the tensors for that model in the database
 	filterStr := fmt.Sprintf("%s*", job.jobId)
 	tensorListArgs := redis.Args{filterStr}
