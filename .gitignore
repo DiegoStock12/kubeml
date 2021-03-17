@@ -26,6 +26,10 @@ build/
 *.egg-info/
 
 
+# fission source code
+fission/
+
+
 # compressed files
 *.zip
 *.tar.gz
