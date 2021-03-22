@@ -1,16 +1,15 @@
 """ Definition of a KubeML function to train the LeNet network with the MNIST dataset"""
+import logging
+import random
 from typing import List, Any, Union, Tuple
 
 import numpy as np
 import torch
-import logging
-
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.utils.data as data
-from torch.optim import SGD
 import torchvision.transforms as transforms
 from kubeml import KubeModel, KubeDataset
+from torch.optim import SGD
 
 
 class LeNet(nn.Module):
@@ -89,7 +88,7 @@ class KubeLeNet(KubeModel):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         train_loader = data.DataLoader(dataset, batch_size=batch)
         loss_fn = nn.CrossEntropyLoss()
-        optimizer = SGD(model.parameters(), lr=lr, momentum=0.9)
+        optimizer = SGD(model.parameters(), lr=lr)
 
         model.train()
         total_loss = 0
@@ -144,6 +143,10 @@ class KubeLeNet(KubeModel):
 
 
 def main():
+    # set the random seeds
+    torch.manual_seed(42)
+    random.seed(42)
+
     lenet = LeNet()
     dataset = MnistDataset()
     kubenet = KubeLeNet(lenet, dataset)

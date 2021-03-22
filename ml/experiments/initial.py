@@ -26,13 +26,14 @@ def run_lenet(k: int, batch: int, parallelism: int):
     exp = KubemlExperiment(get_title(req), req)
     exp.run()
 
-    exp.save(output_folder)
+    # exp.save(output_folder)
 
 
 if __name__ == '__main__':
-    batches = [256]
-    k = [64, -1]
-    p = [1, 2, 4, 6, 8]
+    batches = [64]
+    k = [64]
+    p = [1, 2, 6]
+    # p = [4]
 
     for b in batches:
         for _k in k:

@@ -84,6 +84,8 @@ class KubemlExperiment(Experiment):
         """
         self.network_id = self.run_task()
         time.sleep(30)
+
+        print('Training', end='')
         self.wait_for_task_finished()
         self.history = self.get_model_history()
 
@@ -126,7 +128,6 @@ class KubemlExperiment(Experiment):
     def check_if_task_finished(self) -> bool:
         """Check if the task is the the list of running tasks"""
         command = f"{kubeml} task list --short"
-        print("Checking running tasks", command)
 
         res = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         check_stderr(res)
@@ -135,10 +136,10 @@ class KubemlExperiment(Experiment):
         tasks = res.stdout.decode().splitlines()
 
         for id in tasks:
-            print(id, end=' ')
             if id == self.network_id:
-                print()
+                print('.', end='')
                 return False
+        print()
         return True
 
     def get_model_history(self) -> History:
