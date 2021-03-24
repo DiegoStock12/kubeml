@@ -44,6 +44,11 @@ func main()  {
 	m.Summary()
 
 	fmt.Println(reflect.TypeOf(m.StateDict["test"].Weights.Data()))
+
+	sum, err := m.StateDict["test"].Weights.Add(m.StateDict["test"].Weights)
+	pif(err)
+	fmt.Println(sum.DivScalar(int64(2), true))
+
 	fmt.Println(reflect.TypeOf(m.StateDict["test2"].Weights.Data()))
 
 	//fmt.Println(m.StateDict["test"].Dtype == redisai.TypeInt64)

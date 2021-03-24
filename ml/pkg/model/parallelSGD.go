@@ -1,6 +1,7 @@
 package model
 
 import (
+	"github.com/RedisAI/redisai-go/redisai"
 	"go.uber.org/zap"
 )
 
@@ -76,12 +77,25 @@ func (psgd ParallelSGD) Merge(m *Model, funcs ...int) {
 		// Finally average all the weights and biases and set the num to 0
 		layer := sd[layerName]
 		var err error
-		layer.Weights, err = layer.Weights.DivScalar(float32(num), true)
-		if err != nil {
-			psgd.logger.Error("Error dividing weights",
-				zap.Error(err))
-		}
 
+
+		// divide the sum of the layer weights by the
+		switch layer.Dtype {
+		case redisai.TypeFloat32:
+			layer.Weights, err = layer.Weights.DivScalar(float32(num), true)
+			if err != nil {
+				psgd.logger.Error("Error dividing weights",
+					zap.Error(err))
+			}
+
+		case redisai.TypeInt64:
+			layer.Weights, err = layer.Weights.DivScalar(int64(num), true)
+			if err != nil {
+				psgd.logger.Error("Error dividing weights",
+					zap.Error(err))
+			}
+
+		}
 	}
 
 	// in the end simply apply the statedict to the model
