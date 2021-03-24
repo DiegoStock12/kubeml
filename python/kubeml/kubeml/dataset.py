@@ -167,7 +167,7 @@ class KubeDataset(data.Dataset, ABC):
             l = pickle.loads(batch['labels'])
 
             if data is None:
-                data, labels = d, l
+                data, labels = d, l.flatten()
             else:
                 data = np.vstack([data, d])
                 labels = np.hstack([labels, l.flatten()])

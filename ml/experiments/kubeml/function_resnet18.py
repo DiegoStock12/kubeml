@@ -6,10 +6,10 @@ import logging
 
 import torch.nn as nn
 import torch.utils.data as data
-from torch.optim import Adam
+from torch.optim import SGD
 import torchvision.transforms as transforms
 from kubeml import KubeModel, KubeDataset
-from torchvision.models.resnet import resnet34
+from torchvision.models.resnet import resnet18
 
 
 class Cifar10Dataset(KubeDataset):
@@ -41,7 +41,7 @@ class KubeResnet34(KubeModel):
 
         loader = data.DataLoader(dataset, batch_size=self.args.batch_size)
         criterion = nn.CrossEntropyLoss()
-        optimizer = Adam(model.parameters(), lr=self.args.lr)
+        optimizer = SGD(model.parameters(), lr=self.args.lr, momentum=0.9)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         model.train()
@@ -90,7 +90,7 @@ class KubeResnet34(KubeModel):
 
 
 def main():
-    resnet = resnet34()
+    resnet = resnet18()
     dataset = Cifar10Dataset()
     kubenet = KubeResnet34(resnet, dataset)
     return kubenet.start()

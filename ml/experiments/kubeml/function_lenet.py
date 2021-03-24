@@ -88,7 +88,7 @@ class KubeLeNet(KubeModel):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         train_loader = data.DataLoader(dataset, batch_size=batch)
         loss_fn = nn.CrossEntropyLoss()
-        optimizer = SGD(model.parameters(), lr=lr)
+        optimizer = SGD(model.parameters(), lr=lr, momentum=0.9)
 
         model.train()
         total_loss = 0
