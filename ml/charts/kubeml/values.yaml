@@ -33,12 +33,12 @@ environment:
 
 ## Instructions for mongo deployment
 mongo:
-  serviceType: LoadBalancer
+  serviceType: ClusterIP
   serviceName: mongodb
 
 ## RedisAI config
 redisai:
-  serviceType: LoadBalancer
+  serviceType: ClusterIP
   serviceName: redisai
 
 

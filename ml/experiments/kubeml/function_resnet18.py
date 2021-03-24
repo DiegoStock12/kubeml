@@ -9,7 +9,7 @@ import torch.utils.data as data
 from torch.optim import SGD
 import torchvision.transforms as transforms
 from kubeml import KubeModel, KubeDataset
-from torchvision.models.resnet import resnet18
+from torchvision.models.resnet import resnet50
 
 
 class Cifar10Dataset(KubeDataset):
@@ -90,7 +90,7 @@ class KubeResnet34(KubeModel):
 
 
 def main():
-    resnet = resnet18()
+    resnet = resnet50()
     dataset = Cifar10Dataset()
     kubenet = KubeResnet34(resnet, dataset)
     return kubenet.start()

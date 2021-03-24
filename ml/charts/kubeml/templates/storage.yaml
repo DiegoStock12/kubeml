@@ -28,6 +28,7 @@ metadata:
 spec:
   ports:
     - port: 27017
+      targetPort: 27017
   type: {{.Values.mongo.serviceType}}
   selector:
     app: mongodb
@@ -64,6 +65,7 @@ metadata:
 spec:
   ports:
     - port: 6379
+      targetPort: 6379
   type:  {{.Values.redisai.serviceType}}
   selector:
     app: redisai
