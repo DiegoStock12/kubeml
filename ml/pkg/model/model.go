@@ -49,6 +49,7 @@ type (
 	// the weights can be either the weights or bias indistinctly
 	Layer struct {
 		Name    string
+		Dtype   string
 		Weights *tensor.Dense
 	}
 )
@@ -161,7 +162,7 @@ func (m *Model) setLayer(name string, layer *Layer) error {
 }
 
 func (m *Model) setWeights(name string, layer *Layer) error {
-	args, _ := makeArgs(m.jobId, name, layer.Weights.Shape(), layer.Weights.Data())
+	args, _ := makeArgs(m.jobId, name,layer.Weights.Shape(), layer.Dtype, layer.Weights.Data())
 	_, err := m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
 	if err != nil {
 		return errors.Wrapf(err, "could not set weights of layer %v", name)
@@ -201,23 +202,48 @@ func (m *Model) buildLayer(name string) (*Layer, error) {
 
 	// get the next response in the pipelined client
 	resp, err := m.redisClient.Receive()
-	err, _, shapeInt64, blob := redisai.ProcessTensorGetReply(resp, err)
+	err, dtype, shapeInt64, blob := redisai.ProcessTensorGetReply(resp, err)
 	if err != nil {
 		return nil, err
 	}
 
-	values, err := blobToFloatArray(blob.([]byte), shapeInt64)
-	if err != nil {
-		return nil, err
+
+	switch dtype {
+	case redisai.TypeFloat32:
+		values, err := blobToFloatArray(blob.([]byte), shapeInt64)
+		if err != nil {
+			return nil, err
+		}
+		shapeInt := shapeToIntArray(shapeInt64...)
+
+		t := tensor.New(tensor.WithShape(shapeInt...), tensor.WithBacking(values))
+
+		return &Layer{
+			Name:    name,
+			Dtype: dtype,
+			Weights: t,
+		}, nil
+
+	case redisai.TypeInt64:
+		values, err := blobtoIntArray(blob.([]byte), shapeInt64)
+		if err != nil {
+			return nil, err
+		}
+		shapeInt := shapeToIntArray(shapeInt64...)
+
+		t := tensor.New(tensor.WithShape(shapeInt...), tensor.WithBacking(values))
+
+		return &Layer{
+			Name:    name,
+			Dtype: dtype,
+			Weights: t,
+		}, nil
+
+	default:
+		m.logger.Error("Unknown datatype for tensor",
+			zap.String("dtype", dtype))
+		return nil, errors.New("Unkown datatype for tensor")
 	}
-	shapeInt := shapeToIntArray(shapeInt64...)
-
-	t := tensor.New(tensor.WithShape(shapeInt...), tensor.WithBacking(values))
-
-	return &Layer{
-		Name:    name,
-		Weights: t,
-	}, nil
 
 }
 

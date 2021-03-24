@@ -10,7 +10,7 @@ def run_lenet(k: int, batch: int, parallelism: int):
     req = TrainRequest(
         model_type='lenet',
         batch_size=batch,
-        epochs=2,
+        epochs=5,
         dataset='mnist',
         lr=0.01,
         function_name='lenet',

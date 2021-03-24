@@ -29,6 +29,25 @@ func dimsToLength(dims ...int64) int64 {
 	return accum
 }
 
+
+
+// blobToArray converts a byte array to an arrayof int64 with the same shape as indicated
+func blobtoIntArray(blob []byte, shape []int64)  ([]int64, error) {
+	// Get the total number of components of the tensor
+	length := dimsToLength(shape...)
+	// allocate the slice
+	values := make([]int64, length)
+
+	// read the blob and extract it to the slice
+	r := bytes.NewReader(blob)
+	err := binary.Read(r, binary.LittleEndian, &values)
+	if err != nil {
+		return nil, err
+	}
+	return values, nil
+
+}
+
 //blobToFloatArray takes the blob returned by Redis (needed to make the tensor loading
 // far faster) and translates into a float array that can then be used to build
 // a gorgonia tensor
@@ -67,22 +86,50 @@ func fetchTensor(client *redisai.Client, name string) ([]int64, []float32, error
 
 // REDIS gives an error if the layer is too big, we must save the
 // layer as a blob directly
-func makeArgs(id, name string, shape tensor.Shape, values interface{}) (*redis.Args, error) {
+func makeArgs(id, name string, shape tensor.Shape, dtype string, values interface{}) (*redis.Args, error) {
 
 	// Need to get the blob
 	valBlob := new(bytes.Buffer)
 
-	err := binary.Write(valBlob, binary.LittleEndian, values.([]float32))
-	if err != nil {
-		return nil, err
+
+	// Some layers inside batch normalization can have special mean and variance
+	// tracking modules that are not float arrays. To save those appropriately,
+	// analyze the type of the values and cast accordingly when copying the tensor
+	switch values.(type) {
+	case []float32:
+		err := binary.Write(valBlob, binary.LittleEndian, values.([]float32))
+		if err != nil {
+			return nil, err
+		}
+
+	case []int64:
+		err := binary.Write(valBlob, binary.LittleEndian, values.([]int64))
+		if err != nil {
+			return nil, err
+		}
+
+	case int64:
+		err := binary.Write(valBlob, binary.LittleEndian, values.(int64))
+		if err != nil {
+			return nil, err
+		}
+
+	case float32:
+		err := binary.Write(valBlob, binary.LittleEndian, values.(float32))
+		if err != nil {
+			return nil, err
+		}
+
 	}
+
+
 
 	// build layer name
 	entryName := fmt.Sprintf("%s:%s", id, name)
 
 	// Save the weights and the bias
 	args := redis.Args{}
-	args = args.Add(entryName, "FLOAT").AddFlat(shape)
+	args = args.Add(entryName, dtype).AddFlat(shape)
 	args = args.Add("BLOB").Add(valBlob.Bytes())
 
 	return &args, nil

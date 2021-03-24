@@ -65,6 +65,9 @@ type TrainJob struct {
 	finishCh      chan *finishNotification
 	merged        chan struct{}
 
+	// keep track of the start time to compute stats
+	startTime time.Time
+
 	// exitErr holds the error that caused the job to quit
 	// it is sent to the Ps along the finish signal so it can be
 	// reported
@@ -195,6 +198,7 @@ func (job *TrainJob) Train() {
 	}
 
 	// Main training loop
+	job.startTime = time.Now()
 	for job.epoch = 1; job.epoch <= job.task.Parameters.Epochs; job.epoch++ {
 
 		err := job.train()
@@ -205,7 +209,7 @@ func (job *TrainJob) Train() {
 		}
 
 		// Trigger validation if configured
-		if job.validateEvery != 0 && job.epoch%job.validateEvery == 0 {
+		if job.validateEvery != 0 && job.epoch%job.validateEvery == 0 && job.epoch != job.task.Parameters.Epochs {
 			job.validate()
 		}
 
@@ -321,7 +325,7 @@ func (job *TrainJob) train() error {
 	job.logger.Info("Epoch finished")
 
 	// update the training metrics
-	err = job.updateTrainMetrics(loss, elapsed)
+	err = job.updateTrainMetrics(loss, time.Since(job.startTime))
 	if err != nil {
 		job.logger.Error("error updating metrics", zap.Error(err))
 	}
@@ -383,7 +387,6 @@ func (job *TrainJob) mergeModel() {
 				break
 			}
 			job.logger.Debug("Merge and save took", zap.Float64("time", time.Since(mergeStart).Seconds()))
-
 
 			finished := atomic.LoadInt64(&job.finishedFuncs)
 			job.logger.Debug("finished funcs are", zap.Int64("num", finished))
