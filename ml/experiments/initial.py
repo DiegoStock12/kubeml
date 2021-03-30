@@ -2,8 +2,9 @@
 
 from common.experiment import *
 from common.utils import *
+import time
 
-output_folder = './tests'
+output_folder = './tests/resnet34'
 
 
 def run_lenet(k: int, batch: int, parallelism: int):
@@ -29,16 +30,38 @@ def run_lenet(k: int, batch: int, parallelism: int):
     # exp.save(output_folder)
 
 
+def run_resnet(k: int, batch: int, parallelism: int):
+    req = TrainRequest(
+        model_type='resnet34',
+        batch_size=batch,
+        epochs=1,
+        dataset='cifar10',
+        lr=0.1,
+        function_name='resnet',
+        options=TrainOptions(
+            default_parallelism=parallelism,
+            static_parallelism=True,
+            k=k,
+            validate_every=1,
+            goal_accuracy=100
+        )
+    )
+
+    exp = KubemlExperiment(get_title(req), req)
+    exp.run()
+
+    exp.save(output_folder)
+
+
 if __name__ == '__main__':
-    batches = [64]
+    batches = [128, 64]
     k = [64]
-    p = [4]
-    # p = [4]
+    p = [32, 16, 8, 4, 2]
 
     for b in batches:
         for _k in k:
             for _p in p:
-                run_lenet(_k, b, _p)
-                time.sleep(20)
+                run_resnet(_k, b, _p)
+                time.sleep(25)
 
     print("all experiments finished")

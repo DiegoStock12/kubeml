@@ -2,6 +2,7 @@ package model
 
 import (
 	"github.com/RedisAI/redisai-go/redisai"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -20,6 +21,37 @@ type (
 func MakeParallelSGD(logger *zap.Logger) ParallelSGD {
 	return ParallelSGD{logger: logger.Named("parallel-sgd")}
 }
+
+// Average averages the layers by the number of finished functions
+func (psgd ParallelSGD) Average(m *Model, num int) error {
+
+	var err error
+	for _, layer := range m.StateDict {
+		// divide the sum of the layer weights by the
+		switch layer.Dtype {
+		case redisai.TypeFloat32:
+			layer.Weights, err = layer.Weights.DivScalar(float32(num), true)
+			if err != nil {
+				psgd.logger.Error("Error dividing weights",
+					zap.Error(err))
+				return errors.Wrap(err, "error dividing float weights")
+			}
+
+		case redisai.TypeInt64:
+			layer.Weights, err = layer.Weights.DivScalar(int64(num), true)
+			if err != nil {
+				psgd.logger.Error("Error dividing weights",
+					zap.Error(err))
+				return errors.Wrap(err, "error diving int weights")
+			}
+		}
+	}
+
+	return nil
+
+}
+
+
 
 // Merge fetches weights from the database and averages them to create a new
 // reference model for the training job
@@ -77,7 +109,6 @@ func (psgd ParallelSGD) Merge(m *Model, funcs ...int) {
 		// Finally average all the weights and biases and set the num to 0
 		layer := sd[layerName]
 		var err error
-
 
 		// divide the sum of the layer weights by the
 		switch layer.Dtype {

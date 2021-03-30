@@ -304,6 +304,7 @@ func (job *TrainJob) train() error {
 	atomic.StoreInt64(&job.finishedFuncs, 0)
 	errChan := make(chan error, 1)
 	job.startMerger <- errChan
+	job.model.Clear()
 
 	start := time.Now()
 	loss, _, err := job.invokeTrainFunctions()
@@ -351,6 +352,7 @@ func (job *TrainJob) mergeModel() {
 		errChan := <-job.startMerger
 
 		for {
+
 			job.logger.Debug("Waiting for functions to finish...")
 			job.wgIteration.Wait()
 
@@ -374,15 +376,17 @@ func (job *TrainJob) mergeModel() {
 
 			// time the merge time for tests
 			mergeStart := time.Now()
-			job.optimizer.Merge(job.model, funcs...)
-			err := job.model.Save()
+			err := job.optimizer.Average(job.model, len(funcs))
+			if err != nil {
+				answerFunctions(MergeFailed, channels)
+				errChan <- err
+				break
+			}
+
+			err = job.model.Save()
 			if err != nil {
 				job.logger.Error("error saving model", zap.Error(err))
-				for _, ch := range channels {
-					if ch != nil {
-						ch <- MergeFailed
-					}
-				}
+				answerFunctions(MergeFailed, channels)
 				errChan <- err
 				break
 			}
@@ -390,7 +394,6 @@ func (job *TrainJob) mergeModel() {
 
 			finished := atomic.LoadInt64(&job.finishedFuncs)
 			job.logger.Debug("finished funcs are", zap.Int64("num", finished))
-
 			// initialize the wait group again by checking the number of finished functions
 			remaining := job.parallelism - int(finished)
 			if remaining == 0 {
@@ -412,13 +415,18 @@ func (job *TrainJob) mergeModel() {
 				// a channel is nil if the functions is completely finished
 				// it might be that some functions have to do 1 more iteration,
 				// so those send a nil channel
-				for _, ch := range channels {
-					if ch != nil {
-						ch <- MergeSucceeded
-					}
-				}
+				answerFunctions(MergeSucceeded, channels)
 			}
 		}
 	}
 
+}
+
+// answerFunctions responds to functions with the result of the merging process
+func answerFunctions(result MergeResult, channels []chan MergeResult) {
+	for _, ch := range channels {
+		if ch != nil {
+			ch <- result
+		}
+	}
 }

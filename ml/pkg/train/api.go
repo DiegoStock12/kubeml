@@ -101,6 +101,9 @@ func (job *TrainJob) nextIteration(w http.ResponseWriter, r *http.Request) {
 	// merger to respond once finished
 	respChan := make(chan MergeResult, 1)
 	job.finishCh <- &finishNotification{funcId, respChan}
+
+	// trigger model update
+	job.model.Update(funcId)
 	job.wgIteration.Done()
 	result := <-respChan
 

@@ -1,10 +1,8 @@
 package model
 
 import (
-	"fmt"
 	"github.com/RedisAI/redisai-go/redisai"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
-	"github.com/gomodule/redigo/redis"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gorgonia.org/tensor"
@@ -41,7 +39,6 @@ type (
 		redisClient *redisai.Client
 
 		// Internal Lock to be applied during the update
-		// TODO looks like each tensor has its own lock. If this is the case maybe we can speed things up
 		mu sync.Mutex
 	}
 
@@ -113,6 +110,12 @@ func (m *Model) Build() error {
 	return nil
 }
 
+// Clear wipes the statedict of the model
+func (m *Model) Clear() {
+	m.StateDict = make(map[string]*Layer)
+	m.logger.Debug("Wiped model state")
+}
+
 // Summary runs through the layers of a model and prints its info
 func (m *Model) Summary() {
 	for name, layer := range m.StateDict {
@@ -162,24 +165,13 @@ func (m *Model) setLayer(name string, layer *Layer) error {
 }
 
 func (m *Model) setWeights(name string, layer *Layer) error {
-	args, _ := makeArgs(m.jobId, name,layer.Weights.Shape(), layer.Dtype, layer.Weights.Data())
+	args, _ := makeArgs(m.jobId, name, layer.Weights.Shape(), layer.Dtype, layer.Weights.Data())
 	_, err := m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
 	if err != nil {
 		return errors.Wrapf(err, "could not set weights of layer %v", name)
 	}
 	return nil
 }
-
-//
-//func (m *Model) setBias(name string, layer *Layer) error {
-//	args, _ := makeArgs(m.jobId, name, BiasSuffix, layer.Bias.Shape(), layer.Bias.Data())
-//	_, err := m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
-//	if err != nil {
-//		return errors.Wrapf(err, "could not set bias of layer %v", name)
-//	}
-//	return nil
-//
-//}
 
 // fetchLayer calls the tensor get function in the pipelined client
 // the results are pipelined and are thus gathered later on in the buildLayer
@@ -207,7 +199,6 @@ func (m *Model) buildLayer(name string) (*Layer, error) {
 		return nil, err
 	}
 
-
 	switch dtype {
 	case redisai.TypeFloat32:
 		values, err := blobToFloatArray(blob.([]byte), shapeInt64)
@@ -220,7 +211,7 @@ func (m *Model) buildLayer(name string) (*Layer, error) {
 
 		return &Layer{
 			Name:    name,
-			Dtype: dtype,
+			Dtype:   dtype,
 			Weights: t,
 		}, nil
 
@@ -235,7 +226,7 @@ func (m *Model) buildLayer(name string) (*Layer, error) {
 
 		return &Layer{
 			Name:    name,
-			Dtype: dtype,
+			Dtype:   dtype,
 			Weights: t,
 		}, nil
 
@@ -247,51 +238,55 @@ func (m *Model) buildLayer(name string) (*Layer, error) {
 
 }
 
-// NewLayer fetches a layer from the database. It first queries
-// to see whether the layer contains bias or not, and then gets the layer
-// indexed by the function ID which saved it in the first place.
-//
-// The function Id is used to build the tensor key name. If the funcID is
-// >= 0, we know it is output from a function, if funcId is -1, we know
-// that it is the reference model that we need to load and no suffix is added
-// to the tensor name
-func (m *Model) NewLayer(name string, funcId int) (*Layer, error) {
+// Update fetches the layers saved by a function and adds them to the statedict
+func (m *Model) Update(funcId int) {
 
-	// Get the redis keys
-	weightName := getWeightKeys(name, m.jobId, funcId)
-	m.logger.Debug("Loading layer", zap.String("layer", weightName))
-	sWeights, weightValues, err := fetchTensor(m.redisClient, weightName)
-	if err != nil {
-		return nil, err
+	m.logger.Debug("Updating model layers",
+		zap.Int("funcId", funcId))
+
+	// lock the model, only one thread can use the
+	// redis client concurrently
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// load the function layers
+	for _, layer := range m.layerNames {
+		err := m.fetchLayer(layer, funcId)
+		if err != nil {
+			m.logger.Error("could not fetch layer",
+				zap.Error(err),
+				zap.String("name", layer),
+				zap.Int("funcId", funcId))
+			return
+		}
 	}
 
-	dimWeights := shapeToIntArray(sWeights...)
-	w := tensor.New(tensor.WithShape(dimWeights...), tensor.WithBacking(weightValues))
+	m.redisClient.Flush()
 
-	return &Layer{
-		Name:    name,
-		Weights: w,
-	}, nil
+	for _, layerName := range m.layerNames {
+		layer, err := m.buildLayer(layerName)
+		if err != nil {
+			m.logger.Error("Could not build layer from database",
+				zap.Error(err),
+				zap.String("name", layerName),
+				zap.Int("funcId", funcId))
+			return
+		}
 
-}
+		if total, exists := m.StateDict[layerName]; !exists {
+			m.StateDict[layerName] = layer
+		} else {
+			total.Weights, err = total.Weights.Add(layer.Weights)
+			if err != nil {
+				m.logger.Error("Error adding weights",
+					zap.Error(err))
 
-// tensorExists simply returns whether the tensor is present in the cache
-// In some networks (i.e resnets) the bias of the layers is not used, so in those
-// cases it will not be published. In this case we can see whether that is true
-func tensorExists(client *redisai.Client, tensorName string) (bool, error) {
-	res, err := redis.Int(client.DoOrSend("EXISTS", redis.Args{tensorName}, nil))
-	if err != nil {
-		return false, err
+				return
+			}
+		}
 	}
 
-	// we get a 1 if it exists and a 0 if it doesn't
-	switch res {
-	case 0:
-		return false, err
-	case 1:
-		return true, nil
-	default:
-		return false, fmt.Errorf("received unknown result from the cache: %v", res)
-	}
+	m.logger.Debug("Model updated",
+		zap.Int("funcId", funcId))
 
 }

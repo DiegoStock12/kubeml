@@ -21,8 +21,8 @@ import (
 const (
 	DefaultNamespace       = metav1.NamespaceDefault
 	DefaultEnvironment     = "torch"
-	DefaultConcurrency     = 10
-	DefaultTimeout         = 80
+	DefaultConcurrency     = 50
+	DefaultTimeout         = 1000
 	DefaultIdleTimeout int = 10
 )
 

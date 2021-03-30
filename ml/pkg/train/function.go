@@ -248,6 +248,8 @@ func (job *TrainJob) launchFunction(
 		zap.Any("results", res))
 
 	job.finishCh <- &finishNotification{funcId: funcId}
+	job.model.Update(funcId)
+
 	respChan <- &FunctionResults{
 		funcId:  funcId,
 		results: res,

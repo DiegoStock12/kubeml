@@ -9,7 +9,7 @@ import torch.utils.data as data
 from torch.optim import SGD
 import torchvision.transforms as transforms
 from kubeml import KubeModel, KubeDataset
-from torchvision.models.resnet import resnet50
+from torchvision.models.resnet import resnet34
 
 
 class Cifar10Dataset(KubeDataset):
@@ -41,7 +41,7 @@ class KubeResnet34(KubeModel):
 
         loader = data.DataLoader(dataset, batch_size=self.args.batch_size)
         criterion = nn.CrossEntropyLoss()
-        optimizer = SGD(model.parameters(), lr=self.args.lr, momentum=0.9)
+        optimizer = SGD(model.parameters(), lr=self.args.lr, momentum=0.9, weight_decay=1e-4)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         model.train()
@@ -58,7 +58,7 @@ class KubeResnet34(KubeModel):
 
             total_loss += loss.item()
             if i % 10 == 0:
-                logging.info(f"Index {i}, error: {loss.item}")
+                logging.info(f"Index {i}, error: {loss.item()}")
 
         return total_loss / len(loader)
 
@@ -90,7 +90,7 @@ class KubeResnet34(KubeModel):
 
 
 def main():
-    resnet = resnet50()
+    resnet = resnet34()
     dataset = Cifar10Dataset()
     kubenet = KubeResnet34(resnet, dataset)
     return kubenet.start()
