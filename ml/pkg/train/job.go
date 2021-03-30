@@ -304,7 +304,6 @@ func (job *TrainJob) train() error {
 	atomic.StoreInt64(&job.finishedFuncs, 0)
 	errChan := make(chan error, 1)
 	job.startMerger <- errChan
-	job.model.Clear()
 
 	start := time.Now()
 	loss, _, err := job.invokeTrainFunctions()
@@ -352,7 +351,7 @@ func (job *TrainJob) mergeModel() {
 		errChan := <-job.startMerger
 
 		for {
-
+			job.model.Clear()
 			job.logger.Debug("Waiting for functions to finish...")
 			job.wgIteration.Wait()
 
