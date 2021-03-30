@@ -25,6 +25,8 @@ func MakeParallelSGD(logger *zap.Logger) ParallelSGD {
 // Average averages the layers by the number of finished functions
 func (psgd ParallelSGD) Average(m *Model, num int) error {
 
+	psgd.logger.Debug("Averaging", zap.Int("num", num))
+
 	var err error
 	for _, layer := range m.StateDict {
 		// divide the sum of the layer weights by the
