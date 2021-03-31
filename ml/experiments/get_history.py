@@ -19,10 +19,11 @@ if __name__ == '__main__':
 
     exp = KubemlExperiment(title='test experiment', request=req)
     print('running experiment...')
-    exp.run()
-    # exp.network_id = '5d87491c'
+    # exp.run()
+    exp.network_id = 'c4844872'
 
     # exp.wait_for_task_finished()
 
-    print(exp.get_model_history())
-    # print(exp.history)
+    exp.history= exp.get_model_history()
+    exp.save('./tests/resnet34')
+

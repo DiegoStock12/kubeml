@@ -54,9 +54,9 @@ def run_resnet(k: int, batch: int, parallelism: int):
 
 
 if __name__ == '__main__':
-    batches = [128, 64]
+    batches = [128]
     k = [64]
-    p = [32, 16, 8, 4, 2]
+    p = [32, 16, 8, 4]
 
     for b in batches:
         for _k in k:

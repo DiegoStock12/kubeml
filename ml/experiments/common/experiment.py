@@ -4,9 +4,9 @@ from dataclasses_json import dataclass_json, Undefined, CatchAll
 from typing import List, Dict, Any
 import subprocess
 import time
+import os
 
 import pandas as pd
-
 
 from .utils import check_stderr
 
@@ -85,7 +85,7 @@ class KubemlExperiment(Experiment):
         self.network_id = self.run_task()
         time.sleep(30)
 
-        print('Training', end='')
+        print('Training', end='', flush=True)
         self.wait_for_task_finished()
         self.history = self.get_model_history()
 
@@ -129,15 +129,26 @@ class KubemlExperiment(Experiment):
         """Check if the task is the the list of running tasks"""
         command = f"{kubeml} task list --short"
 
-        res = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        check_stderr(res)
+        done = False
+        for i in range(3):
+            try:
+                res = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                check_stderr(res)
+                done = True
+                break
+            except Exception as _:
+                print('error getting tasks, retrying')
+                time.sleep(2)
+
+        if not done:
+            exit(-1)
 
         # get all the tasks running
         tasks = res.stdout.decode().splitlines()
 
         for id in tasks:
             if id == self.network_id:
-                print('.', end='')
+                print('.', end='', flush=True)
                 return False
         print()
         return True

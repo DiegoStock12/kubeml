@@ -11,7 +11,7 @@ def check_stderr(res: subprocess.CompletedProcess):
     if len(res.stderr) == 0:
         return
     print("error running command", res.args, res.stderr.decode())
-    exit(-1)
+    raise Exception
 
 
 def create_function(name: str, file: str):
