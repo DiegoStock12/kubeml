@@ -54,9 +54,13 @@ def run_resnet(k: int, batch: int, parallelism: int):
 
 
 if __name__ == '__main__':
-    batches = [128]
-    k = [64]
-    p = [32, 16, 8, 4]
+
+    # Try to analyze the behavior of the K parameter, the batch size (local)
+    # and the parallelism of the functions
+
+    batches = [128, 64, 32]
+    k = [8, 16, 64]
+    p = [4, 8, 16, 32]
 
     for b in batches:
         for _k in k:

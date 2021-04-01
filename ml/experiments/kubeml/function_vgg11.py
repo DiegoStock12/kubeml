@@ -9,7 +9,7 @@ import torch.utils.data as data
 from torch.optim import Adam
 import torchvision.transforms as transforms
 from kubeml import KubeModel, KubeDataset
-from torchvision.models.vgg import vgg16
+from torchvision.models.vgg import vgg11
 
 
 # Mean and std as well as main training ideas gotten from
@@ -101,7 +101,7 @@ class KubeVGG(KubeModel):
 
 
 def main():
-    vgg = vgg16()
+    vgg = vgg11()
     dataset = Cifar10Dataset()
     kubenet = KubeVGG(vgg, dataset)
     return kubenet.start()
