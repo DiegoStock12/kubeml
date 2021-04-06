@@ -1,4 +1,3 @@
-
 import numpy as np
 from typing import Tuple
 import argparse
@@ -33,14 +32,12 @@ def main(num_epochs: int, batch_size: int):
     # load the data and preprocess
     x_train, x_test, y_train, y_test = load_data()
     x_train, x_test = x_train.astype('float32'), x_test.astype('float32')
-    y_train, y_test =to_categorical(y_train), to_categorical(y_test)
+    y_train, y_test = to_categorical(y_train), to_categorical(y_test)
 
     # subtract mean and normalize
-    mean_image = np.mean(x_train, axis=0)
-    x_train -= mean_image
-    x_test -= mean_image
-    x_train /= 128.
-    x_test /= 128.
+
+    x_train /= 255.
+    x_test /= 255.
 
     sgd = SGD(lr=0.1, momentum=0.9)
 

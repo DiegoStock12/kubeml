@@ -126,12 +126,13 @@ class KubeLeNet(KubeModel):
 
         test_loss = 0
         correct = 0
-        for x, y in val_loader:
-            x, y = x.to(device), y.to(device)
-            output = model(x)
-            test_loss += loss_fn(output, y).item()  # sum up batch loss
-            pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-            correct += pred.eq(y.view_as(pred)).sum().item()
+        with torch.no_grad():
+            for x, y in val_loader:
+                x, y = x.to(device), y.to(device)
+                output = model(x)
+                test_loss += loss_fn(output, y).item()  # sum up batch loss
+                pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+                correct += pred.eq(y.view_as(pred)).sum().item()
 
         test_loss /= len(val_loader)
         accuracy = 100. * correct / len(val_loader.dataset)

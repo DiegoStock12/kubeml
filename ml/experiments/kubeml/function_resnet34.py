@@ -72,13 +72,14 @@ class KubeResnet34(KubeModel):
         total = 0
         correct = 0
         test_loss = 0
-        for i, (inputs, labels) in enumerate(loader):
-            inputs, labels = inputs.to(device), labels.to(device)
-            output = model(inputs)
-            _, predicted = torch.max(output.data, 1)
-            test_loss += criterion(output, labels).item()
-            total += labels.size(0)
-            correct += predicted.eq(labels).sum().item()
+        with torch.no_grad():
+            for i, (inputs, labels) in enumerate(loader):
+                inputs, labels = inputs.to(device), labels.to(device)
+                output = model(inputs)
+                _, predicted = torch.max(output.data, 1)
+                test_loss += criterion(output, labels).item()
+                total += labels.size(0)
+                correct += predicted.eq(labels).sum().item()
 
         accuracy = correct / total * 100
         test_loss /= len(loader)
