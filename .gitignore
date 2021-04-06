@@ -4,7 +4,7 @@
 
 # Environments
 venv/
-
+*_env/
 
 # Test folders and files
 buildtest/

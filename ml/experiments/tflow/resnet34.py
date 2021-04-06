@@ -1,4 +1,4 @@
-import resnet_classes
+
 import numpy as np
 from typing import Tuple
 import argparse
@@ -6,9 +6,10 @@ import os
 import tensorflow as tf
 
 import keras_resnet.models
-import keras
-from keras.utils import np_utils
-from keras.optimizers import SGD
+import resnet_classes
+from tensorflow.keras import Input
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.optimizers import SGD
 
 CIFAR_LOCATION = "../datasets/cifar10"
 DATASET = 'cifar10'
@@ -27,12 +28,12 @@ def load_data() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 def main(num_epochs: int, batch_size: int):
     shape = (32, 32, 3)
     n_classes = 10
-    x = keras.layers.Input(shape)
+    x = Input(shape)
 
     # load the data and preprocess
     x_train, x_test, y_train, y_test = load_data()
     x_train, x_test = x_train.astype('float32'), x_test.astype('float32')
-    y_train, y_test = np_utils.to_categorical(y_train), np_utils.to_categorical(y_test)
+    y_train, y_test =to_categorical(y_train), to_categorical(y_test)
 
     # subtract mean and normalize
     mean_image = np.mean(x_train, axis=0)

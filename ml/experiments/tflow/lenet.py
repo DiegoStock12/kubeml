@@ -1,10 +1,11 @@
-import keras
-from keras import layers
-from keras.utils import np_utils
-from keras.optimizers import SGD
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.optimizers import SGD
 import os
 
-import tensorflow as tf
+
 
 from typing import Tuple
 import numpy as np
@@ -44,16 +45,16 @@ def load_data() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 def main(epochs: int, batch: int):
     x_train, x_test, y_train, y_test = load_data()
     x_train, x_test = x_train.astype('float32'), x_test.astype('float32')
-    y_train, y_test = np_utils.to_categorical(y_train), np_utils.to_categorical(y_test)
+    y_train, y_test = to_categorical(y_train), to_categorical(y_test)
 
     x_train = np.expand_dims(x_train, -1)
     x_test = np.expand_dims(x_test, -1)
 
-    mu, std = x_train.mean().astype(np.float32), x_train.mean().astype(np.float32)
-    x_train -= mu
-    x_test -= mu
-    x_train /= std
-    x_train /= std
+    mean_image = np.mean(x_train, axis=0)
+    x_train -= mean_image
+    x_test -= mean_image
+    x_train /= 128.
+    x_test /= 128.
 
     print(x_train.shape, x_test.shape)
 
