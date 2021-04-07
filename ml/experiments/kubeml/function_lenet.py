@@ -84,8 +84,11 @@ class KubeLeNet(KubeModel):
         batch = self.args.batch_size
         lr = self.args.lr
 
+
+
         # define the device for training and load the data
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = model.to(device)
         train_loader = data.DataLoader(dataset, batch_size=batch)
         loss_fn = nn.CrossEntropyLoss()
         optimizer = SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
@@ -110,7 +113,7 @@ class KubeLeNet(KubeModel):
 
             ## TODO change the loss for a function that the user calls like tensorboard
             if batch_idx % 10 == 0:
-                logging.info(f"Index {batch_idx}, error: {loss.item}")
+                logging.info(f"Index {batch_idx}, error: {loss.item()}")
 
         return total_loss / len(train_loader)
 
@@ -119,6 +122,7 @@ class KubeLeNet(KubeModel):
 
         # define the device for training and load the data
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = model.to(device)
         val_loader = data.DataLoader(dataset, batch_size=batch)
         loss_fn = nn.CrossEntropyLoss()
 
