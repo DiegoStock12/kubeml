@@ -16,6 +16,11 @@ WORKDIR /app
 COPY requirements.txt /app
 RUN pip3 install -r requirements.txt
 
+# Run the special pytorch download
+RUN pip3 install pip install torch==1.7.1+cu101 torchvision==0.8.2+cu101 \
+ -f https://download.pytorch.org/whl/torch_stable.html
+
+
 # Copy the server and start
 COPY . /app
 
