@@ -5,7 +5,7 @@ FROM python:3.6-slim-buster as builder
 # Update the packages
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install gcc libev-dev libffi-dev libpython3.6-y && \
+    apt-get install gcc libev-dev libffi-dev libpython3.6-dev -y && \
     apt-get clean
 
 
@@ -25,7 +25,7 @@ FROM python:3.6-slim-buster as final-image
 
 # Install the libraries used by bjoern
 RUN apt-get update && \
-    apt-get install libev-dev libffi-dev libpython3.6 -y
+    apt-get install libev-dev libffi-dev libpython3.6-dev -y
 
 COPY --from=builder /root/.local /root/.local
 COPY --from=builder /app/* /app/
