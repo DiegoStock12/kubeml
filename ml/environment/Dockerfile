@@ -32,6 +32,10 @@ COPY --from=builder /app/* /app/
 WORKDIR app
 ENV PATH=/root/.local/bin:$PATH
 
+# nvidia gpu stuff
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
+
 # Start a gunicorn server with only one worker to ensure
 # isolation on a function basis
 # and offer more performance than the default server
