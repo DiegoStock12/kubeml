@@ -11,6 +11,8 @@ import torchvision.transforms as transforms
 from kubeml import KubeModel, KubeDataset
 from torchvision.models.resnet import resnet34
 
+import random
+
 
 class Cifar10Dataset(KubeDataset):
     def __init__(self):
@@ -93,7 +95,11 @@ class KubeResnet34(KubeModel):
 
 
 def main():
-    resnet = resnet34()
+    # set the random seeds
+    torch.manual_seed(42)
+    random.seed(42)
+
+    resnet = resnet34().cuda()
     dataset = Cifar10Dataset()
     kubenet = KubeResnet34(resnet, dataset)
     return kubenet.start()

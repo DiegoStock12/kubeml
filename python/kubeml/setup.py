@@ -9,7 +9,7 @@ README = (HERE / "README.md").read_text()
 
 setup(
     name='kubeml',
-    version='0.1.3',
+    version='0.1.4rc1',
     description='Python tools for training Neural Networks with KubeML',
     author='Diego Albo Martínez',
     author_email="diego.albo.martinez@gmail.com",

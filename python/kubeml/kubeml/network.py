@@ -28,9 +28,16 @@ except KeyError:
 
 class KubeModel(ABC):
 
-    def __init__(self, network: nn.Module, dataset: KubeDataset):
+    def __init__(self, network: nn.Module, dataset: KubeDataset, platform: str):
+        """Init the KubeModel, device can be either gpu or cpu"""
+
+        # if device is set to gpu, get the correct gpu if
+        # for the
+
         self._network = network
         self._dataset = dataset
+        self.platform = platform
+        self.device = None
         self.args = None
 
         # initialize redis connection
@@ -48,10 +55,12 @@ class KubeModel(ABC):
             return jsonify(layers), 200
 
         elif task == "train":
+            self._set_device()
             loss = self.__train()
             return jsonify(loss=loss), 200
 
         elif task == "val":
+            self._set_device()
             acc, loss = self.__validate()
             return jsonify(loss=loss, accuracy=acc), 200
 
@@ -114,7 +123,7 @@ class KubeModel(ABC):
             # load the reference model, train and save
             try:
                 self.__load_model()
-                loss += self.train(self._network, self._dataset)
+                loss += self.train(self._network, self._dataset, self.device)
                 self.__save_model()
             except RedisError as re:
                 raise StorageError(re)
@@ -136,7 +145,7 @@ class KubeModel(ABC):
 
         try:
             self.__load_model()
-            acc, loss = self.validate(self._network, self._dataset)
+            acc, loss = self.validate(self._network, self._dataset, self.device)
         except RedisError as re:
             raise StorageError(re)
         finally:
@@ -160,6 +169,22 @@ class KubeModel(ABC):
             return preds
         else:
             raise InvalidFormatError
+
+    def _set_device(self):
+        """Set device updates the used gpu or cpu based on the function id and the previously
+        used devices"""
+
+        # if the indicated platform is cpu,
+        # set that as the torch device
+        if self.platform == 'cpu':
+            self.device = torch.device('cpu')
+
+        # if it's gpu, get the appropriate one and put the model there
+        else:
+            gpu_id = get_gpu(self.args._func_id)
+            self.device = torch.device(f'cuda:{gpu_id}')
+            self._network = self._network.to(self.device)
+            logging.debug(f'Set device to {self.device}')
 
     def __send_finish_signal(self):
         """Sends a request to the train job communicating that the iteration is over
@@ -200,7 +225,6 @@ class KubeModel(ABC):
 
         state = dict()
         for name in self._network.state_dict():
-
             # load each of the layers in the statedict
             # TODO we could see if the BN are included, in the resnet they have running stats
             logging.debug(f"Loading weights for layer {name}")
@@ -238,11 +262,11 @@ class KubeModel(ABC):
         pass
 
     @abstractmethod
-    def train(self, model: nn.Module, dataset: KubeDataset) -> float:
+    def train(self, model: nn.Module, dataset: KubeDataset, device: torch.device) -> float:
         pass
 
     @abstractmethod
-    def validate(self, model: nn.Module, dataset: KubeDataset) -> Tuple[float, float]:
+    def validate(self, model: nn.Module, dataset: KubeDataset, device: torch.device) -> Tuple[float, float]:
         pass
 
     @abstractmethod
