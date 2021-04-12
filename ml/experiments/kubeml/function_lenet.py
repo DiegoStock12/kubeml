@@ -78,17 +78,13 @@ class KubeLeNet(KubeModel):
     def init(self, model: nn.Module):
         pass
 
-    def train(self, model: nn.Module, dataset: KubeDataset) -> float:
+    def train(self, model: nn.Module, dataset: KubeDataset, device: torch.device) -> float:
 
         # parse the kubernetes args
         batch = self.args.batch_size
         lr = self.args.lr
 
-
-
         # define the device for training and load the data
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = model.to(device)
         train_loader = data.DataLoader(dataset, batch_size=batch)
         loss_fn = nn.CrossEntropyLoss()
         optimizer = SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
@@ -117,12 +113,10 @@ class KubeLeNet(KubeModel):
 
         return total_loss / len(train_loader)
 
-    def validate(self, model: nn.Module, dataset: KubeDataset) -> Tuple[float, float]:
+    def validate(self, model: nn.Module, dataset: KubeDataset, device: torch.device) -> Tuple[float, float]:
         batch = self.args.batch_size
 
         # define the device for training and load the data
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = model.to(device)
         val_loader = data.DataLoader(dataset, batch_size=batch)
         loss_fn = nn.CrossEntropyLoss()
 
