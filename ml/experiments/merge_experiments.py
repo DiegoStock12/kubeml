@@ -23,7 +23,6 @@ def join_df(folder: str) -> pd.DataFrame:
     return d
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--type', help='Type of metrics to be merged from [neural, metrics]')

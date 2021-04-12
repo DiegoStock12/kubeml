@@ -43,6 +43,7 @@ class KubeResnet34(KubeModel):
         criterion = nn.CrossEntropyLoss()
         optimizer = SGD(model.parameters(), lr=self.args.lr, momentum=0.9, weight_decay=1e-4)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = model.to(device)
 
         model.train()
         total_loss = 0
@@ -67,6 +68,7 @@ class KubeResnet34(KubeModel):
         loader = data.DataLoader(dataset, batch_size=self.args.batch_size)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         criterion = nn.CrossEntropyLoss()
+        model = model.to(device)
 
         model.eval()
         total = 0

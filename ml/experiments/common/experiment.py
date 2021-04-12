@@ -85,21 +85,21 @@ class KubemlExperiment(Experiment):
         - watch until it finishes
         - load the history
         """
-        # self.network_id = self.run_task()
-        # time.sleep(30)
+        self.network_id = self.run_task()
+        time.sleep(20)
 
-        self.network_id = get_hash(self.title)
+        # self.network_id = get_hash(self.title)
+
+        # start collecting metrics from the experiments using the api
         self.start_metrics_collection()
         print('Training', end='', flush=True)
         time.sleep(5)
-        # self.wait_for_task_finished()
-        # self.history = self.get_model_history()
+        self.wait_for_task_finished()
+        self.history = self.get_model_history()
 
         # print(self.history.to_json())
         print('Experiment', self.network_id, 'finished')
         self.end_metrics_collection()
-
-        # TODO save the history in the file related to the experiment title
 
     def wait_for_task_finished(self):
         while True:

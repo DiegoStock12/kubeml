@@ -137,7 +137,7 @@ def finish_task():
 
 def start_api():
     logger.info('starting api...')
-    app.run(debug=True)
+    app.run()
 
 
 if __name__ == '__main__':
