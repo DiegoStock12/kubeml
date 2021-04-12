@@ -58,7 +58,7 @@ def main(epochs: int, batch: int):
 
     print(x_train.shape, x_test.shape)
 
-    sgd = SGD(lr=0.1, momentum=0.9)
+    sgd = SGD(lr=0.01, momentum=0.9)
 
     strategy = tf.distribute.MirroredStrategy()
 

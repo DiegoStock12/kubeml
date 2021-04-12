@@ -1,7 +1,7 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-KUBEML_HOME="/mnt/c/Users/diego/CS/thesis/ml/pkg/kubeml-cli/kubeml"
-FUNC_HOME="/mnt/c/Users/diego/CS/thesis/ml/experiments/kubeml"
+KUBEML_HOME="../pkg/kubeml-cli/kubeml"
+FUNC_HOME="../experiments/kubeml"
 
 echo "creating lenet"
 "$KUBEML_HOME" fn create --name lenet --code ${FUNC_HOME}/function_lenet.py

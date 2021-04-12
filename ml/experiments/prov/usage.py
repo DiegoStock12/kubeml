@@ -73,7 +73,7 @@ def metrics_gathering_loop(name: str, pill: Event):
     """Loop gathering the metrics periodically"""
     metrics = SystemMetrics(exp_name=name)
     gpus = GPUtil.getGPUs()
-    while not pill.wait(2):
+    while not pill.wait(1):
         logger.debug('getting metrics...')
 
         # get the metrics
@@ -92,7 +92,7 @@ def metrics_gathering_loop(name: str, pill: Event):
 
     # when event sent, save the metrics to the the disk
     with open(f'./{metrics.exp_name}.pkl', 'wb') as f:
-        pickle.dump(metrics, f)
+        pickle.dump(metrics.to_dataframe(), f)
 
 
 running_job_pill: Event = None
@@ -130,4 +130,3 @@ def finish_task():
 
 if __name__ == '__main__':
     app.run(debug=True)
-

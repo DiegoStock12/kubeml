@@ -1,7 +1,7 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-KUBEML_HOME="/mnt/c/Users/diego/CS/thesis/ml/pkg/kubeml-cli/kubeml"
-MNIST_DATASET="/mnt/c/Users/diego/CS/thesis/ml/experiments/datasets/mnist"
+KUBEML_HOME="../pkg/kubeml-cli/kubeml"
+MNIST_DATASET="../experiments/datasets/mnist"
 
 echo "Uploading MNIST dataset"
 

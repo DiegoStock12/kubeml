@@ -5,10 +5,11 @@ from typing import List, Dict, Any
 import subprocess
 import time
 import os
+import requests
 
 import pandas as pd
 
-from .utils import check_stderr
+from .utils import check_stderr, get_title, get_hash
 
 kubeml = '/mnt/c/Users/diego/CS/thesis/ml/pkg/kubeml-cli/kubeml'
 
@@ -55,6 +56,9 @@ class History:
     data: TrainMetrics
 
 
+API_URL = 'http://localhost:5000'
+
+
 class Experiment(ABC):
 
     def __init__(self, title: str):
@@ -80,17 +84,20 @@ class KubemlExperiment(Experiment):
         - create the train task
         - watch until it finishes
         - load the history
-        - TODO save the history somewhere
         """
-        self.network_id = self.run_task()
-        time.sleep(30)
+        # self.network_id = self.run_task()
+        # time.sleep(30)
 
+        self.network_id = get_hash(self.title)
+        self.start_metrics_collection()
         print('Training', end='', flush=True)
-        self.wait_for_task_finished()
-        self.history = self.get_model_history()
+        time.sleep(5)
+        # self.wait_for_task_finished()
+        # self.history = self.get_model_history()
 
         # print(self.history.to_json())
         print('Experiment', self.network_id, 'finished')
+        self.end_metrics_collection()
 
         # TODO save the history in the file related to the experiment title
 
@@ -169,6 +176,41 @@ class KubemlExperiment(Experiment):
         print(h)
         return h
 
+    def start_metrics_collection(self):
+        """Triggers the metrics api endpoint to start collecting metrics before the experiment"""
+        url = API_URL + f'/new/{self.network_id}'
+        print('triggering start url...')
+
+        resp = requests.put(url)
+        if not resp.ok:
+            print('error starting metrics')
+        else:
+            print('metrics collection started')
+
+    def end_metrics_collection(self):
+        """Triggers the api to stop collecting metrics"""
+        print('triggering stop url...')
+        url = API_URL + '/finish'
+        resp = requests.delete(url)
+        if not resp.ok:
+            print('error stopping experiment')
+        else:
+            print("stopped experiment")
+
+    def _fake_history(self) -> History:
+
+        self.history = History(
+            id=self.network_id,
+            task=self.request,
+            data=TrainMetrics(
+                validation_loss=[1],
+                accuracy=[1],
+                train_loss=[1],
+                parallelism=[1],
+                epoch_duration=[1]
+            )
+        )
+
     def to_dataframe(self) -> pd.DataFrame:
         """Converts this experiment to a pandas dataframe"""
         if not self.history:
@@ -178,6 +220,7 @@ class KubemlExperiment(Experiment):
         # for this we use the to_dict func of the dataclass_json object
         flattened = {
             "id": self.history.id,
+            "hash": get_hash(self.title),
             **self.history.task.to_dict(),
             **self.history.task.options.to_dict()
         }

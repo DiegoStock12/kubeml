@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 KUBEML_HOME="/mnt/c/Users/diego/CS/thesis/ml/pkg/kubeml-cli/kubeml"
 CIFAR100_DATASET="/mnt/c/Users/diego/CS/thesis/ml/experiments/datasets/cifar100"

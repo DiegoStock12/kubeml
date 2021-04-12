@@ -1,7 +1,7 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-KUBEML_HOME="/mnt/c/Users/diego/CS/thesis/ml/pkg/kubeml-cli/kubeml"
-CIFAR10_DATASET="/mnt/c/Users/diego/CS/thesis/ml/experiments/datasets/cifar10"
+KUBEML_HOME="../pkg/kubeml-cli/kubeml"
+CIFAR10_DATASET="../experiments/datasets/cifar10"
 
 echo "Uploading CIFAR10 dataset"
 
