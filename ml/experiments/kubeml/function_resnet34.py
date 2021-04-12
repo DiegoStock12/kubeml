@@ -34,7 +34,7 @@ class Cifar10Dataset(KubeDataset):
 
 class KubeResnet34(KubeModel):
     def __init__(self, network, dataset: Cifar10Dataset):
-        super(KubeResnet34, self).__init__(network, dataset)
+        super(KubeResnet34, self).__init__(network, dataset, platform='gpu')
 
     def init(self, model: nn.Module):
         pass
@@ -96,7 +96,7 @@ def main():
     torch.manual_seed(42)
     random.seed(42)
 
-    resnet = resnet34().cuda()
+    resnet = resnet34()
     dataset = Cifar10Dataset()
     kubenet = KubeResnet34(resnet, dataset)
     return kubenet.start()

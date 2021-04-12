@@ -73,7 +73,7 @@ class MnistDataset(KubeDataset):
 class KubeLeNet(KubeModel):
 
     def __init__(self, network: nn.Module, dataset: MnistDataset):
-        super().__init__(network, dataset)
+        super().__init__(network, dataset, platform='gpu')
 
     def init(self, model: nn.Module):
         pass
@@ -146,7 +146,7 @@ def main():
     torch.manual_seed(42)
     random.seed(42)
 
-    lenet = LeNet().cuda()
+    lenet = LeNet()
     dataset = MnistDataset()
     kubenet = KubeLeNet(lenet, dataset)
     return kubenet.start()
