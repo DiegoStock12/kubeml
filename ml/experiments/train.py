@@ -92,8 +92,8 @@ if __name__ == '__main__':
         func = run_resnet if net == 'resnet' else run_lenet
         print('Using func', func)
 
-        batches = [16, 32, 64, 128]
-        k = [8, 16, 32, -1]
+        batches = [128, 64, 32, 16]
+        k = [-1, 32, 16, 8]
         p = [1, 2, 4, 8]
 
         for b in batches:

@@ -11,7 +11,7 @@ import pandas as pd
 
 from .utils import check_stderr, get_title, get_hash
 
-kubeml = '../../pkg/kubeml-cli/kubeml'
+kubeml = '../pkg/kubeml-cli/kubeml'
 
 
 @dataclass_json
@@ -86,15 +86,16 @@ class KubemlExperiment(Experiment):
         - load the history
         """
         self.network_id = self.run_task()
-        time.sleep(20)
+        time.sleep(30)
 
         # self.network_id = get_hash(self.title)
 
         # start collecting metrics from the experiments using the api
         self.start_metrics_collection()
         print('Training', end='', flush=True)
-        # time.sleep(5)
         self.wait_for_task_finished()
+
+        print('Task finished, getting model history')
         self.history = self.get_model_history()
 
         # print(self.history.to_json())
@@ -137,6 +138,7 @@ class KubemlExperiment(Experiment):
         command = f"{kubeml} task list --short"
 
         done = False
+        res = None
         for i in range(3):
             try:
                 res = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -154,6 +156,7 @@ class KubemlExperiment(Experiment):
         tasks = res.stdout.decode().splitlines()
 
         for id in tasks:
+            print(id)
             if id == self.network_id:
                 print('.', end='', flush=True)
                 return False
