@@ -5,7 +5,7 @@
 #
 
 
-KUBEML_HOME="/mnt/c/Users/diego/CS/thesis/ml"
+KUBEML_HOME=".."
 
 # declare the namespaces
 FISSION_NAMESPACE="fission"

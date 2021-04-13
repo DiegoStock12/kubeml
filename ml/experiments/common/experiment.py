@@ -11,7 +11,7 @@ import pandas as pd
 
 from .utils import check_stderr, get_title, get_hash
 
-kubeml = '/mnt/c/Users/diego/CS/thesis/ml/pkg/kubeml-cli/kubeml'
+kubeml = '../../pkg/kubeml-cli/kubeml'
 
 
 @dataclass_json
