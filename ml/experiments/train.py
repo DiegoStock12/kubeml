@@ -10,12 +10,14 @@ import argparse
 
 output_folder = './tests/'
 
+EPOCHS = 30
+
 
 def run_lenet(k: int, batch: int, parallelism: int):
     req = TrainRequest(
         model_type='lenet',
         batch_size=batch,
-        epochs=5,
+        epochs=EPOCHS,
         dataset='mnist',
         lr=0.01,
         function_name='lenet',
@@ -39,7 +41,7 @@ def run_resnet(k: int, batch: int, parallelism: int):
     req = TrainRequest(
         model_type='resnet34',
         batch_size=batch,
-        epochs=1,
+        epochs=EPOCHS,
         dataset='cifar10',
         lr=0.1,
         function_name='resnet',
@@ -80,25 +82,28 @@ if __name__ == '__main__':
         print('Network', net, 'not among accepted (lenet, resnet)')
         exit(-1)
 
-    # Start the API to collect the metrics
-    api = run_api()
-    time.sleep(5)
+    api: Process = None
+    try:
+        # Start the API to collect the metrics
+        api = run_api()
+        time.sleep(5)
 
-    # based on the arg determine the function
-    func = run_resnet if net == 'resnet' else run_lenet
-    print('Using func', func)
+        # based on the arg determine the function
+        func = run_resnet if net == 'resnet' else run_lenet
+        print('Using func', func)
 
-    batches = [16, 32, 64, 128]
-    k = [8, 16, 32, -1]
-    p = [1, 2, 4, 8]
+        batches = [16, 32, 64, 128]
+        k = [8, 16, 32, -1]
+        p = [1, 2, 4, 8]
 
-    for b in batches:
-        for _k in k:
-            for _p in p:
-                pass
-                func(_k, b, _p)
-                time.sleep(25)
-
-    print("all experiments finished")
-    print(api.pid)
-    api.terminate()
+        for b in batches:
+            for _k in k:
+                for _p in p:
+                    pass
+                    func(_k, b, _p)
+                    time.sleep(25)
+    finally:
+        print("all experiments finished")
+        print(api.pid)
+        api.terminate()
+        api.join()
