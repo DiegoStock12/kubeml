@@ -27,6 +27,32 @@ func MakeClient(logger *zap.Logger) *Client {
 	}
 }
 
+// Stop stops the running task
+func (c *Client) Stop(task *api.TrainTask) error {
+	svcName := task.Job.Svc.Name
+	url := fmt.Sprintf("http://%v/stop", svcName)
+
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return errors.Wrap(err, "could not create request body")
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "could not stop task")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		defer resp.Body.Close()
+		res, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(res))
+	}
+	return nil
+}
+
 // UpdateTask sends the updated parameters to the TrainJob
 func (c *Client) UpdateTask(task *api.TrainTask, update api.JobState) error {
 	svcName := task.Job.Svc.Name

@@ -68,6 +68,7 @@ type TrainJob struct {
 	// keep track of the start time to compute stats
 	startTime time.Time
 
+	stopChan chan struct{}
 	// exitErr holds the error that caused the job to quit
 	// it is sent to the Ps along the finish signal so it can be
 	// reported
@@ -103,6 +104,7 @@ func NewTrainJob(
 		accuracyCh:  make(chan struct{}, 1),
 		wgIteration: &sync.WaitGroup{},
 		merged:      make(chan struct{}),
+		stopChan:    make(chan struct{}, 1),
 	}
 
 	// extract the settings from the task
@@ -147,6 +149,7 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 		accuracyCh:  make(chan struct{}, 1),
 		wgIteration: &sync.WaitGroup{},
 		merged:      make(chan struct{}),
+		stopChan:    make(chan struct{}, 1),
 	}
 
 	job.scheduler = schedulerClient.MakeClient(job.logger, api.SchedulerUrl)
@@ -241,6 +244,11 @@ func (job *TrainJob) Train() {
 
 		// check if the validation returned and we reached the goal average
 		select {
+		case <- job.stopChan:
+			job.logger.Debug("Job stopping...")
+			job.accuracyReached= true
+			job.exitErr = errors.New("job was force stopped")
+			break
 		case <-job.accuracyCh:
 			job.logger.Debug("goal accuracy reached!, exiting")
 			job.accuracyReached = true

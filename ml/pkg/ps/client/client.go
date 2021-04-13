@@ -29,6 +29,33 @@ func MakeClient(logger *zap.Logger, psUrl string) *Client {
 
 }
 
+// StopTask stops the task given the task id
+func (c *Client) StopTask(id string) error {
+	url := c.psUrl + "/stop/" + id
+
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return errors.Wrap(err, "could not create request body")
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "could not handle request")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		defer resp.Body.Close()
+		res, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(res))
+	}
+
+	return nil
+
+}
+
 // ListTasks returns the response of the tasks in a byte format
 // since the usage will only be internally, the controller will just redirect the bytes
 // to the requester

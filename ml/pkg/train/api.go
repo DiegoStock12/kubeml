@@ -89,6 +89,10 @@ func (job TrainJob) updateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	job.schedulerCh <- &state
+	w.WriteHeader(http.StatusOK)
+
+
+
 }
 
 // nextIteration receives updates from the functions, and waits for all of the
@@ -121,6 +125,15 @@ func (job *TrainJob) nextIteration(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// stop stops the training task
+func (job *TrainJob) stop(w http.ResponseWriter, r *http.Request) {
+	job.logger.Debug("Api sending stop to the channel")
+	job.stopChan <- struct{}{}
+	w.WriteHeader(http.StatusOK)
+
+}
+
+
 func (job *TrainJob) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
@@ -130,6 +143,7 @@ func (job *TrainJob) GetHandler() http.Handler {
 	r.HandleFunc("/start", job.startTask).Methods("POST")
 	r.HandleFunc("/update", job.updateTask).Methods("POST")
 	r.HandleFunc("/next/{funcId}", job.nextIteration).Methods("POST")
+	r.HandleFunc("/stop", job.stop).Methods("DELETE")
 	r.HandleFunc("/health", job.handleHealth).Methods("GET")
 	return r
 }

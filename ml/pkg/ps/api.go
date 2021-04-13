@@ -35,6 +35,35 @@ func (ps *ParameterServer) listTasks(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// stopTask stops a task given the id
+func (ps *ParameterServer) stopTask(w http.ResponseWriter, r *http.Request) {
+
+	vars := mux.Vars(r)
+	jobId := vars["jobId"]
+
+	ps.mu.RLock()
+	task, exists := ps.jobIndex[jobId]
+	ps.mu.RUnlock()
+
+	if !exists {
+		ps.logger.Error("Received stop request for non-existing job",
+			zap.String("id", jobId),
+			zap.Any("index", ps.jobIndex))
+		http.Error(w, "Job does not exist", http.StatusBadRequest)
+		return
+	}
+
+	err := ps.jobClient.Stop(task)
+	if err != nil {
+		ps.logger.Error("could not stop to job",
+			zap.Error(err))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 // updateTask Handles the responses from the scheduler to the
 // requests by the parameter servers to
 func (ps *ParameterServer) updateTask(w http.ResponseWriter, r *http.Request) {
@@ -287,6 +316,7 @@ func (ps *ParameterServer) GetHandler() http.Handler {
 	r.HandleFunc("/health", ps.handleHealth).Methods("GET")
 	r.HandleFunc("/metrics/{jobId}", ps.updateJobMetrics).Methods("POST")
 	r.HandleFunc("/finish/{jobId}", ps.jobFinish).Methods("POST")
+	r.HandleFunc("/stop/{jobId}", ps.stopTask).Methods("DELETE")
 	r.HandleFunc("/tasks", ps.listTasks).Methods("GET")
 	return r
 }

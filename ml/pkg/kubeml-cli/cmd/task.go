@@ -10,6 +10,7 @@ import (
 
 var (
 	short bool
+	id    string
 
 	tasksCmd = &cobra.Command{
 		Use:   "task",
@@ -21,7 +22,29 @@ var (
 		Short: "List deployed running tasks",
 		RunE:  listTasks,
 	}
+
+	tasksStopCmd = &cobra.Command{
+		Use:   "stop",
+		Short: "Stop tasks",
+		RunE:  stopTask,
+	}
 )
+
+func stopTask(_ *cobra.Command, _ []string) error {
+	// make fission client
+	client, err := kubemlClient.MakeKubemlClient()
+	if err != nil {
+		return err
+	}
+
+	err = client.V1().Tasks().Stop(id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
 
 // listFunctions returns a table with the information of the current functions
 func listTasks(_ *cobra.Command, _ []string) error {
@@ -62,6 +85,11 @@ func listTasks(_ *cobra.Command, _ []string) error {
 func init() {
 	rootCmd.AddCommand(tasksCmd)
 	tasksCmd.AddCommand(tasksListCmd)
+	tasksCmd.AddCommand(tasksStopCmd)
 
 	tasksListCmd.Flags().BoolVar(&short, "short", false, "Trigger short format")
+
+
+	tasksStopCmd.Flags().StringVar(&id, "id", "", "Id of the task")
+	tasksStopCmd.MarkFlagRequired("id")
 }
