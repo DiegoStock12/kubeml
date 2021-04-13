@@ -93,7 +93,7 @@ class KubemlExperiment(Experiment):
         # start collecting metrics from the experiments using the api
         self.start_metrics_collection()
         print('Training', end='', flush=True)
-        time.sleep(5)
+        # time.sleep(5)
         self.wait_for_task_finished()
         self.history = self.get_model_history()
 

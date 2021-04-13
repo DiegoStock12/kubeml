@@ -7,10 +7,11 @@ import logging
 from typing import List, Dict
 import pickle
 import pandas as pd
+import os
 
 from threading import Thread, Event
 
-METRICS_FOLDER = '../metrics'
+METRICS_FOLDER = os.path.abspath(os.path.dirname(__file__)) + '/../metrics'
 
 FORMAT = '[%(asctime)s] %(levelname)-8s %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=FORMAT)
@@ -51,6 +52,21 @@ class SystemMetrics:
     gpu: Dict[str, List[GpuStats]] = field(default_factory=dict)
     mem: List[MemoryStats] = field(default_factory=list)
     cpu: List[CpuStats] = field(default_factory=list)
+
+    def to_dataframe(self):
+        """Converts the system metrics to a pandas df"""
+        gpus = {}
+        for id, metrics in self.gpu.items():
+            gpus[f'gpu_{id}'] = metrics
+
+        d = {
+            'exp_name': self.exp_name,
+            'cpu': self.cpu,
+            'mem': self.mem,
+            **gpus
+        }
+
+        return pd.DataFrame(d)
 
 
 def get_cpu_usage() -> CpuStats:
@@ -99,7 +115,7 @@ def metrics_gathering_loop(name: str, pill: Event):
 
     # when event sent, save the metrics to the the disk
     with open(f'{METRICS_FOLDER}/{metrics.exp_name}.pkl', 'wb') as f:
-        pickle.dump(metrics, f)
+        pickle.dump(metrics.to_dataframe(), f)
 
 
 running_job_pill: Event = None

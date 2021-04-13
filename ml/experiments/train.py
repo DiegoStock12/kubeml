@@ -30,6 +30,7 @@ def run_lenet(k: int, batch: int, parallelism: int):
 
     exp = KubemlExperiment(get_title(req), req)
     exp.run()
+    # exp._fake_history()
 
     exp.save(output_folder)
 
@@ -87,16 +88,16 @@ if __name__ == '__main__':
     func = run_resnet if net == 'resnet' else run_lenet
     print('Using func', func)
 
-    batches = [128, 64, 32]
-    k = [8, 16, 64]
-    p = [4, 8, 16, 32]
+    batches = [16, 32, 64, 128]
+    k = [8, 16, 32, -1]
+    p = [1, 2, 4, 8]
 
-    for b in batches[:1]:
-        for _k in k[:1]:
-            for _p in p[:1]:
+    for b in batches:
+        for _k in k:
+            for _p in p:
                 pass
                 func(_k, b, _p)
-                # time.sleep(25)
+                time.sleep(25)
 
     print("all experiments finished")
     print(api.pid)
