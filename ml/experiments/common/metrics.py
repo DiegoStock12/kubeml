@@ -78,9 +78,9 @@ def get_memory_usage() -> MemoryStats:
     return MemoryStats(total=mem.total / 1e6, free=mem.free / 1e6, used=mem.used / 1e6, percent=mem.percent)
 
 
-def get_gpu_usage(gpus: List[GPUtil.GPU]) -> Dict[str, GpuStats]:
+def get_gpu_usage() -> Dict[str, GpuStats]:
     stats = {}
-    for gpu in gpus:
+    for gpu in GPUtil.getGPUs():
         id = gpu.id
         stats[id] = GpuStats(
             id=gpu.id,
@@ -95,13 +95,12 @@ def get_gpu_usage(gpus: List[GPUtil.GPU]) -> Dict[str, GpuStats]:
 def metrics_gathering_loop(name: str, pill: Event):
     """Loop gathering the metrics periodically"""
     metrics = SystemMetrics(exp_name=name)
-    gpus = GPUtil.getGPUs()
+
     while not pill.wait(2):
         # logger.debug('getting metrics...')
-
         # get the metrics
         cpu = get_cpu_usage()
-        gpu = get_gpu_usage(gpus)
+        gpu = get_gpu_usage()
         mem = get_memory_usage()
 
         # set the metrics in the object

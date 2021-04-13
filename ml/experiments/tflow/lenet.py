@@ -3,6 +3,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.callbacks import History as KerasHistory
 import os
 
 
@@ -42,7 +43,7 @@ def load_data() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     return x_train, x_val, y_train, y_test
 
 
-def main(epochs: int, batch: int):
+def main(epochs: int, batch: int) -> KerasHistory:
     x_train, x_test, y_train, y_test = load_data()
     x_train, x_test = x_train.astype('float32'), x_test.astype('float32')
     y_train, y_test = to_categorical(y_train), to_categorical(y_test)

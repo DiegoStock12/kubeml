@@ -5,6 +5,7 @@ import os
 import tensorflow as tf
 
 import keras_resnet.models
+from tensorflow.keras.callbacks import History as KerasHistory
 import resnet_classes
 from tensorflow.keras import Input
 from tensorflow.keras.utils import to_categorical
@@ -24,7 +25,7 @@ def load_data() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     return x_train, x_val, y_train, y_test
 
 
-def main(num_epochs: int, batch_size: int):
+def main(num_epochs: int, batch_size: int) -> KerasHistory:
     shape = (32, 32, 3)
     n_classes = 10
     x = Input(shape)
