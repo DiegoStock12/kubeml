@@ -97,7 +97,7 @@ def metrics_gathering_loop(name: str, pill: Event):
     metrics = SystemMetrics(exp_name=name)
     gpus = GPUtil.getGPUs()
     while not pill.wait(2):
-        logger.debug('getting metrics...')
+        # logger.debug('getting metrics...')
 
         # get the metrics
         cpu = get_cpu_usage()
