@@ -69,9 +69,34 @@ def run_api() -> Process:
     return p
 
 
+def full_parameter_grid(network: str):
+    """Generator for the full experiments"""
+    if network == 'lenet':
+        grid = lenet_grid
+    else:
+        grid = resnet_grid
+
+    for b in grid['batch']:
+        for k in grid['k']:
+            for p in grid['parallelism']:
+                yield b, k, p
+
+
+def resume_parameter_grid(network: str, folder: str):
+    # find the missing experiments from the folder
+    missing = check_missing_experiments(network, folder)
+    return missing
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--network', help='Network type for the experiments from [lenet, resnet]')
+    parser.add_argument('--resume', dest='resume', action='store_true',
+                        help='''Whether to check for missing experiments and just run those 
+                                (best in case of errors preventing the execution of part of the experiments)''')
+    parser.add_argument('--folder', help='''if resume is true, path to the folder where 
+                                         all the finished experiments reside''')
+    parser.set_defaults(resume=False)
     args = parser.parse_args()
 
     net = args.network
@@ -81,6 +106,17 @@ if __name__ == '__main__':
     elif net not in ('lenet', 'resnet'):
         print('Network', net, 'not among accepted (lenet, resnet)')
         exit(-1)
+
+    if args.resume:
+        if not args.folder:
+            print("Error: Folder not specified with resume")
+            exit(-1)
+
+        exps = resume_parameter_grid(net, args.folder)
+        output_folder = args.folder
+
+    else:
+        exps = full_parameter_grid(net)
 
     api: Process = None
     try:
@@ -92,16 +128,11 @@ if __name__ == '__main__':
         func = run_resnet if net == 'resnet' else run_lenet
         print('Using func', func)
 
-        batches = [128, 64, 32, 16]
-        k = [-1, 32, 16, 8]
-        p = [1, 2, 4, 8]
+        for batch, k, parallelism in exps:
+            print(batch, k, parallelism)
+            # func(k, batch, parallelism)
+            # time.sleep(25)
 
-        for b in batches:
-            for _k in k:
-                for _p in p:
-                    pass
-                    func(_k, b, _p)
-                    time.sleep(25)
     finally:
         print("all experiments finished")
         print(api.pid)

@@ -6,7 +6,6 @@ import tensorflow as tf
 
 import keras_resnet.models
 from tensorflow.keras.callbacks import History as KerasHistory
-import resnet_classes
 from tensorflow.keras import Input
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.optimizers import SGD

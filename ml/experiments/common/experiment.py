@@ -11,8 +11,8 @@ import pandas as pd
 
 # import the main classes for the experiments with tensorflow
 from tensorflow.keras.callbacks import History as KerasHistory
-from ..tflow.resnet34 import main as resnet_main
-from ..tflow.lenet import main as lenet_main
+from tflow.resnet34 import main as resnet_main
+from tflow.lenet import main as lenet_main
 
 from .utils import check_stderr, get_title, get_hash, retry
 
