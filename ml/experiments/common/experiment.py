@@ -86,7 +86,7 @@ class KubemlExperiment(Experiment):
         - load the history
         """
         self.network_id = self.run_task()
-        time.sleep(30)
+        time.sleep(5)
 
         # self.network_id = get_hash(self.title)
 

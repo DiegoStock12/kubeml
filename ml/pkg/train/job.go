@@ -202,6 +202,8 @@ func (job *TrainJob) Train() {
 
 	// Main training loop
 	job.startTime = time.Now()
+
+	main:
 	for job.epoch = 1; job.epoch <= job.task.Parameters.Epochs; job.epoch++ {
 
 		err := job.train()
@@ -244,15 +246,15 @@ func (job *TrainJob) Train() {
 
 		// check if the validation returned and we reached the goal average
 		select {
-		case <- job.stopChan:
+		case <-job.stopChan:
 			job.logger.Debug("Job stopping...")
-			job.accuracyReached= true
+			job.accuracyReached = true
 			job.exitErr = errors.New("job was force stopped")
-			break
+			break main
 		case <-job.accuracyCh:
 			job.logger.Debug("goal accuracy reached!, exiting")
 			job.accuracyReached = true
-			break
+			break main
 		default:
 		}
 	}

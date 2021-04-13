@@ -115,6 +115,21 @@ func (ps *ParameterServer) updateTask(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// deleteEntry deletes the task from the jobIndex
+func (ps *ParameterServer) deleteEntry(id string) {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+
+	delete(ps.jobIndex, id)
+}
+
+func (ps *ParameterServer) updateEntry(id string, task *api.TrainTask) {
+	ps.mu.Lock()
+	defer ps.mu.Unlock()
+
+	ps.jobIndex[id] = task
+}
+
 // startTask Handles the request of the scheduler to create a
 // new training job. It creates a new parameter server thread and returns the id
 // of the created parameeter server
@@ -138,8 +153,11 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ps.logger.Debug("About to create pod")
+	// set the task even before trying to start it for visibility,
+	// we will update it later
+	ps.updateEntry(task.Job.JobId, &task)
 
+	ps.logger.Debug("About to create pod")
 	// if we are deploying the jobs in different pods
 	// create it and add it to the struct
 	if ps.deployStandaloneJobs {
@@ -147,6 +165,9 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			ps.logger.Error("error creating resources",
 				zap.Error(err))
+
+			// delete the entry
+			ps.deleteEntry(task.Job.JobId)
 			http.Error(w, "unable to create resources for job", http.StatusInternalServerError)
 			return
 		}
@@ -192,9 +213,8 @@ func (ps *ParameterServer) startTask(w http.ResponseWriter, r *http.Request) {
 		go job.Train()
 	}
 
-	ps.jobIndex[task.Job.JobId] = &task
+	ps.updateEntry(task.Job.JobId, &task)
 	taskStarted(TrainTask)
-
 	w.WriteHeader(http.StatusOK)
 }
 
