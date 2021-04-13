@@ -57,12 +57,12 @@ class SystemMetrics:
         """Converts the system metrics to a pandas df"""
         gpus = {}
         for id, metrics in self.gpu.items():
-            gpus[f'gpu_{id}'] = metrics
+            gpus[f'gpu_{id}'] = [metrics]
 
         d = {
             'exp_name': self.exp_name,
-            'cpu': self.cpu,
-            'mem': self.mem,
+            'cpu': [self.cpu],
+            'mem': [self.mem],
             **gpus
         }
 

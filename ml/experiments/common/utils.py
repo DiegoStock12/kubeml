@@ -6,6 +6,7 @@ from typing import List
 from functools import wraps
 import glob
 import os
+import pickle5 as pickle
 
 lenet_grid = {
     'batch': [128, 64, 32, 16],
@@ -26,11 +27,17 @@ def join_df(folder: str) -> pd.DataFrame:
     dataframes: List[pd.DataFrame] = []
 
     for f in files:
-        _d = pd.read_pickle(f)
-        dataframes.append(_d)
+        with open(f, 'rb') as _f:
+            _d = pickle.load(_f)
+            dataframes.append(_d)
 
     d = pd.concat(dataframes, ignore_index=True)
     return d
+
+
+def save_merged_experiments(path: str, name: str):
+    d = join_df(path)
+    d.to_pickle(name)
 
 
 def check_missing_experiments(network: str, path: str):
