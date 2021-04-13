@@ -1,7 +1,61 @@
 import subprocess
-from .experiment import *
+# from .experiment import *
 from hashlib import sha256
+import pandas as pd
+from typing import List
 from functools import wraps
+import glob
+import os
+
+lenet_grid = {
+    'batch': [128, 64, 32, 16],
+    'k': [-1, 32, 16, 8],
+    'parallelism': [1, 2, 4, 8]
+}
+
+resnet_grid = {
+    'batch': [256, 128, 64, 32],
+    'k': [-1, 32, 16, 8],
+    'parallelism': [1, 2, 4, 6]
+}
+
+
+def join_df(folder: str) -> pd.DataFrame:
+    files = glob.glob(f'{folder}/*.pkl')
+
+    dataframes: List[pd.DataFrame] = []
+
+    for f in files:
+        _d = pd.read_pickle(f)
+        dataframes.append(_d)
+
+    d = pd.concat(dataframes, ignore_index=True)
+    return d
+
+
+def check_missing_experiments(network: str, path: str):
+    isdir = os.path.isdir(path)
+    df: pd.DataFrame = None
+
+    if isdir:
+        df = join_df(path)
+    else:
+        df = pd.read_pickle(path)
+
+    # missing combinations of batch k and parallelism
+    missing = []
+
+    grid = lenet_grid if network == 'lenet' else resnet_grid
+
+    for b in grid['batch']:
+        for p in grid['parallelism']:
+            for k in grid['k']:
+                if len(df.loc[
+                           (df.batch_size == b) & (df.k == k) & (df.default_parallelism == p)
+                       ]) == 0:
+                    missing.append((b, p, k))
+
+    return missing
 
 
 def retry(exceptions, total_tries=4, initial_wait=0.5, backoff_factor=2):
@@ -14,6 +68,7 @@ def retry(exceptions, total_tries=4, initial_wait=0.5, backoff_factor=2):
         backoff_factor: Backoff multiplier (e.g. value of 2 will double the delay each retry).
         logger: logger to be used, if none specified print
     """
+
     def retry_decorator(f):
         @wraps(f)
         def func_with_retries(*args, **kwargs):
@@ -37,7 +92,9 @@ def retry(exceptions, total_tries=4, initial_wait=0.5, backoff_factor=2):
                     print(msg)
                     time.sleep(_delay)
                     _delay *= backoff_factor
+
         return func_with_retries
+
     return retry_decorator
 
 
