@@ -14,7 +14,7 @@ from tensorflow.keras.callbacks import History as KerasHistory
 from ..tflow.resnet34 import main as resnet_main
 from ..tflow.lenet import main as lenet_main
 
-from .utils import check_stderr, get_title, get_hash
+from .utils import check_stderr, get_title, get_hash, retry
 
 kubeml = '../pkg/kubeml-cli/kubeml'
 
@@ -122,6 +122,7 @@ class KubemlExperiment(Experiment):
                 return
             time.sleep(10)
 
+    @retry(Exception, total_tries=5, backoff_factor=2, initial_wait=0.5)
     def run_task(self) -> str:
         """ Runs a task and returns the id assigned by kubeml"""
         command = f"{kubeml} train  \
@@ -146,24 +147,13 @@ class KubemlExperiment(Experiment):
         print("Received id", id)
         return id
 
+    @retry(Exception, total_tries=5, backoff_factor=2, initial_wait=0.5)
     def check_if_task_finished(self) -> bool:
         """Check if the task is the the list of running tasks"""
         command = f"{kubeml} task list --short"
 
-        done = False
-        res = None
-        for i in range(3):
-            try:
-                res = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                check_stderr(res)
-                done = True
-                break
-            except Exception as _:
-                print('error getting tasks, retrying')
-                time.sleep(2)
-
-        if not done:
-            exit(-1)
+        res = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        check_stderr(res)
 
         # get all the tasks running
         tasks = res.stdout.decode().splitlines()
@@ -176,6 +166,7 @@ class KubemlExperiment(Experiment):
         print()
         return True
 
+    @retry(Exception, total_tries=5, backoff_factor=2, initial_wait=0.5)
     def get_model_history(self) -> History:
         """Gets the training history for a certain model"""
         command = f"{kubeml} history get --network {self.network_id}"
