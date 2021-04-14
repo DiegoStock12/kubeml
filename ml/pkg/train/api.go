@@ -91,8 +91,6 @@ func (job TrainJob) updateTask(w http.ResponseWriter, r *http.Request) {
 	job.schedulerCh <- &state
 	w.WriteHeader(http.StatusOK)
 
-
-
 }
 
 // nextIteration receives updates from the functions, and waits for all of the
@@ -107,7 +105,11 @@ func (job *TrainJob) nextIteration(w http.ResponseWriter, r *http.Request) {
 	job.finishCh <- &finishNotification{funcId, respChan}
 
 	// trigger model update
-	job.model.Update(funcId)
+	err := job.optimizer.Update(funcId)
+	if err != nil {
+		job.logger.Error("error updating model",
+			zap.Int("funcId", funcId))
+	}
 	job.wgIteration.Done()
 	result := <-respChan
 
@@ -132,7 +134,6 @@ func (job *TrainJob) stop(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 }
-
 
 func (job *TrainJob) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)

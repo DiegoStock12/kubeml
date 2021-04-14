@@ -2,10 +2,10 @@ package train
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	kerror "github.com/diegostock12/kubeml/ml/pkg/error"
 	"github.com/diegostock12/kubeml/ml/pkg/util"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
@@ -248,7 +248,11 @@ func (job *TrainJob) launchFunction(
 		zap.Any("results", res))
 
 	job.finishCh <- &finishNotification{funcId: funcId}
-	job.model.Update(funcId)
+	err = job.optimizer.Update(funcId)
+	if err != nil {
+		errChan <- errors.Wrap(err, "error updating model")
+		return
+	}
 
 	respChan <- &FunctionResults{
 		funcId:  funcId,
