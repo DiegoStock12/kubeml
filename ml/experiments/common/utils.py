@@ -1,5 +1,4 @@
 import subprocess
-# from .experiment import *
 from hashlib import sha256
 import pandas as pd
 from typing import List
@@ -7,6 +6,7 @@ from functools import wraps
 import glob
 import os
 import pickle5 as pickle
+import time
 
 lenet_grid = {
     'batch': [128, 64, 32, 16],

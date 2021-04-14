@@ -96,7 +96,8 @@ if __name__ == '__main__':
                                 (best in case of errors preventing the execution of part of the experiments)''')
     parser.add_argument('--folder', help='''if resume is true, path to the folder where 
                                          all the finished experiments reside''')
-    parser.set_defaults(resume=False)
+    parser.add_argument('--dry', dest='dry', action='store_true', help='If true, just print the experiments')
+    parser.set_defaults(resume=False, dry=False)
     args = parser.parse_args()
 
     net = args.network
@@ -118,6 +119,12 @@ if __name__ == '__main__':
     else:
         exps = full_parameter_grid(net)
 
+    # if dry, simply print the experiments and return
+    if args.dry:
+        for e in exps:
+            print(e)
+        exit(0)
+
     api: Process = None
     try:
         # Start the API to collect the metrics
@@ -130,8 +137,8 @@ if __name__ == '__main__':
 
         for batch, k, parallelism in exps:
             print(batch, k, parallelism)
-            # func(k, batch, parallelism)
-            # time.sleep(25)
+            func(k, batch, parallelism)
+            time.sleep(25)
 
     finally:
         print("all experiments finished")
