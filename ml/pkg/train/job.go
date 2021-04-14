@@ -33,7 +33,7 @@ type TrainJob struct {
 	jobId     string
 	epoch     int
 	model     *model.Model
-	optimizer model.ParallelSGD
+	optimizer model.TrainAlgorithm
 
 	// options of the trainjob
 	parallelism   int
@@ -117,7 +117,9 @@ func NewTrainJob(
 		psUrl = api.ParameterServerUrl
 	}
 	job.ps = psClient.MakeClient(job.logger, psUrl)
-	job.optimizer = model.MakeParallelSGD(job.logger)
+
+	// use K-AVG sgd as the optimizer
+	job.optimizer = model.MakeKavgSGD(job.logger)
 
 	return job
 
@@ -154,7 +156,9 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 
 	job.scheduler = schedulerClient.MakeClient(job.logger, api.SchedulerUrl)
 	job.ps = psClient.MakeClient(job.logger, api.ParameterServerUrl)
-	job.optimizer = model.MakeParallelSGD(job.logger)
+
+	// use k-avg as the default optimizer
+	job.optimizer = model.MakeKavgSGD(job.logger)
 
 	return job
 }
@@ -361,7 +365,15 @@ func (job *TrainJob) mergeModel() {
 		errChan := <-job.startMerger
 
 		for {
-			job.model.Clear()
+
+			err := job.optimizer.PreTrain()
+			if err != nil {
+				job.logger.Error("error performing pretrain action",
+					zap.Error(err))
+				errChan <- errors.Wrap(err, "error performing pretrain")
+				break
+			}
+
 			job.logger.Debug("Waiting for functions to finish...")
 			job.wgIteration.Wait()
 
@@ -385,14 +397,14 @@ func (job *TrainJob) mergeModel() {
 
 			// time the merge time for tests
 			mergeStart := time.Now()
-			err := job.optimizer.Average(job.model, len(funcs))
+			err = job.optimizer.Step(funcs...)
 			if err != nil {
 				answerFunctions(MergeFailed, channels)
 				errChan <- err
 				break
 			}
 
-			err = job.model.Save()
+			err = job.optimizer.Save()
 			if err != nil {
 				job.logger.Error("error saving model", zap.Error(err))
 				answerFunctions(MergeFailed, channels)
