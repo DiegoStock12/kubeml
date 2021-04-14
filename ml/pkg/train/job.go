@@ -203,7 +203,7 @@ func (job *TrainJob) Train() {
 	// Main training loop
 	job.startTime = time.Now()
 
-	main:
+main:
 	for job.epoch = 1; job.epoch <= job.task.Parameters.Epochs; job.epoch++ {
 
 		err := job.train()

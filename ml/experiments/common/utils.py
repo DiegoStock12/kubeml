@@ -60,7 +60,7 @@ def check_missing_experiments(network: str, path: str):
                 if len(df.loc[
                            (df.batch_size == b) & (df.k == k) & (df.default_parallelism == p)
                        ]) == 0:
-                    missing.append((b, p, k))
+                    missing.append((b, k, p))
 
     return missing
 
