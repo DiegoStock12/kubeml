@@ -119,7 +119,7 @@ func NewTrainJob(
 	job.ps = psClient.MakeClient(job.logger, psUrl)
 
 	// use K-AVG sgd as the optimizer
-	job.optimizer = model.MakeKavgSGD(job.logger)
+	job.optimizer = model.MakeKavgSGD(job.logger, job.model)
 
 	return job
 
@@ -158,7 +158,7 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 	job.ps = psClient.MakeClient(job.logger, api.ParameterServerUrl)
 
 	// use k-avg as the default optimizer
-	job.optimizer = model.MakeKavgSGD(job.logger)
+	job.optimizer = model.MakeKavgSGD(job.logger, job.model)
 
 	return job
 }

@@ -19,8 +19,11 @@ type (
 	}
 )
 
-func MakeKavgSGD(logger *zap.Logger) KavgSGD {
-	return KavgSGD{logger: logger.Named("parallel-sgd")}
+func MakeKavgSGD(logger *zap.Logger, model *Model) KavgSGD {
+	return KavgSGD{
+		logger: logger.Named("parallel-sgd"),
+		model:  model,
+	}
 }
 
 // Step averages the models returned by the functions into one single
