@@ -96,7 +96,7 @@ if __name__ == '__main__':
         print('Using func', func)
 
         batches = [128, 64, 32, 16]
-        
+
         for b in batches:
             func(b)
             time.sleep(10)

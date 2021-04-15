@@ -8,6 +8,8 @@ import os
 import pickle5 as pickle
 import time
 
+from typing import Union, Iterable
+
 lenet_grid = {
     'batch': [128, 64, 32, 16],
     'k': [-1, 32, 16, 8],
@@ -21,8 +23,11 @@ resnet_grid = {
 }
 
 
-def join_df(folder: str) -> pd.DataFrame:
-    files = glob.glob(f'{folder}/*.pkl')
+def join_df(*args, **kwargs) -> pd.DataFrame:
+    files = []
+    for path in args:
+        _files = glob.glob(f'{path}/*.pkl')
+        files.extend(_files)
 
     dataframes: List[pd.DataFrame] = []
 
