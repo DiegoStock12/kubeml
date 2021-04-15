@@ -5,12 +5,14 @@ import os
 import tensorflow as tf
 
 import keras_resnet.models
+
+import tensorflow.keras as keras
 from tensorflow.keras.callbacks import History as KerasHistory
 from tensorflow.keras import Input
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.optimizers import SGD
 
-from time_callback import TimeHistory
+from .time_callback import TimeHistory
 
 CIFAR_LOCATION = os.path.abspath(os.path.dirname(__file__)) + "/../datasets/cifar10"
 DATASET = 'cifar10'
@@ -53,6 +55,11 @@ def main(num_epochs: int, batch_size: int) -> KerasHistory:
         model.compile(loss='categorical_crossentropy',
                       optimizer=sgd,
                       metrics=['accuracy'])
+
+        print('setting weight decay')
+        for layer in model.layers:
+            if isinstance(layer, keras.layers.Conv2D) or isinstance(layer, keras.layers.Dense):
+                layer.add_loss(lambda: keras.regularizers.l2(1e-4)(layer.kernel))
 
     history = model.fit(x_train, y_train,
                         batch_size=int(batch_size),

@@ -6,7 +6,7 @@ from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.callbacks import History as KerasHistory
 import os
 
-from time_callback import TimeHistory
+from .time_callback import TimeHistory
 
 from typing import Tuple
 import numpy as np

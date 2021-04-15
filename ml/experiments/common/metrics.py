@@ -150,7 +150,12 @@ def finish_task():
     return 'saved experiment', 200
 
 
-def start_api():
+def start_api(output_folder=METRICS_FOLDER):
+    # set the output folder if given
+    global METRICS_FOLDER
+    METRICS_FOLDER = output_folder
+    print('Metrics using output folder', METRICS_FOLDER)
+
     logger.info('starting api...')
     app.run()
 
