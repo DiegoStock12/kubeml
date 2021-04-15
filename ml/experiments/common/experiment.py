@@ -4,15 +4,12 @@ from dataclasses_json import dataclass_json, Undefined, CatchAll
 from typing import List, Dict, Any
 import subprocess
 import time
-import os
 import requests
 
 import pandas as pd
 
 # import the main classes for the experiments with tensorflow
 from tensorflow.keras.callbacks import History as KerasHistory
-from tflow.resnet34 import main as resnet_main
-from tflow.lenet import main as lenet_main
 
 from .utils import check_stderr, get_title, get_hash, retry
 
@@ -260,12 +257,16 @@ class TfConfig:
     epochs: int
 
 
+from typing import Callable
+
+
 class TensorflowExperiment(Experiment):
 
-    def __init__(self, config: TfConfig):
+    def __init__(self, config: TfConfig, main_func: Callable):
         super(TensorflowExperiment, self).__init__(self._get_title(config))
         self.title = self._get_title(config)
         self.history: KerasHistory = None
+        self.func = main_func
         self.config = config
         self.hash = get_hash(self.title)
 
@@ -280,11 +281,11 @@ class TensorflowExperiment(Experiment):
         self.start_metrics_collection()
 
         if self.config.network == 'lenet':
-            self.history = lenet_main(self.config.epochs, self.config.batch)
+            self.history, self.times = self.func(self.config.epochs, self.config.batch)
             print('Lenet exp finished', self.config)
 
         elif self.config.network == 'resnet':
-            self.history = resnet_main(self.config.epochs, self.config.batch)
+            self.history, self.times = self.func(self.config.epochs, self.config.batch)
             print('Resnet exp finished', self.config)
 
         # finish metrics
@@ -303,7 +304,8 @@ class TensorflowExperiment(Experiment):
             'hash': self.hash,
             'batch_size': self.config.batch,
             'epochs': self.config.epochs,
-            **self.history.history
+            **{k: [v] for k, v in self.history.history.items()},
+            'times': [self.times]
         }
 
         return pd.DataFrame(d)

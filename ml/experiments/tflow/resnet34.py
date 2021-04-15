@@ -10,7 +10,9 @@ from tensorflow.keras import Input
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.optimizers import SGD
 
-CIFAR_LOCATION = "../datasets/cifar10"
+from time_callback import TimeHistory
+
+CIFAR_LOCATION = os.path.abspath(os.path.dirname(__file__)) + "/../datasets/cifar10"
 DATASET = 'cifar10'
 
 
@@ -45,6 +47,7 @@ def main(num_epochs: int, batch_size: int) -> KerasHistory:
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
     # build and compile model
+    time_callback = TimeHistory()
     with strategy.scope():
         model = keras_resnet.models.ResNet34(x, classes=n_classes)
         model.compile(loss='categorical_crossentropy',
@@ -55,9 +58,10 @@ def main(num_epochs: int, batch_size: int) -> KerasHistory:
                         batch_size=int(batch_size),
                         epochs=int(num_epochs),
                         validation_data=(x_test, y_test),
-                        shuffle=True)
+                        shuffle=True,
+                        callbacks=[time_callback])
 
-    return history
+    return history, time_callback.times
 
 
 if __name__ == '__main__':

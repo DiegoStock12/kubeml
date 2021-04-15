@@ -4,6 +4,9 @@ import argparse
 from common.metrics import start_api
 from common.experiment import *
 
+from tflow.lenet import main as lenet_main
+from tflow.resnet34 import main as resnet_main
+
 from multiprocessing import Process
 import time
 
@@ -18,7 +21,7 @@ def lenet(b: int):
         network='lenet'
     )
 
-    exp = TensorflowExperiment(config)
+    exp = TensorflowExperiment(config, lenet_main)
     exp.run()
     exp.save(save_folder)
 
@@ -30,7 +33,7 @@ def resnet(b: int):
         network='resnet'
     )
 
-    exp = TensorflowExperiment(config)
+    exp = TensorflowExperiment(config, resnet_main)
     exp.run()
     exp.save(save_folder)
 
@@ -68,6 +71,7 @@ if __name__ == '__main__':
         print('Using func', func)
 
         batches = [128, 64, 32, 16]
+        # batches = [128]
 
         for b in batches:
             func(b)

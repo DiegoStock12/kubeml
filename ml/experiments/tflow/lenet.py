@@ -6,7 +6,7 @@ from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.callbacks import History as KerasHistory
 import os
 
-
+from time_callback import TimeHistory
 
 from typing import Tuple
 import numpy as np
@@ -30,7 +30,7 @@ def get_model():
     return model
 
 
-MNIST_LOCATION = "../datasets/mnist"
+MNIST_LOCATION = os.path.abspath(os.path.dirname(__file__)) + "/../datasets/mnist"
 DATASET = 'mnist'
 
 
@@ -51,11 +51,9 @@ def main(epochs: int, batch: int) -> KerasHistory:
     x_train = np.expand_dims(x_train, -1)
     x_test = np.expand_dims(x_test, -1)
 
-    mean_image = np.mean(x_train, axis=0)
-    x_train -= mean_image
-    x_test -= mean_image
-    x_train /= 128.
-    x_test /= 128.
+    # Normalize images
+    x_train /= 255.
+    x_test /= 255.
 
     print(x_train.shape, x_test.shape)
 
@@ -63,6 +61,7 @@ def main(epochs: int, batch: int) -> KerasHistory:
 
     strategy = tf.distribute.MirroredStrategy()
 
+    time_callback = TimeHistory()
     with strategy.scope():
         model = get_model()
         model.compile(loss='categorical_crossentropy',
@@ -74,9 +73,10 @@ def main(epochs: int, batch: int) -> KerasHistory:
                         batch_size=int(batch),
                         epochs=int(epochs),
                         validation_data=(x_test, y_test),
-                        shuffle=True)
+                        shuffle=True,
+                        callbacks=[time_callback])
 
-    return history
+    return history, time_callback.times
 
 
 if __name__ == '__main__':
