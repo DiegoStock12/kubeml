@@ -89,7 +89,7 @@ if __name__ == '__main__':
         else:
             # Start the API to collect the metrics
             api = run_api()
-            time.sleep(5)
+        time.sleep(5)
 
         # based on the arg determine the function
         func = resnet if net == 'resnet' else lenet

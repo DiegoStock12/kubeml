@@ -88,6 +88,10 @@ def resume_parameter_grid(network: str, folder: str):
     return missing
 
 
+def check_folder(path: str) -> bool:
+    return os.path.isdir(path)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--network', help='Network type for the experiments from [lenet, resnet]')
@@ -97,6 +101,8 @@ if __name__ == '__main__':
     parser.add_argument('--folder', help='''if resume is true, path to the folder where 
                                          all the finished experiments reside''')
     parser.add_argument('--dry', dest='dry', action='store_true', help='If true, just print the experiments')
+    parser.add_argument('-o', help='Folder to save the experiment results to')
+    parser.add_argument('-m', help='folder to save the metrics to')
     parser.set_defaults(resume=False, dry=False)
     args = parser.parse_args()
 
@@ -108,6 +114,13 @@ if __name__ == '__main__':
         print('Network', net, 'not among accepted (lenet, resnet)')
         exit(-1)
 
+    if args.o:
+        if not check_folder(args.o):
+            print('Given folder does not exist', args.o)
+            raise ValueError
+        print("Using", args.o, 'as output folder')
+        output_folder = args.o
+
     if args.resume:
         if not args.folder:
             print("Error: Folder not specified with resume")
@@ -115,6 +128,7 @@ if __name__ == '__main__':
 
         exps = resume_parameter_grid(net, args.folder)
         output_folder = args.folder
+        print("Using", args.folder, 'as output folder')
 
     else:
         exps = full_parameter_grid(net)
@@ -127,8 +141,16 @@ if __name__ == '__main__':
 
     api: Process = None
     try:
-        # Start the API to collect the metrics
-        api = run_api()
+
+        if args.m:
+            if not check_folder(args.m):
+                print('Given folder does not exist', args.o)
+                raise ValueError
+            api = run_api(path=args.m)
+
+        else:
+            # Start the API to collect the metrics
+            api = run_api()
         time.sleep(5)
 
         # based on the arg determine the function
