@@ -13,7 +13,7 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
-from .time_callback import TimeHistory
+from time_callback import TimeHistory
 
 CIFAR_LOCATION = os.path.abspath(os.path.dirname(__file__)) + "/../datasets/cifar10"
 DATASET = 'cifar10'
@@ -40,7 +40,11 @@ def main(num_epochs: int, batch_size: int) -> KerasHistory:
     y_train, y_test = to_categorical(y_train), to_categorical(y_test)
 
     # subtract mean and normalize
-    datagen = ImageDataGenerator(featurewise_std_normalization=True)
+    datagen = ImageDataGenerator(
+        featurewise_center=True,
+        featurewise_std_normalization=True,
+        horizontal_flip=True
+    )
 
     datagen.fit(x_train)
 

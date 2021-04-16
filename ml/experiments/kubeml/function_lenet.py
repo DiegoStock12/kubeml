@@ -6,7 +6,6 @@ from typing import List, Any, Union, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.utils.data as data
 import torchvision.transforms as transforms
 from kubeml import KubeModel, KubeDataset
 from torch.optim import SGD
@@ -73,71 +72,52 @@ class MnistDataset(KubeDataset):
 class KubeLeNet(KubeModel):
 
     def __init__(self, network: nn.Module, dataset: MnistDataset):
-        super().__init__(network, dataset, platform='gpu')
+        super().__init__(network, dataset, gpu=True)
+
+    def configure_optimizers(self) -> torch.optim.Optimizer:
+        sgd = SGD(self._network.parameters(), lr=self.lr, momentum=0.9, weight_decay=1e-4)
+        return sgd
 
     def init(self, model: nn.Module):
         pass
 
-    def train(self, model: nn.Module, dataset: KubeDataset, device: torch.device) -> float:
-
-        # parse the kubernetes args
-        batch = self.args.batch_size
-        lr = self.args.lr
-
+    def train(self, x, y, batch_index) -> float:
         # define the device for training and load the data
-        train_loader = data.DataLoader(dataset, batch_size=batch)
         loss_fn = nn.CrossEntropyLoss()
-        optimizer = SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
-
-        model.train()
         total_loss = 0
-        for batch_idx, (x, y) in enumerate(train_loader):
-            x, y = x.to(device), y.to(device)
 
-            # get the outputs
-            optimizer.zero_grad()
-            output = model(x)
+        self.optimizer.zero_grad()
+        output = self(x)
 
-            # compute loss and backprop
-            logging.debug(f'Shape of the output is {output.shape}, y is {y.shape}')
-            loss = loss_fn(output, y)
-            loss.backward()
+        # compute loss and backprop
+        logging.debug(f'Shape of the output is {output.shape}, y is {y.shape}')
+        loss = loss_fn(output, y)
+        loss.backward()
 
-            # step with the optimizer
-            optimizer.step()
-            total_loss += loss.item()
+        # step with the optimizer
+        self.optimizer.step()
+        total_loss += loss.item()
 
-            ## TODO change the loss for a function that the user calls like tensorboard
-            if batch_idx % 10 == 0:
-                logging.info(f"Index {batch_idx}, error: {loss.item()}")
+        if batch_index % 10 == 0:
+            logging.info(f"Index {batch_index}, error: {loss.item()}")
 
-        return total_loss / len(train_loader)
+        return total_loss
 
-    def validate(self, model: nn.Module, dataset: KubeDataset, device: torch.device) -> Tuple[float, float]:
-        batch = self.args.batch_size
-
-        # define the device for training and load the data
-        val_loader = data.DataLoader(dataset, batch_size=batch)
+    def validate(self, x, y, _) -> Tuple[float, float]:
         loss_fn = nn.CrossEntropyLoss()
-
-        model.eval()
 
         test_loss = 0
         correct = 0
         with torch.no_grad():
-            for x, y in val_loader:
-                x, y = x.to(device), y.to(device)
-                output = model(x)
-                test_loss += loss_fn(output, y).item()  # sum up batch loss
-                pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-                correct += pred.eq(y.view_as(pred)).sum().item()
+            output = self(x)
+            test_loss += loss_fn(output, y).item()  # sum up batch loss
+            pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+            correct += pred.eq(y.view_as(pred)).sum().item()
 
-        test_loss /= len(val_loader)
-        accuracy = 100. * correct / len(val_loader.dataset)
-
+        accuracy = 100. * correct
         return accuracy, test_loss
 
-    def infer(self, model: nn.Module, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
+    def infer(self, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
         pass
 
 

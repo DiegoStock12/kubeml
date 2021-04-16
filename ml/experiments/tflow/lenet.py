@@ -54,7 +54,10 @@ def main(epochs: int, batch: int) -> KerasHistory:
 
     # Normalize images
     # subtract mean and normalize
-    datagen = ImageDataGenerator(featurewise_std_normalization=True)
+    datagen = ImageDataGenerator(
+        featurewise_center=True,
+        featurewise_std_normalization=True)
+        # horizontal_flip=True)
 
     datagen.fit(x_train)
 

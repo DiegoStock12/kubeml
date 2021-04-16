@@ -7,9 +7,9 @@ import flask
 import numpy as np
 import redisai as rai
 import requests
-import torch
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 from redis.exceptions import RedisError
+from torch.utils.data import DataLoader
 
 from .dataset import _KubeArgs, KubeDataset
 from .exceptions import *
@@ -28,49 +28,81 @@ except KeyError:
 
 class KubeModel(ABC):
 
-    def __init__(self, network: nn.Module, dataset: KubeDataset, platform: str):
+    def __init__(self, network: nn.Module, dataset: KubeDataset, gpu=False):
         """Init the KubeModel, device can be either gpu or cpu"""
 
         # if device is set to gpu, get the correct gpu if
         # for the
-
         self._network = network
         self._dataset = dataset
-        self.platform = platform
+        self.platform = 'gpu' if gpu else 'cpu'
         self.device = None
         self.args = None
+        self.log = None
+
+        # training options, these will be updated when reading the parameters
+        # in each iteration
+        self.lr = None
+        self.batch = None
+        self.task = None
+        self.optimizer = None
 
         # initialize redis connection
         self._redis_client = rai.Client(host=REDIS_URL, port=REDIS_PORT)
+
+    # allow to call the network from the kubemodel
+    def __call__(self, *args, **kwargs):
+        return self._network(*args, **kwargs)
+
+    def _read_args(self):
+        """Parse the args and update the parameters"""
+        self.args = _KubeArgs.parse()
+        self.lr = self.args.lr
+        self.batch = self.args.batch_size
+        self.task = self.args._task
+
+    def _config_optimizer(self):
+        optimizer = self.configure_optimizers()
+        self.optimizer = optimizer
+
+    def _get_logger(self):
+        self.log = current_app.logger
+
+    def parameters(self):
+        return self._network.parameters()
 
     def start(self) -> Tuple[flask.Response, int]:
         """
         Start executes the function invoked by the user
         """
-        self.args = _KubeArgs.parse()
-        task = self.args._task
+        # parse arguments and
+        self._read_args()
+        self._config_optimizer()
+        self._get_logger()
 
-        if task == "init":
+        if self.task == "init":
             layers = self.__initialize()
             return jsonify(layers), 200
 
-        elif task == "train":
+        elif self.task == "train":
             self._set_device()
+            self._network.train()
             loss = self.__train()
             return jsonify(loss=loss), 200
 
-        elif task == "val":
+        elif self.task == "val":
             self._set_device()
+            self._network.eval()
             acc, loss = self.__validate()
             return jsonify(loss=loss, accuracy=acc), 200
 
-        elif task == "infer":
+        elif self.task == "infer":
             preds = self.__infer()
             return jsonify(predictions=preds), 200
 
         else:
             self._redis_client.close()
-            raise KubeMLException(f"Task {task} not recognized", 400)
+            raise KubeMLException(f"Task {self.task} not recognized", 400)
 
     def __initialize(self) -> List[str]:
         """
@@ -120,10 +152,16 @@ class KubeModel(ABC):
             logging.debug(f"Starting iteration {i}")
             self._dataset._load_train_data(start=i, end=min(assigned_subsets.stop, i + subsets_per_iter))
 
+            # create the loader that will be used
+            loader = DataLoader(self._dataset, batch_size=self.batch)
+
             # load the reference model, train and save
             try:
                 self.__load_model()
-                loss += self.train(self._network, self._dataset, self.device)
+                for idx, (x, y) in enumerate(loader):
+                    loss += self.train(x.to(self.device),
+                                       y.to(self.device),
+                                       idx)
                 self.__save_model()
             except RedisError as re:
                 raise StorageError(re)
@@ -135,7 +173,7 @@ class KubeModel(ABC):
             if i != intervals[-1]:
                 self.__send_finish_signal()
 
-        return loss / len(intervals)
+        return loss / len(loader)
 
     def __validate(self):
 
@@ -143,15 +181,24 @@ class KubeModel(ABC):
         # self._dataset._set_args(self.args)
         self._dataset._load_validation_data()
 
+        # create the loader that will be used
+        loader = DataLoader(self._dataset, batch_size=self.batch)
+
+        acc, loss = 0, 0
         try:
             self.__load_model()
-            acc, loss = self.validate(self._network, self._dataset, self.device)
+            for idx, (x, y) in enumerate(loader):
+                _acc, _loss = self.validate(x.to(self.device),
+                                            y.to(self.device),
+                                            idx)
+                acc += _acc
+                loss += _loss
         except RedisError as re:
             raise StorageError(re)
         finally:
             self._redis_client.close()
 
-        return acc, loss
+        return acc / len(loader), loss / len(loader)
 
     def __infer(self) -> Union[torch.Tensor, np.ndarray, List[float]]:
         data_json = request.json
@@ -258,17 +305,21 @@ class KubeModel(ABC):
         logging.debug('Saved model to the database')
 
     @abstractmethod
+    def configure_optimizers(self) -> torch.optim.Optimizer:
+        pass
+
+    @abstractmethod
     def init(self, model: nn.Module):
         pass
 
     @abstractmethod
-    def train(self, model: nn.Module, dataset: KubeDataset, device: torch.device) -> float:
+    def train(self, x: torch.Tensor, y: torch.Tensor, batch_index: int) -> float:
         pass
 
     @abstractmethod
-    def validate(self, model: nn.Module, dataset: KubeDataset, device: torch.device) -> Tuple[float, float]:
+    def validate(self, x: torch.Tensor, y: torch.Tensor, batch_index: int) -> Tuple[float, float]:
         pass
 
     @abstractmethod
-    def infer(self, model: nn.Module, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
+    def infer(self, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
         pass

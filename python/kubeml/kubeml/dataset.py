@@ -1,7 +1,7 @@
 import logging
 import os
 import pickle
-from abc import ABC
+from abc import ABC, abstractmethod
 
 import numpy as np
 import torch.utils.data as data
@@ -173,3 +173,7 @@ class KubeDataset(data.Dataset, ABC):
                 labels = np.hstack([labels, l.flatten()])
 
         return data, labels.flatten()
+
+    @abstractmethod
+    def __len__(self):
+        pass
