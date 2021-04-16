@@ -11,6 +11,7 @@ from tensorflow.keras.callbacks import History as KerasHistory
 from tensorflow.keras import Input
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 from .time_callback import TimeHistory
 
@@ -39,9 +40,12 @@ def main(num_epochs: int, batch_size: int) -> KerasHistory:
     y_train, y_test = to_categorical(y_train), to_categorical(y_test)
 
     # subtract mean and normalize
+    datagen = ImageDataGenerator(featurewise_std_normalization=True)
 
-    x_train /= 255.
-    x_test /= 255.
+    datagen.fit(x_train)
+
+    train_iter = datagen.flow(x_train, y_train, batch_size=int(batch_size))
+    test_iter = datagen.flow(x_test, y_test, batch_size=int(batch_size))
 
     sgd = SGD(lr=0.1, momentum=0.9)
 
@@ -61,10 +65,10 @@ def main(num_epochs: int, batch_size: int) -> KerasHistory:
             if isinstance(layer, keras.layers.Conv2D) or isinstance(layer, keras.layers.Dense):
                 layer.add_loss(lambda: keras.regularizers.l2(1e-4)(layer.kernel))
 
-    history = model.fit(x_train, y_train,
+    history = model.fit(train_iter,
                         batch_size=int(batch_size),
                         epochs=int(num_epochs),
-                        validation_data=(x_test, y_test),
+                        validation_data=test_iter,
                         shuffle=True,
                         callbacks=[time_callback])
 

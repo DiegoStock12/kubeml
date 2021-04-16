@@ -4,9 +4,10 @@ from tensorflow.keras import layers
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.callbacks import History as KerasHistory
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import os
 
-from .time_callback import TimeHistory
+from time_callback import TimeHistory
 
 from typing import Tuple
 import numpy as np
@@ -52,8 +53,13 @@ def main(epochs: int, batch: int) -> KerasHistory:
     x_test = np.expand_dims(x_test, -1)
 
     # Normalize images
-    x_train /= 255.
-    x_test /= 255.
+    # subtract mean and normalize
+    datagen = ImageDataGenerator(featurewise_std_normalization=True)
+
+    datagen.fit(x_train)
+
+    train_iter = datagen.flow(x_train, y_train, batch_size=int(batch))
+    test_iter = datagen.flow(x_test, y_test, batch_size=int(batch))
 
     print(x_train.shape, x_test.shape)
 
@@ -67,12 +73,17 @@ def main(epochs: int, batch: int) -> KerasHistory:
         model.compile(loss='categorical_crossentropy',
                       optimizer=sgd,
                       metrics=['accuracy'])
-    # print(model.summary())
+        # print(model.summary())
 
-    history = model.fit(x_train, y_train,
+        print('setting weight decay')
+        for layer in model.layers:
+            if isinstance(layer, keras.layers.Conv2D) or isinstance(layer, keras.layers.Dense):
+                layer.add_loss(lambda: keras.regularizers.l2(1e-4)(layer.kernel))
+
+    history = model.fit(train_iter,
                         batch_size=int(batch),
                         epochs=int(epochs),
-                        validation_data=(x_test, y_test),
+                        validation_data=test_iter,
                         shuffle=True,
                         callbacks=[time_callback])
 
