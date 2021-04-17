@@ -9,6 +9,8 @@ import redisai as rai
 import requests
 from flask import request, jsonify, current_app
 from redis.exceptions import RedisError
+
+import torch
 from torch.utils.data import DataLoader
 
 from .dataset import _KubeArgs, KubeDataset
@@ -38,12 +40,12 @@ class KubeModel(ABC):
         self.platform = 'gpu' if gpu else 'cpu'
         self.device = None
         self.args = None
-        self.log = None
+        self.logger = None
 
         # training options, these will be updated when reading the parameters
         # in each iteration
         self.lr = None
-        self.batch = None
+        self.batch_size = None
         self.task = None
         self.optimizer = None
 
@@ -58,7 +60,7 @@ class KubeModel(ABC):
         """Parse the args and update the parameters"""
         self.args = _KubeArgs.parse()
         self.lr = self.args.lr
-        self.batch = self.args.batch_size
+        self.batch_size = self.args.batch_size
         self.task = self.args._task
 
     def _config_optimizer(self):
@@ -66,7 +68,7 @@ class KubeModel(ABC):
         self.optimizer = optimizer
 
     def _get_logger(self):
-        self.log = current_app.logger
+        self.logger = current_app.logger
 
     def parameters(self):
         return self._network.parameters()
@@ -85,14 +87,10 @@ class KubeModel(ABC):
             return jsonify(layers), 200
 
         elif self.task == "train":
-            self._set_device()
-            self._network.train()
             loss = self.__train()
             return jsonify(loss=loss), 200
 
         elif self.task == "val":
-            self._set_device()
-            self._network.eval()
             acc, loss = self.__validate()
             return jsonify(loss=loss, accuracy=acc), 200
 
@@ -129,6 +127,12 @@ class KubeModel(ABC):
         :return: The loss of the epoch, as returned by the user function
         """
 
+        # set the device (cpu or any gpu) for this container
+        self._set_device()
+
+        # set the network in train mode
+        self._network.train()
+
         # Determine the batches that we need to train on and the first
         # subset id that we need to get each iteration
         assigned_subsets = split_minibatches(range(self._dataset.num_docs), self.args._N)[self.args._func_id]
@@ -138,10 +142,13 @@ class KubeModel(ABC):
         # passes before synchronization
         subsets_per_iter = get_subset_period(self.args._K, self.args.batch_size, assigned_subsets)
         logging.debug(f"Subsets per iteration: {subsets_per_iter}")
-
         intervals = range(assigned_subsets.start, assigned_subsets.stop, subsets_per_iter)
 
+        # the loss will be added cross intervals, each interval will have one loader, whose length
+        # will determine the number of losses added. To get the average loss, we need to divide by the
+        # sum of the length of the loaders (num_iterations)
         loss = 0
+        num_iterations = 0
         for i in intervals:
 
             # Tell the dataset to load the data from the start to the end of the
@@ -153,7 +160,8 @@ class KubeModel(ABC):
             self._dataset._load_train_data(start=i, end=min(assigned_subsets.stop, i + subsets_per_iter))
 
             # create the loader that will be used
-            loader = DataLoader(self._dataset, batch_size=self.batch)
+            loader = DataLoader(self._dataset, batch_size=self.batch_size)
+            num_iterations += len(loader)
 
             # load the reference model, train and save
             try:
@@ -162,6 +170,7 @@ class KubeModel(ABC):
                     loss += self.train(x.to(self.device),
                                        y.to(self.device),
                                        idx)
+                    logging.debug(f'loss is {loss}, iterations are {num_iterations}')
                 self.__save_model()
             except RedisError as re:
                 raise StorageError(re)
@@ -173,26 +182,30 @@ class KubeModel(ABC):
             if i != intervals[-1]:
                 self.__send_finish_signal()
 
-        return loss / len(loader)
+        return loss / num_iterations
 
     def __validate(self):
 
+        # set the device and set the netwrok in eval mode
+        self._set_device()
+        self._network.eval()
+
         # load the validation data
-        # self._dataset._set_args(self.args)
         self._dataset._load_validation_data()
 
         # create the loader that will be used
-        loader = DataLoader(self._dataset, batch_size=self.batch)
+        loader = DataLoader(self._dataset, batch_size=self.batch_size)
 
         acc, loss = 0, 0
         try:
             self.__load_model()
-            for idx, (x, y) in enumerate(loader):
-                _acc, _loss = self.validate(x.to(self.device),
-                                            y.to(self.device),
-                                            idx)
-                acc += _acc
-                loss += _loss
+            with torch.no_grad():
+                for idx, (x, y) in enumerate(loader):
+                    _acc, _loss = self.validate(x.to(self.device),
+                                                y.to(self.device),
+                                                idx)
+                    acc += _acc
+                    loss += _loss
         except RedisError as re:
             raise StorageError(re)
         finally:
@@ -273,8 +286,7 @@ class KubeModel(ABC):
         state = dict()
         for name in self._network.state_dict():
             # load each of the layers in the statedict
-            # TODO we could see if the BN are included, in the resnet they have running stats
-            logging.debug(f"Loading weights for layer {name}")
+            # logging.debug(f"Loading weights for layer {name}")
             weight_key = f'{job_id}:{name}'
             w = self._redis_client.tensorget(weight_key)
             # set the weight
@@ -296,7 +308,7 @@ class KubeModel(ABC):
         with torch.no_grad():
             for name, layer in self._network.state_dict().items():
                 # Save the weights
-                logging.debug(f'Setting layer {name}')
+                # logging.debug(f'Setting layer {name}')
                 weight_key = f'{job_id}:{name}' \
                     if task == 'init' \
                     else f'{job_id}:{name}/{func_id}'

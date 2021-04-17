@@ -117,7 +117,7 @@ $ kubectl create namespace $KUBEML_NAMESPACE
 
 # Install all the components in the kubeml namespace
 $ helm install --namespace $KUBEML_NAMESPACE --name-template kubeml \
-    https://github.com/diegostock12/kubeml/releases/download/0.1.0/kubeml-0.1.0.tgz
+    https://github.com/diegostock12/kubeml/releases/download/0.1.2/kubeml-0.1.2.tgz
 ```
 
 ## Writing a Function
@@ -156,53 +156,28 @@ class MnistDataset(KubeDataset):
 
 ### Define the Network
 
-Lastly, use the same train and validation methods as localy, simply referencing the KubeML Dataset.
+Lastly, use the same train and validation methods as locally, simply referencing the KubeML Dataset. To define the distributed
+training code we opt for a similar approach to what PyTorch Lighting does, structuring the code more than traditional pytorch.
+
+The user does not need to call `.cuda()`, or `.to()` nor worry about `torch.no_grad()` or `model.eval()` and `model.train()`
+and creating DataLoaders. The train and validation methods just have to be completed with the code for an iteration and return
+the loss, KubeML takes care of everything else.
 
 ```python
 from kubeml import KubeModel
 import torch
 import torch.nn as nn
 import numpy as np
-from torch.utils import data
-from torch import optim
-from torchvision import transforms
 
-class KubeNet(KubeModel):
+class KubeLeNet(KubeModel):
 
-    def __init__(self, network: nn.Module):
-        super().__init__(network)
+    def __init__(self, network: nn.Module, dataset: MnistDataset):
+        super().__init__(network, dataset, gpu=True)
 
-    # Train trains the model for an epoch and returns the loss
-    def train(self, model: nn.Module) -> float:
-        dataset = MnistDataset()
-        train_loader = data.DataLoader(dataset, batch_size=self.args.batch_size)
-        optimizer = optim.Adam(model.parameters(), lr=self.args.lr)
+    def configure_optimizers(self) -> torch.optim.Optimizer:
+        sgd = SGD(self.parameters(), lr=self.lr, momentum=0.9, weight_decay=1e-4)
+        return sgd
 
-        model.train()
-        loss = None
-        for batch_idx, (data, target) in enumerate(train_loader):
-            data, target = data.to(device), target.to(device)
-            optimizer.zero_grad()
-            output = model(data)
-
-            loss = F.nll_loss(output, target)
-            loss.backward()
-
-            optimizer.step()
-
-        return loss.item()
-    
-    # Validate validates the model on the test data and returns a tuple
-    # of (accuracy, loss)
-    def validate(self, model: nn.Module) -> Tuple[float, float]:
-        raise NotImplementedError
-    
-    # Infer receives the data points or images as a list and returns 
-    # the predictions of the network
-    def infer(self, model: nn.Module, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
-        raise NotImplementedError
-    
-    # Init initializes the model in a particular way
     def init(self, model: nn.Module):
         def init_weights(m: nn.Module):
                     if isinstance(m, nn.Conv2d):
@@ -213,6 +188,44 @@ class KubeNet(KubeModel):
                         nn.init.constant_(m.bias, 0.01)
         
         model.apply(init_weights)
+
+    def train(self, x, y, batch_index) -> float:
+        loss_fn = nn.CrossEntropyLoss()
+        total_loss = 0
+
+        self.optimizer.zero_grad()
+        output = self(x)
+        loss = loss_fn(output, y)
+        loss.backward()
+
+        self.optimizer.step()
+        total_loss += loss.item()
+
+        if batch_index % 10 == 0:
+            self.logger.info(f"Index {batch_index}, error: {loss.item()}")
+
+        return total_loss
+
+    def validate(self, x, y, _) -> Tuple[float, float]:
+        loss_fn = nn.CrossEntropyLoss()
+
+        test_loss = 0
+        correct = 0
+
+        # forward pass and loss accuracy calculation
+        output = self(x)
+        test_loss += loss_fn(output, y).item()  # sum up batch loss
+        pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+        correct += pred.eq(y.view_as(pred)).sum().item()
+
+        accuracy = 100. * correct / self.batch_size
+        self.logger.debug(f'accuracy {accuracy}')
+
+        return accuracy, test_loss
+
+    def infer(self, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
+        pass
+    
 ```
 
 ### Define the Function Entrypoint
@@ -221,10 +234,9 @@ In the main function, create the network object and start the function
 
 ```python
 def main():
-    # Create the PyTorch Model
-    net = Net()
-    # create the KubeML model with the network as parameter
-    kubenet = KubeNet(net)
+    lenet = LeNet()
+    dataset = MnistDataset()
+    kubenet = KubeLeNet(lenet, dataset)
     return kubenet.start()
 ```
 

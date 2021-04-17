@@ -75,7 +75,7 @@ class KubeLeNet(KubeModel):
         super().__init__(network, dataset, gpu=True)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        sgd = SGD(self._network.parameters(), lr=self.lr, momentum=0.9, weight_decay=1e-4)
+        sgd = SGD(self.parameters(), lr=self.lr, momentum=0.9, weight_decay=1e-4)
         return sgd
 
     def init(self, model: nn.Module):
@@ -90,7 +90,7 @@ class KubeLeNet(KubeModel):
         output = self(x)
 
         # compute loss and backprop
-        logging.debug(f'Shape of the output is {output.shape}, y is {y.shape}')
+        # logging.debug(f'Shape of the output is {output.shape}, y is {y.shape}')
         loss = loss_fn(output, y)
         loss.backward()
 
@@ -108,13 +108,16 @@ class KubeLeNet(KubeModel):
 
         test_loss = 0
         correct = 0
-        with torch.no_grad():
-            output = self(x)
-            test_loss += loss_fn(output, y).item()  # sum up batch loss
-            pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-            correct += pred.eq(y.view_as(pred)).sum().item()
 
-        accuracy = 100. * correct
+        # forward pass and loss accuracy calculation
+        output = self(x)
+        test_loss += loss_fn(output, y).item()  # sum up batch loss
+        pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+        correct += pred.eq(y.view_as(pred)).sum().item()
+
+        accuracy = 100. * correct / self.batch_size
+        self.logger.debug(f'accuracy {accuracy}')
+
         return accuracy, test_loss
 
     def infer(self, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:

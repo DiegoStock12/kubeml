@@ -23,20 +23,20 @@ example of how to create a dataset to train with KubeML is seen below.
 from kubeml import KubeDataset
 from torchvision import transforms
 
-class ExampleDataset(KubeDataset):
+class MnistDataset(KubeDataset):
 
-    def __init__(self, transform: transforms = None):
-        super(ExampleDataset, self).__init__(dataset="mnist")
-        self.transform = transform
+    def __init__(self):
+        super().__init__("mnist")
+        self.transf = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ])
 
     def __getitem__(self, index):
         x = self.data[index]
         y = self.labels[index]
 
-        if self.transform:
-            return self.transform(x), y.astype('int64')
-        else:
-            return x, y.astype('int64')
+        return self.transf(x), y.astype('int64')
 
     def __len__(self):
         return len(self.data)
@@ -55,13 +55,12 @@ Both are saved as numpy arrays.
 
 ### The Model class
 
-The other main component is the model class. This class abstracts the complexity of distributing the training
-among multiple workers, nodes and GPUs. The constructor only takes a torch model as a parameter. The user only needs
-to implement the unimplemented methods of the class, `train`, `infer`, `validate` and `init` with the behavior they
+The other main component is the model class. This abstract class abstracts the complexity of distributing the training
+among multiple workers, nodes and GPUs. The constructor only takes a torch model and the dataset as a parameter. The user only needs
+to implement the abstract methods of the class, `train`, `infer`, `validate` `init` and `configure_optimizers` with the behavior they
 want from the network.
 
-The Kubenet exposes the `args` member variable which holds the arguments used by KubeML such
-as batch size, learning rate... chosen by the user, which can be accessed from the training methods.
+The Kubenet exposes the `batch_size` and `lr` arguments which the user can change when starting the train job
 
 
 ```python
@@ -69,67 +68,68 @@ from kubeml import KubeModel
 import torch
 import torch.nn as nn
 import numpy as np
-from torch.utils import data
-from torch import optim
-from torchvision import transforms
 
-class KubeNet(KubeModel):
+class KubeLeNet(KubeModel):
 
-    def __init__(self, network: nn.Module):
-        super().__init__(network)
+    def __init__(self, network, dataset):
+        super().__init__(network, dataset, gpu=True)
+    
+    @abstractmethod
+    def configure_optimizers(self) -> torch.optim.Optimizer:
+        pass
 
     # Train trains the model for an epoch and returns the loss
-    def train(self, model: nn.Module) -> float:
-        raise NotImplementedError
+    @abstractmethod
+    def train(self, x, y, batch_index) -> float:
+        pass
     
     # Validate validates the model on the test data and returns a tuple
     # of (accuracy, loss)
-    def validate(self, model: nn.Module) -> Tuple[float, float]:
-        raise NotImplementedError
+    @abstractmethod
+    def validate(self, x, y, batch_index) -> Tuple[float, float]:
+        pass
     
     # Infer receives the data points or images as a list and returns 
     # the predictions of the network
-    def infer(self, model: nn.Module, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
-        raise NotImplementedError
+    @abstractmethod
+    def infer(self, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
+        pass
     
     # Init initializes the model in a particular way
+    @abstractmethod
     def init(self, model: nn.Module):
-        raise NotImplementedError
+       pass
 
 ```
 
 An example implementation of the `init` and `train` functions can be done as follows
 
 ```python
-
     # Train trains the model for an epoch and returns the loss
-    def train(self, model: nn.Module) -> float:
-        
-        # Set the device as GPU, create the Example KubeDataset
-        # and use a torch dataloader with the 
-        device = torch.device("cuda")
-        dataset = ExampleDataset()
-        train_loader = data.DataLoader(dataset, batch_size=self.args.batch_size)
-        optimizer = optim.Adam(model.parameters(), lr=self.args.lr)
-
-        model = model.to(device)
-
-        model.train()
-        loss = None
-        for batch_idx, (data, target) in enumerate(train_loader):
-            data, target = data.to(device), target.to(device)
-            optimizer.zero_grad()
-            output = model(data)
-
-            loss = F.nll_loss(output, target)
-            loss.backward()
-
-            optimizer.step()
-
-        return loss.item()
+     def train(self, x, y, batch_index) -> float:
+        # define the device for training and load the data
+        loss_fn = nn.CrossEntropyLoss()
+        total_loss = 0
+    
+        self.optimizer.zero_grad()
+        output = self(x)
+    
+        # compute loss and backprop
+        # logging.debug(f'Shape of the output is {output.shape}, y is {y.shape}')
+        loss = loss_fn(output, y)
+        loss.backward()
+    
+        # step with the optimizer
+        self.optimizer.step()
+        total_loss += loss.item()
+    
+        if batch_index % 10 == 0:
+            logging.info(f"Index {batch_index}, error: {loss.item()}")
+    
+        return total_loss
     
     # Intialize the network as a pytorch model
-    def init(self, model: nn.Module):
+    def init(self, model):
         def init_weights(m: nn.Module):
             if isinstance(m, nn.Conv2d):
                 nn.init.xavier_uniform_(m.weight)
@@ -137,7 +137,7 @@ An example implementation of the `init` and `train` functions can be done as fol
             if isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight)
                 nn.init.constant_(m.bias, 0.01)
-
+    
         model.apply(init_weights)
 ```
 
@@ -150,9 +150,9 @@ steps are simple, simply write the code initializing the network in the `main` m
 ```python
 def main():
     # Create the PyTorch Model
-    net = Net()
-    # create the KubeML model with the network as parameter
-    kubenet = KubeNet(net)
+    lenet = LeNet()
+    dataset = MnistDataset()
+    kubenet = KubeLeNet(lenet, dataset)
     return kubenet.start()
 ```
 

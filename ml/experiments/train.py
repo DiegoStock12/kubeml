@@ -59,11 +59,13 @@ def run_resnet(k: int, batch: int, parallelism: int):
     # print(exp.to_dataframe())
     exp.save(output_folder)
 
-
-def run_api() -> Process:
+def run_api(path=None) -> Process:
     """Starts the API for setting the metrics"""
     print('Starting api')
-    p = Process(target=start_api)
+    if path is not None:
+        p = Process(target=start_api, args=(path,))
+    else:
+        p = Process(target=start_api)
     p.start()
     print('Process started...')
     return p

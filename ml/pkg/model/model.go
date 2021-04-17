@@ -60,7 +60,7 @@ func NewModel(
 	client *redisai.Client) *Model {
 
 	// set the client to use a pipeline
-	client.Pipeline(10)
+	client.Pipeline(30)
 
 	return &Model{
 		logger:      logger.Named("model"),

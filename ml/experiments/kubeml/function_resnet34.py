@@ -34,60 +34,47 @@ class Cifar10Dataset(KubeDataset):
 
 class KubeResnet34(KubeModel):
     def __init__(self, network, dataset: Cifar10Dataset):
-        super(KubeResnet34, self).__init__(network, dataset, platform='gpu')
+        super(KubeResnet34, self).__init__(network, dataset, gpu=True)
+
+    def configure_optimizers(self) -> torch.optim.Optimizer:
+        sgd = SGD(self.parameters(), lr=self.lr, momentum=0.9, weight_decay=1e-4)
+        return sgd
 
     def init(self, model: nn.Module):
         pass
 
-    def train(self, model: nn.Module, dataset: KubeDataset, device: torch.device) -> float:
-
-        loader = data.DataLoader(dataset, batch_size=self.args.batch_size)
+    def train(self, x, y, batch_index) -> float:
         criterion = nn.CrossEntropyLoss()
-        optimizer = SGD(model.parameters(), lr=self.args.lr, momentum=0.9, weight_decay=1e-4)
-
-        model.train()
         total_loss = 0
-        for i, (inputs, labels) in enumerate(loader):
-            inputs, labels = inputs.to(device), labels.to(device)
 
-            optimizer.zero_grad()
-            output = model(inputs)
-            loss = criterion(output, labels)
+        self.optimizer.zero_grad()
+        output = self(x)
+        loss = criterion(output, y)
 
-            loss.backward()
-            optimizer.step()
+        loss.backward()
+        self.optimizer.step()
 
-            total_loss += loss.item()
-            if i % 10 == 0:
-                logging.info(f"Index {i}, error: {loss.item()}")
+        total_loss += loss.item()
+        if batch_index % 10 == 0:
+            logging.info(f"Index {batch_index}, error: {loss.item()}")
 
-        return total_loss / len(loader)
+        return total_loss
 
-    def validate(self, model: nn.Module, dataset: KubeDataset, device: torch.device) -> Tuple[float, float]:
-
-        loader = data.DataLoader(dataset, batch_size=self.args.batch_size)
+    def validate(self, x, y, batch_index) -> Tuple[float, float]:
         criterion = nn.CrossEntropyLoss()
 
-
-        model.eval()
-        total = 0
         correct = 0
-        test_loss = 0
-        with torch.no_grad():
-            for i, (inputs, labels) in enumerate(loader):
-                inputs, labels = inputs.to(device), labels.to(device)
-                output = model(inputs)
-                _, predicted = torch.max(output.data, 1)
-                test_loss += criterion(output, labels).item()
-                total += labels.size(0)
-                correct += predicted.eq(labels).sum().item()
 
-        accuracy = correct / total * 100
-        test_loss /= len(loader)
+        output = self(x)
+        _, predicted = torch.max(output.data, 1)
+        test_loss = criterion(output, y).item()
+        correct += predicted.eq(y).sum().item()
+
+        accuracy = correct * 100 / self.batch_size
 
         return accuracy, test_loss
 
-    def infer(self, model: nn.Module, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
+    def infer(self, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
         pass
 
 
