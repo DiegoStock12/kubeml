@@ -3,7 +3,7 @@ name: KubeML CI
 on:
   push:
     branches:
-      - master
+#      - master
 #      - refactor-network
 #      - experiments
 
