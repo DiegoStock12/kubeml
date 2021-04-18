@@ -213,6 +213,10 @@ main:
 			return
 		}
 
+		// receive signal that the models are merged
+		job.logger.Debug("Waiting for merge to complete...")
+		<-job.merged
+
 		// Trigger validation if configured
 		if job.validateEvery != 0 && job.epoch%job.validateEvery == 0 && job.epoch != job.task.Parameters.Epochs {
 			job.validate()
@@ -240,9 +244,8 @@ main:
 
 		}
 
-		// receive signal that the models are merged
-		job.logger.Debug("Waiting for merge to complete...")
-		<-job.merged
+		// wait for the validation function to finish
+		job.wgVal.Wait()
 
 		// check if the validation returned and we reached the goal average
 		select {
