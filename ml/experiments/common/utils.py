@@ -1,14 +1,13 @@
-import subprocess
-from hashlib import sha256
-import pandas as pd
-from typing import List
-from functools import wraps
 import glob
 import os
-import pickle5 as pickle
+import subprocess
 import time
+from functools import wraps
+from hashlib import sha256
+from typing import List
 
-from typing import Union, Iterable
+import pandas as pd
+import pickle5 as pickle
 
 lenet_grid = {
     'batch': [128, 64, 32, 16],

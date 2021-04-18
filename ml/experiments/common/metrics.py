@@ -1,15 +1,15 @@
-import psutil
+import logging
+import os
+import pickle
+from threading import Thread, Event
+from typing import List, Dict
+
 import GPUtil
-from flask import Flask
+import pandas as pd
+import psutil
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
-import logging
-from typing import List, Dict
-import pickle
-import pandas as pd
-import os
-
-from threading import Thread, Event
+from flask import Flask
 
 METRICS_FOLDER = os.path.abspath(os.path.dirname(__file__)) + '/../metrics'
 

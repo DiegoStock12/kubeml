@@ -1,14 +1,13 @@
+import logging
 from typing import List, Any, Union, Tuple
 
 import numpy as np
 import torch
-import logging
-
 import torch.nn as nn
 import torch.utils.data as data
-from torch.optim import Adam
 import torchvision.transforms as transforms
 from kubeml import KubeModel, KubeDataset
+from torch.optim import Adam
 from torchvision.models.vgg import vgg11
 
 
@@ -18,7 +17,7 @@ class Cifar10Dataset(KubeDataset):
     def __init__(self):
         super(Cifar10Dataset, self).__init__("cifar10")
 
-        #this are the ones for cifar100
+        # this are the ones for cifar100
         # self.transf = transforms.Compose([
         #     transforms.ToTensor(),
         #     transforms.Normalize((0.5070751592371323, 0.48654887331495095, 0.4409178433670343),

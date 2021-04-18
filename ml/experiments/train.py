@@ -1,12 +1,12 @@
 """Initial experiments with the lenet network to check the trends of the time with k, batch and parallelism"""
 
+import argparse
+import time
+from multiprocessing import Process
+
 from common.experiment import *
 from common.metrics import start_api
-from multiprocessing import Process
 from common.utils import *
-import time
-
-import argparse
 
 output_folder = './tests/'
 
@@ -58,6 +58,7 @@ def run_resnet(k: int, batch: int, parallelism: int):
     exp.run()
     # print(exp.to_dataframe())
     exp.save(output_folder)
+
 
 def run_api(path=None) -> Process:
     """Starts the API for setting the metrics"""

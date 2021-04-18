@@ -1,17 +1,17 @@
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from dataclasses_json import dataclass_json, Undefined, CatchAll
-from typing import List, Dict, Any
+"""Definition of the experiment helper classes for running kubeml and Tensorflow experiments"""
+
 import subprocess
 import time
-import requests
+from abc import ABC, abstractmethod
+from typing import List
 
 import pandas as pd
-
-# import the main classes for the experiments with tensorflow
+import requests
+from dataclasses import dataclass
+from dataclasses_json import dataclass_json
 from tensorflow.keras.callbacks import History as KerasHistory
 
-from .utils import check_stderr, get_title, get_hash, retry
+from .utils import check_stderr, get_hash, retry
 
 kubeml = '../pkg/kubeml-cli/kubeml'
 

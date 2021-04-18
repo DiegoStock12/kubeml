@@ -1,15 +1,14 @@
 """trains the tensorflow experiments"""
 
 import argparse
-from common.metrics import start_api
-from common.experiment import *
+import os
+import time
+from multiprocessing import Process
 
+from common.experiment import *
+from common.metrics import start_api
 from tflow.lenet import main as lenet_main
 from tflow.resnet34 import main as resnet_main
-
-from multiprocessing import Process
-import time
-import os
 
 EPOCHS = 5
 save_folder = './tests/tf'

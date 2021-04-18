@@ -14,6 +14,8 @@ import (
 
 // listTasks returns a list of the currently running tasks
 func (ps *ParameterServer) listTasks(w http.ResponseWriter, r *http.Request) {
+	ps.logger.Debug("Listing tasks...")
+
 	ps.mu.RLock()
 	defer ps.mu.RUnlock()
 
@@ -29,6 +31,7 @@ func (ps *ParameterServer) listTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ps.logger.Debug("returning tasks", zap.String("tasks", string(resp)))
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(resp)

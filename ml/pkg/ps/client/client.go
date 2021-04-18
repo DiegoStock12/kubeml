@@ -75,6 +75,8 @@ func (c *Client) ListTasks() ([]byte, error) {
 		return nil, errors.Wrap(err, "error reading response body")
 	}
 
+	c.logger.Debug("Got tasks from the ps")
+
 	return body, nil
 }
 

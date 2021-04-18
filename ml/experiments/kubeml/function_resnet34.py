@@ -1,17 +1,14 @@
+import logging
+import random
 from typing import List, Any, Union, Tuple
 
 import numpy as np
 import torch
-import logging
-
 import torch.nn as nn
-import torch.utils.data as data
-from torch.optim import SGD
 import torchvision.transforms as transforms
 from kubeml import KubeModel, KubeDataset
+from torch.optim import SGD
 from torchvision.models.resnet import resnet34
-
-import random
 
 
 class Cifar10Dataset(KubeDataset):
