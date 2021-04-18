@@ -3,10 +3,15 @@ package cmd
 import (
 	"fmt"
 	kubemlClient "github.com/diegostock12/kubeml/ml/pkg/controller/client"
+	"github.com/fission/fission/pkg/crd"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
 	"text/tabwriter"
 )
+
+const KubemlNamespace = "kubeml"
 
 var (
 	short bool
@@ -28,6 +33,12 @@ var (
 		Short: "Stop tasks",
 		RunE:  stopTask,
 	}
+
+	tasksPruneCmd = &cobra.Command{
+		Use:   "prune",
+		Short: "Prune finished tasks",
+		RunE:  pruneTasks,
+	}
 )
 
 func stopTask(_ *cobra.Command, _ []string) error {
@@ -44,6 +55,47 @@ func stopTask(_ *cobra.Command, _ []string) error {
 
 	return nil
 
+}
+
+// pruneTasks deletes all the tasks from the namespace that are
+// still left after finishing
+func pruneTasks(_ *cobra.Command, _ []string) error {
+
+	_, kubeClient, _, err := crd.GetKubernetesClient()
+	if err != nil {
+		return errors.Wrap(err, "could not get kubernetes client")
+	}
+
+	labelSelector := metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"svc": "job",
+		},
+	}
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelSelector.String(),
+	}
+
+	// get a list of the services and the pods that match the labels
+	svcs, err := kubeClient.CoreV1().Services(KubemlNamespace).List(listOptions)
+	if err != nil {
+		return errors.Wrap(err, "could not list services")
+	}
+
+	pods, err := kubeClient.CoreV1().Pods(KubemlNamespace).List(listOptions)
+	if err != nil {
+		return errors.Wrap(err, "could not list pods")
+	}
+
+	for _, svc := range svcs.Items {
+		fmt.Println("Service", svc.Name)
+	}
+	for _, pod := range pods.Items {
+		fmt.Println("Pod", pod.Name)
+	}
+
+	// delete the tasks and services with the label svc=job
+	//kubeClient.CoreV1().Services(KubemlNamespace).Delete(metav1.DeleteOptions{})
+	return nil
 }
 
 // listFunctions returns a table with the information of the current functions
@@ -86,9 +138,9 @@ func init() {
 	rootCmd.AddCommand(tasksCmd)
 	tasksCmd.AddCommand(tasksListCmd)
 	tasksCmd.AddCommand(tasksStopCmd)
+	tasksCmd.AddCommand(tasksPruneCmd)
 
 	tasksListCmd.Flags().BoolVar(&short, "short", false, "Trigger short format")
-
 
 	tasksStopCmd.Flags().StringVar(&id, "id", "", "Id of the task")
 	tasksStopCmd.MarkFlagRequired("id")
