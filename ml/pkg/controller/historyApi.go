@@ -93,3 +93,19 @@ func (c *Controller) deleteHistory(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 }
+
+// pruneHistories deletes all the histories in the database
+func (c *Controller) pruneHistories(w http.ResponseWriter, r *http.Request) {
+
+	c.logger.Debug("Deleting all histories")
+
+	collection := c.mongoClient.Database("kubeml").Collection("history")
+	err := collection.Drop(context.Background())
+	if err != nil {
+		c.logger.Error("Could not delete histories", zap.Error(err))
+		http.Error(w, "Could not delete histories", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}

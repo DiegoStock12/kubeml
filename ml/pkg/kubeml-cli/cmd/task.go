@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os"
+	"strings"
 	"text/tabwriter"
 )
 
@@ -61,18 +62,26 @@ func stopTask(_ *cobra.Command, _ []string) error {
 // still left after finishing
 func pruneTasks(_ *cobra.Command, _ []string) error {
 
+	// confirm deletion for safety
+	var response string
+	fmt.Print("This will delete all finished tasks, continue? (y/N): ")
+	fmt.Scanf("%s", &response)
+
+	switch strings.ToLower(response) {
+	case "y":
+		fmt.Println("Deleting finished tasks...")
+	default:
+		fmt.Println("Cancelling...")
+		return nil
+	}
+
 	_, kubeClient, _, err := crd.GetKubernetesClient()
 	if err != nil {
 		return errors.Wrap(err, "could not get kubernetes client")
 	}
 
-	labelSelector := metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"svc": "job",
-		},
-	}
 	listOptions := metav1.ListOptions{
-		LabelSelector: labelSelector.String(),
+		LabelSelector: "svc=job",
 	}
 
 	// get a list of the services and the pods that match the labels
@@ -86,15 +95,26 @@ func pruneTasks(_ *cobra.Command, _ []string) error {
 		return errors.Wrap(err, "could not list pods")
 	}
 
+	// delete all the services
 	for _, svc := range svcs.Items {
-		fmt.Println("Service", svc.Name)
-	}
-	for _, pod := range pods.Items {
-		fmt.Println("Pod", pod.Name)
+		err := kubeClient.CoreV1().Services(KubemlNamespace).Delete(svc.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			fmt.Println(fmt.Sprintf("error deleting service \"%v\": %v", svc.Name, err))
+			continue
+		}
+		fmt.Println(fmt.Sprintf("Service \"%v\" deleted", svc.Name))
 	}
 
-	// delete the tasks and services with the label svc=job
-	//kubeClient.CoreV1().Services(KubemlNamespace).Delete(metav1.DeleteOptions{})
+	// delete all the pods
+	for _, pod := range pods.Items {
+		err := kubeClient.CoreV1().Pods(KubemlNamespace).Delete(pod.Name, &metav1.DeleteOptions{})
+		if err != nil {
+			fmt.Println(fmt.Sprintf("error deleting pod \"%v\": %v", pod.Name, err))
+			continue
+		}
+		fmt.Println(fmt.Sprintf("Pod \"%v\" deleted", pod.Name))
+	}
+
 	return nil
 }
 

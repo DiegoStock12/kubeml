@@ -3,6 +3,7 @@ package v1
 import (
 	"encoding/json"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
+	kerror "github.com/diegostock12/kubeml/ml/pkg/error"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"net/http"
@@ -17,6 +18,7 @@ type (
 		Get(taskId string) (*api.History, error)
 		Delete(taskId string) error
 		List() ([]api.History, error)
+		Prune() error
 	}
 
 	histories struct {
@@ -41,13 +43,8 @@ func (h *histories) Get(taskId string) (*api.History, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		// read the http error string and return it
-		errString, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, errors.Wrap(err, "an error occurred")
-		}
-		return nil, errors.New(string(errString))
+	if err = kerror.CheckHttpResponse(resp); err != nil {
+		return nil, err
 	}
 
 	// return the json parsed to string
@@ -78,16 +75,7 @@ func (h *histories) Delete(taskId string) error {
 		return errors.Wrap(err, "could not handle request")
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		defer resp.Body.Close()
-		res, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		return errors.New(string(res))
-	}
-
-	return nil
+	return kerror.CheckHttpResponse(resp)
 
 }
 
@@ -112,5 +100,22 @@ func (h *histories) List() ([]api.History, error) {
 	}
 
 	return histories, nil
+
+}
+
+func (h *histories) Prune() error {
+	url := h.controllerUrl + "/history"
+
+	req, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return errors.Wrap(err, "could not create request body")
+	}
+
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "could not handle request")
+	}
+
+	return kerror.CheckHttpResponse(resp)
 
 }

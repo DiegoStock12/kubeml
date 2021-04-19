@@ -2,6 +2,7 @@ package error
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -55,6 +56,24 @@ func CheckFunctionError(resp *http.Response) error {
 	}
 
 	return funcError
+}
+
+// CheckHttpResponse checks for a correct response from the KubeML components
+// via HTTP
+func CheckHttpResponse(resp *http.Response) error {
+
+	if resp.StatusCode == 200 {
+		return nil
+	}
+
+	// Read the response body and return the error message
+	defer resp.Body.Close()
+	res, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	return errors.New(string(res))
+
 }
 
 // RespondWithError is a convenience function for responding the client with a

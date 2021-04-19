@@ -33,6 +33,7 @@ func (c *Controller) getHandler() http.Handler {
 	r.HandleFunc("/history/{taskId}", c.getHistory).Methods("GET")
 	r.HandleFunc("/history/{taskId}", c.deleteHistory).Methods("DELETE")
 	r.HandleFunc("/history", c.listHistories).Methods("GET")
+	r.HandleFunc("/history", c.pruneHistories).Methods("DELETE")
 
 	// k8s health handler
 	r.HandleFunc("/health", c.handleHealth).Methods("GET")

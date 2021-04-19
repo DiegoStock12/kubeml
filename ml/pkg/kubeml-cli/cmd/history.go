@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"math"
 	"os"
+	"strings"
 	"text/tabwriter"
 )
 
@@ -35,6 +36,12 @@ var (
 		Use:   "list",
 		Short: "Get list of networks and summary",
 		RunE:  listHistories,
+	}
+
+	historyPruneCmd = &cobra.Command{
+		Use:   "prune",
+		Short: "Delete all histories",
+		RunE:  pruneHistories,
 	}
 )
 
@@ -76,6 +83,36 @@ func deleteHistory(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
+// pruneHistories deletes all histories
+func pruneHistories(_ *cobra.Command, _ []string) error {
+
+	// confirm for safety
+	var response string
+	fmt.Print("This will delete all histories continue? (y/N): ")
+	fmt.Scanf("%s", &response)
+
+	switch strings.ToLower(response) {
+	case "y":
+		fmt.Println("Deleting finished tasks...")
+	default:
+		fmt.Println("Cancelling...")
+		return nil
+	}
+
+	client, err := kubemlClient.MakeKubemlClient()
+	if err != nil {
+		return err
+	}
+
+	err = client.V1().Histories().Prune()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Deleted all histories")
+	return nil
+}
+
 func last(arr []float64) float64 {
 	if len(arr) > 0 {
 		return arr[len(arr)-1]
@@ -102,7 +139,7 @@ func listHistories(_ *cobra.Command, _ []string) error {
 		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 			h.Id, h.Task.ModelType, h.Task.Dataset, h.Task.Epochs, h.Task.BatchSize, h.Task.LearningRate,
 			getMeanParallelism(h.Data.Parallelism), h.Task.Options.K, h.Task.Options.StaticParallelism,
-			last(h.Data.Accuracy), last(h.Data.ValidationLoss), calculateTotalTime(h.Data.EpochDuration...))
+			last(h.Data.Accuracy), last(h.Data.ValidationLoss), last(h.Data.EpochDuration))
 	}
 
 	w.Flush()
@@ -120,20 +157,12 @@ func getMeanParallelism(parallelisms []float64) float64 {
 
 }
 
-func calculateTotalTime(epochs ...float64) float64 {
-	var total float64
-	for _, t := range epochs {
-		total += t
-	}
-	return total
-
-}
-
 func init() {
 	rootCmd.AddCommand(historyCmd)
 	historyCmd.AddCommand(historyGetCmd)
 	historyCmd.AddCommand(historyDeleteCmd)
 	historyCmd.AddCommand(historyListCmd)
+	historyCmd.AddCommand(historyPruneCmd)
 
 	// Get command
 	historyGetCmd.Flags().StringVar(&taskId, "network", "", "Id of the train task (required)")
