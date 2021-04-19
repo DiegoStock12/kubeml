@@ -142,7 +142,7 @@ class KubeModel(ABC):
         :return: the names of the optimizable layers of the network, which will be saved in the reference model
         """
         try:
-            self.init(self._network)
+            self.init()
             self.__save_model()
 
         except RedisError as re:
@@ -361,7 +361,7 @@ class KubeModel(ABC):
         pass
 
     @abstractmethod
-    def init(self, model: nn.Module):
+    def init(self):
         pass
 
     @abstractmethod

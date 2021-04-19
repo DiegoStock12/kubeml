@@ -106,6 +106,8 @@ if __name__ == '__main__':
     parser.add_argument('--dry', dest='dry', action='store_true', help='If true, just print the experiments')
     parser.add_argument('-o', help='Folder to save the experiment results to')
     parser.add_argument('-m', help='folder to save the metrics to')
+    parser.add_argument('-r', help='Number of replications to run')
+
     parser.set_defaults(resume=False, dry=False)
     args = parser.parse_args()
 

@@ -136,14 +136,18 @@ class FuncApp(Flask):
             response.status_code = error.status_code
             return response
 
-        @self.errorhandler(RuntimeError)
-        def handle_runtime_error(error: RuntimeError):
-            return jsonify(f'Runtime Error while executing function: {repr(error)}', 500)
-
-        # add a generic error handler to also know why jobs fail
         @self.errorhandler(Exception)
-        def handle_generic_exception(error: Exception):
-            return jsonify(repr(error), 500)
+        def handle_runtime_error(error: Exception):
+            # return an error just like we do
+            # with kubeml exceptions so it can be read in
+            # the train job
+            d = {
+                'error': repr(error),
+                'code': 500
+            }
+            response = jsonify(d)
+            response.status_code = 500
+            return response
 
 
 app = FuncApp(__name__, logging.DEBUG)
