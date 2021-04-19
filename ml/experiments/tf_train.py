@@ -59,6 +59,7 @@ if __name__ == '__main__':
     parser.add_argument('--network', help='Network type for the experiments from [lenet, resnet]')
     parser.add_argument('-o', help='Folder to save the experiment results to')
     parser.add_argument('-m', help='folder to save the metrics to')
+    parser.add_argument('-r', help='Number of replications to run', default=1, type=int)
     args = parser.parse_args()
 
     net = args.network
@@ -92,11 +93,12 @@ if __name__ == '__main__':
 
         # based on the arg determine the function
         func = resnet if net == 'resnet' else lenet
-        print('Using func', func)
+        batches = [128, 64, 32, 16] if net == 'lenet' else [256, 128, 64, 32]
 
-        batches = [128, 64, 32, 16]
+        print('Using func', func, 'and batches', batches)
 
         for b in batches:
+            print('Using batch', b)
             func(b)
             time.sleep(10)
     finally:

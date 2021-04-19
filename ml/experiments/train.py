@@ -3,6 +3,7 @@
 import argparse
 import time
 from multiprocessing import Process
+from typing import Tuple
 
 from common.experiment import *
 from common.metrics import start_api
@@ -72,17 +73,21 @@ def run_api(path=None) -> Process:
     return p
 
 
-def full_parameter_grid(network: str):
+def full_parameter_grid(network: str) -> List[Tuple[int, int, int]]:
     """Generator for the full experiments"""
     if network == 'lenet':
         grid = lenet_grid
     else:
         grid = resnet_grid
 
+    exps = []
+
     for b in grid['batch']:
         for k in grid['k']:
             for p in grid['parallelism']:
-                yield b, k, p
+                exps.append((b, k, p))
+
+    return exps
 
 
 def resume_parameter_grid(network: str, folder: str):
@@ -106,8 +111,7 @@ if __name__ == '__main__':
     parser.add_argument('--dry', dest='dry', action='store_true', help='If true, just print the experiments')
     parser.add_argument('-o', help='Folder to save the experiment results to')
     parser.add_argument('-m', help='folder to save the metrics to')
-    parser.add_argument('-r', help='Number of replications to run')
-
+    parser.add_argument('-r', help='Number of replications to run', default=1, type=int)
     parser.set_defaults(resume=False, dry=False)
     args = parser.parse_args()
 
@@ -162,10 +166,15 @@ if __name__ == '__main__':
         func = run_resnet if net == 'resnet' else run_lenet
         print('Using func', func)
 
-        for batch, k, parallelism in exps:
-            print(batch, k, parallelism)
-            func(k, batch, parallelism)
-            time.sleep(25)
+        replications = args.r
+
+        for i in range(1, replications+1):
+            print('Starting with replication', i)
+            for batch, k, parallelism in exps:
+                print(batch, k, parallelism)
+                func(k, batch, parallelism)
+                time.sleep(25)
+            print('Replication', i, 'finished')
 
     finally:
         print("all experiments finished")

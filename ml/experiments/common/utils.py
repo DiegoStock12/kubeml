@@ -44,7 +44,7 @@ def save_merged_experiments(path: str, name: str):
     d.to_pickle(name)
 
 
-def check_missing_experiments(network: str, path: str):
+def check_missing_experiments(network: str, path: str, replications: int = 1):
     isdir = os.path.isdir(path)
     df: pd.DataFrame = None
 
@@ -61,10 +61,14 @@ def check_missing_experiments(network: str, path: str):
     for b in grid['batch']:
         for p in grid['parallelism']:
             for k in grid['k']:
-                if len(df.loc[
-                           (df.batch_size == b) & (df.k == k) & (df.default_parallelism == p)
-                       ]) == 0:
-                    missing.append((b, k, p))
+                num = len(df.loc[
+                              (df.batch_size == b) & (df.k == k) & (df.default_parallelism == p)
+                              ])
+
+                # if there are fewer than the num of replications, add them to the list
+                if num < replications:
+                    extra = replications - num
+                    missing.extend([(b, k, p)] * extra)
 
     return missing
 
