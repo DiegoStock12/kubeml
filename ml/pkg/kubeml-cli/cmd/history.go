@@ -93,7 +93,7 @@ func pruneHistories(_ *cobra.Command, _ []string) error {
 
 	switch strings.ToLower(response) {
 	case "y":
-		fmt.Println("Deleting finished tasks...")
+		fmt.Println("Deleting histories...")
 	default:
 		fmt.Println("Cancelling...")
 		return nil
@@ -106,7 +106,7 @@ func pruneHistories(_ *cobra.Command, _ []string) error {
 
 	err = client.V1().Histories().Prune()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error clearing histories")
 	}
 
 	fmt.Println("Deleted all histories")

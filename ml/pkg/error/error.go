@@ -62,7 +62,7 @@ func CheckFunctionError(resp *http.Response) error {
 // via HTTP
 func CheckHttpResponse(resp *http.Response) error {
 
-	if resp.StatusCode == 200 {
+	if resp.StatusCode == http.StatusOK {
 		return nil
 	}
 

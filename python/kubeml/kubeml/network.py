@@ -1,7 +1,5 @@
-import logging
-import os
 from abc import ABC, abstractmethod
-from typing import Dict, Tuple, Any, Union
+from typing import Dict, Tuple, Any, Union, Callable
 
 import flask
 import numpy as np
@@ -9,8 +7,6 @@ import redisai as rai
 import requests
 from flask import request, jsonify, current_app
 from redis.exceptions import RedisError
-
-import torch
 from torch.utils.data import DataLoader
 
 from .dataset import _KubeArgs, KubeDataset
@@ -52,10 +48,6 @@ class KubeModel(ABC):
         # initialize redis connection
         self._redis_client = rai.Client(host=REDIS_URL, port=REDIS_PORT)
 
-    # allow to call the network from the kubemodel
-    def __call__(self, *args, **kwargs):
-        return self._network(*args, **kwargs)
-
     def _read_args(self):
         """Parse the args and update the parameters"""
         self.args = _KubeArgs.parse()
@@ -64,14 +56,55 @@ class KubeModel(ABC):
         self.task = self.args._task
 
     def _config_optimizer(self):
+        """
+        Configures the optimizer specified by the user to be used in training
+        :return:
+        """
         optimizer = self.configure_optimizers()
         self.optimizer = optimizer
 
     def _get_logger(self):
+        """
+        Sets the current logger within the network according to the flask context
+        """
         self.logger = current_app.logger
 
+    # Functions that act like a proxy to the same
+    # methods of the underlying pytorch module for convenience
     def parameters(self):
+        """
+        Parameters returns the parameter generator of the underlying network
+
+        :return: The parameter generator of the torch module
+        """
         return self._network.parameters()
+
+    # allow to call the network from the kubemodel
+    def __call__(self, *args, **kwargs):
+        """
+        Call allows users to invoke the underlying torch module by using the
+        KubeModel. An example of this is when perrforming the forward pass:
+
+        output = self(x)
+
+        That the users can call in the train method
+
+        :param args:
+        :param kwargs:
+        :return: the output of the network
+        """
+        return self._network(*args, **kwargs)
+
+    def apply(self, fn: Callable[[nn.Module], None]):
+        """
+        apply acts as a proxy to the underlying pytorch modules'
+        apply method. It is mainly used to initialize weights of the network
+
+        :param fn: function that initializes the layer weights
+        :return: self
+        """
+        self._network.apply(fn)
+        return self
 
     def start(self) -> Tuple[flask.Response, int]:
         """
@@ -141,7 +174,7 @@ class KubeModel(ABC):
         # per epoch given the K parameter: the number of forward
         # passes before synchronization
         subsets_per_iter = get_subset_period(self.args._K, self.args.batch_size, assigned_subsets)
-        logging.debug(f"Subsets per iteration: {subsets_per_iter}")
+        self.logger.debug(f"Subsets per iteration: {subsets_per_iter}")
         intervals = range(assigned_subsets.start, assigned_subsets.stop, subsets_per_iter)
 
         # the loss will be added cross intervals, each interval will have one loader, whose length
@@ -156,7 +189,7 @@ class KubeModel(ABC):
             # of the ones assigned to us, if not just add the period
             # i.e) I get batches (27 --> 53) and K = 5 --> 10 subsets per iteration before sync
             # First interval (27 -> 37), second (37 -> 47), third (47 -> 53) that's why the min()
-            logging.debug(f"Starting iteration {i}")
+            self.logger.debug(f"Starting iteration {i}")
             self._dataset._load_train_data(start=i, end=min(assigned_subsets.stop, i + subsets_per_iter))
 
             # create the loader that will be used
@@ -170,7 +203,7 @@ class KubeModel(ABC):
                     loss += self.train(x.to(self.device),
                                        y.to(self.device),
                                        idx)
-                    logging.debug(f'loss is {loss}, iterations are {num_iterations}')
+                    self.logger.debug(f'loss is {loss}, iterations are {num_iterations}')
                 self.__save_model()
             except RedisError as re:
                 raise StorageError(re)
@@ -185,6 +218,15 @@ class KubeModel(ABC):
         return loss / num_iterations
 
     def __validate(self):
+        """
+        Validate sets the device to be used and sets the network in eval mode.
+        Then it:
+        - Loads the validation data
+        - Creates a data loader
+        - Feeds the validate function defined by the user with datapoints already sent to the correct device
+
+        :return: A tuple containing the mean accuracy and loss on the val dataset
+        """
 
         # set the device and set the netwrok in eval mode
         self._set_device()
@@ -216,7 +258,7 @@ class KubeModel(ABC):
     def __infer(self) -> Union[torch.Tensor, np.ndarray, List[float]]:
         data_json = request.json
         if not data_json:
-            logging.error("JSON not found in request")
+            self.logger.error("JSON not found in request")
             raise DataError
 
         preds = self.infer(self._network, data_json)
@@ -244,7 +286,7 @@ class KubeModel(ABC):
             gpu_id = get_gpu(self.args._func_id)
             self.device = torch.device(f'cuda:{gpu_id}')
             self._network = self._network.to(self.device)
-            logging.debug(f'Set device to {self.device}')
+            self.logger.debug(f'Set device to {self.device}')
 
     def __send_finish_signal(self):
         """Sends a request to the train job communicating that the iteration is over
@@ -257,14 +299,14 @@ class KubeModel(ABC):
         url = f"http://job-{self.args._job_id}.kubeml/next/{self.args._func_id}"
 
         try:
-            logging.debug(f"Sending request to {url}")
+            self.logger.debug(f"Sending request to {url}")
             resp = requests.post(url)
         except requests.ConnectionError as e:
-            logging.error("error connecting to the train job")
+            self.logger.error("error connecting to the train job")
             raise MergeError(e)
 
         if not resp.ok:
-            logging.error(f"Received non OK message. Code:{resp.status_code}. Msg: {resp.content.decode()}")
+            self.logger.error(f"Received non OK message. Code:{resp.status_code}. Msg: {resp.content.decode()}")
             raise MergeError()
 
     def __load_model(self):
@@ -273,7 +315,7 @@ class KubeModel(ABC):
         """
         state_dict = self.__get_model_dict()
         self._network.load_state_dict(state_dict)
-        logging.debug("Loaded state dict from redis")
+        self.logger.debug("Loaded state dict from redis")
 
     def __get_model_dict(self) -> Dict[str, torch.Tensor]:
         """
@@ -286,13 +328,12 @@ class KubeModel(ABC):
         state = dict()
         for name in self._network.state_dict():
             # load each of the layers in the statedict
-            # logging.debug(f"Loading weights for layer {name}")
             weight_key = f'{job_id}:{name}'
             w = self._redis_client.tensorget(weight_key)
             # set the weight
             state[weight_key[len(job_id) + 1:]] = torch.from_numpy(w)
 
-        logging.debug(f'Layers are {state.keys()}')
+        self.logger.debug(f'Layers are {state.keys()}')
 
         return state
 
@@ -304,17 +345,16 @@ class KubeModel(ABC):
         task = self.args._task
         func_id = self.args._func_id
 
-        logging.debug("Saving model to the database")
+        self.logger.debug("Saving model to the database")
         with torch.no_grad():
             for name, layer in self._network.state_dict().items():
                 # Save the weights
-                # logging.debug(f'Setting layer {name}')
                 weight_key = f'{job_id}:{name}' \
                     if task == 'init' \
                     else f'{job_id}:{name}/{func_id}'
                 self._redis_client.tensorset(weight_key, layer.cpu().detach().numpy(), dtype='float32')
 
-        logging.debug('Saved model to the database')
+        self.logger.debug('Saved model to the database')
 
     @abstractmethod
     def configure_optimizers(self) -> torch.optim.Optimizer:

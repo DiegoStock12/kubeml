@@ -4,14 +4,12 @@ import logging
 import os
 import sys
 
-from flask import Flask, request, abort, g, jsonify
-from gevent.pywsgi import WSGIServer
 import bjoern
 import sentry_sdk
-from sentry_sdk.integrations.flask import FlaskIntegration
-
+from flask import Flask, request, abort, jsonify
+from gevent.pywsgi import WSGIServer
 from kubeml.exceptions import KubeMLException
-
+from sentry_sdk.integrations.flask import FlaskIntegration
 
 IS_PY2 = (sys.version_info.major == 2)
 SENTRY_DSN = os.environ.get('SENTRY_DSN', None)
@@ -138,9 +136,17 @@ class FuncApp(Flask):
             response.status_code = error.status_code
             return response
 
+        @self.errorhandler(RuntimeError)
+        def handle_runtime_error(error: RuntimeError):
+            return jsonify(f'Runtime Error while executing function: {repr(error)}', 500)
+
+        # add a generic error handler to also know why jobs fail
+        @self.errorhandler(Exception)
+        def handle_generic_exception(error: Exception):
+            return jsonify(repr(error), 500)
+
 
 app = FuncApp(__name__, logging.DEBUG)
-
 
 if __name__ == '__main__':
     #

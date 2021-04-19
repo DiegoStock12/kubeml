@@ -1,9 +1,10 @@
-import math
-from typing import List
-import torch
-import os
-import torch.nn as nn
 import logging
+import math
+import os
+from typing import List
+
+import torch
+import torch.nn as nn
 
 # Number of datapoints in storage on average
 STORAGE_SUBSET_SIZE = 64
