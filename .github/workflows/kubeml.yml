@@ -5,7 +5,7 @@ on:
     branches:
       - master
 #      - refactor-network
-#      - experiments
+      - experiments
 
 
 jobs:

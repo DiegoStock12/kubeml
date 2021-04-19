@@ -90,9 +90,9 @@ def full_parameter_grid(network: str) -> List[Tuple[int, int, int]]:
     return exps
 
 
-def resume_parameter_grid(network: str, folder: str):
+def resume_parameter_grid(network: str, folder: str, replications: int = 1):
     # find the missing experiments from the folder
-    missing = check_missing_experiments(network, folder)
+    missing = check_missing_experiments(network, folder, replications)
     return missing
 
 
@@ -135,7 +135,7 @@ if __name__ == '__main__':
             print("Error: Folder not specified with resume")
             exit(-1)
 
-        exps = resume_parameter_grid(net, args.folder)
+        exps = resume_parameter_grid(net, args.folder, args.r)
         output_folder = args.folder
         print("Using", args.folder, 'as output folder')
 
@@ -168,13 +168,21 @@ if __name__ == '__main__':
 
         replications = args.r
 
-        for i in range(1, replications+1):
-            print('Starting with replication', i)
+        # if resume the experiments already come with the
+        # replications implicit
+        if args.resume:
             for batch, k, parallelism in exps:
                 print(batch, k, parallelism)
                 func(k, batch, parallelism)
                 time.sleep(25)
-            print('Replication', i, 'finished')
+        else:
+            for i in range(1, replications + 1):
+                print('Starting with replication', i)
+                for batch, k, parallelism in exps:
+                    print(batch, k, parallelism)
+                    func(k, batch, parallelism)
+                    time.sleep(25)
+                print('Replication', i, 'finished')
 
     finally:
         print("all experiments finished")

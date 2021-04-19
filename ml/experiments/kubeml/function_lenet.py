@@ -78,7 +78,7 @@ class KubeLeNet(KubeModel):
         sgd = SGD(self.parameters(), lr=self.lr, momentum=0.9, weight_decay=1e-4)
         return sgd
 
-    def init(self, model: nn.Module):
+    def init(self):
         pass
 
     def train(self, x, y, batch_index) -> float:

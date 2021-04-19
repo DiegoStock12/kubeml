@@ -21,6 +21,13 @@ resnet_grid = {
     'parallelism': [2, 4]
 }
 
+resnet_grid = {
+    'batch': [256, 128, 64, 32],
+    'k': [-1],
+    'parallelism': [8]
+}
+
+
 
 def join_df(*args, **kwargs) -> pd.DataFrame:
     files = []
