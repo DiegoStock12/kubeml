@@ -2,10 +2,10 @@ package train
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	kerror "github.com/diegostock12/kubeml/ml/pkg/error"
 	"github.com/diegostock12/kubeml/ml/pkg/util"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
@@ -128,8 +128,8 @@ func (job *TrainJob) invokeTrainFunctions() (float64, []int, error) {
 	}
 	wg.Wait()
 
-	n := len(respChan)
-	if n == 0 {
+	num := len(respChan)
+	if num == 0 {
 		select {
 		case funcError := <-errChan:
 			job.logger.Error("All the functions failed with no response",
@@ -141,10 +141,10 @@ func (job *TrainJob) invokeTrainFunctions() (float64, []int, error) {
 
 		}
 
-	} else if n != job.parallelism {
+	} else if num != job.parallelism {
 		job.logger.Warn("Some of the functions returned without a result",
 			zap.Int("parallelism", job.parallelism),
-			zap.Int("responses", n))
+			zap.Int("responses", num))
 	}
 
 	// get the average loss
@@ -153,53 +153,67 @@ func (job *TrainJob) invokeTrainFunctions() (float64, []int, error) {
 	return loss, funcs, nil
 }
 
-// invokeValFunction After getting all the gradients and publishing the new model invoke
-// the validation function to get the performance of the system, these are returned as a dict
-func (job *TrainJob) invokeValFunction(wg *sync.WaitGroup) {
+// invokeValFunctions After getting all the gradients and publishing the new model invoke
+// the validations functions to get the performance of the system, these are returned as a dict
+// containing the accuracy, loss and number of datapoints processed by each of the functions.
+//
+// Returns the accuracy and loss of the functions
+func (job *TrainJob) invokeValFunctions() error {
 
-	defer wg.Done()
-	job.logger.Info("Invoking validation function")
+	wg := &sync.WaitGroup{}
+	respChan := make(chan *FunctionResults, job.parallelism)
+	errChan := make(chan error, job.parallelism)
 
-	funcUrl := job.buildFunctionURL(FunctionArgs{}, Validation)
-	resp, err := http.Get(funcUrl)
-	if err != nil {
-		job.logger.Error("Could not call the validation function",
-			zap.String("funcName", job.task.Parameters.FunctionName),
-			zap.Any("request", job.task.Parameters),
-			zap.Error(err))
-		return
+	for i := 0; i < job.parallelism; i++ {
+		wg.Add(1)
+		job.logger.Debug("Invoking validation function", zap.Int("id", i))
+		args := FunctionArgs{Id: i, Num: job.parallelism}
+		funcUrl := job.buildFunctionURL(args, Validation)
+		go job.launchFunction(i, funcUrl, wg, respChan, errChan)
+	}
+	wg.Wait()
+
+	num := len(respChan)
+	switch {
+	case num == 0:
+		select {
+		case funcError := <-errChan:
+			return errors.Wrap(funcError, "all functions finished with an error")
+		default:
+			return errors.New("all functions returned an unknown error")
+		}
+
+	case num < job.parallelism:
+		job.logger.Warn("Some of the functions returned without a result",
+			zap.Int("parallelism", job.parallelism),
+			zap.Int("responses", num))
+
 	}
 
-	if err = kerror.CheckFunctionError(resp); err != nil {
-		job.logger.Error("validation function returned an error",
-			zap.Error(err))
-		return
-	}
-
-	res, err := parseFunctionResults(resp)
-	if err != nil {
-		job.logger.Error("could not parse validation results",
-			zap.Error(err))
-		return
-	}
+	accuracy, loss, total := getValidationMetrics(respChan)
 
 	// Update the history with the new results
-	job.logger.Debug("Got validation results", zap.Any("results", res))
-	err = job.updateValidationMetrics(res["loss"], res["accuracy"])
+	job.logger.Debug("Got validation results",
+		zap.Float64("accuracy", accuracy),
+		zap.Float64("loss", loss),
+		zap.Float64("total points", total))
+
+	err := job.updateValidationMetrics(loss, accuracy)
 	if err != nil {
-		job.logger.Error("error sending val results", zap.Error(err))
-		return
+		return errors.Wrap(err, "error sending val results")
 	}
 
 	job.logger.Debug("History updated", zap.Any("history", job.history))
 
 	// if the accuracy reached the goal, send the notification
-	if res["accuracy"] >= job.goalAccuracy {
+	if accuracy >= job.goalAccuracy {
 		job.logger.Debug("goal accuracy reached, sending message",
 			zap.Float64("goal", job.goalAccuracy),
-			zap.Float64("acc", res["accuracy"]))
+			zap.Float64("acc", accuracy))
 		job.accuracyCh <- struct{}{}
 	}
+
+	return nil
 }
 
 // launchFunction launches a training function and sends the results to the

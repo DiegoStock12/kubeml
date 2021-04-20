@@ -46,9 +46,6 @@ type TrainJob struct {
 	// through the api
 	schedulerCh chan *api.JobState
 
-	// wait group used when launching a validation
-	// function so we do not accidentally exit the job without saving validation results
-	wgVal *sync.WaitGroup
 	// this channel needs to be buffered to prevent deadlock, if the validation
 	// reaches the accuracy in the final validation outside of the loop,
 	// it will try to reach the loop by sending to the channel, but the main
@@ -100,7 +97,6 @@ func NewTrainJob(
 		redisClient: redisClient,
 		history:     api.JobHistory{},
 		startMerger: make(chan chan error),
-		wgVal:       &sync.WaitGroup{},
 		accuracyCh:  make(chan struct{}, 1),
 		wgIteration: &sync.WaitGroup{},
 		merged:      make(chan struct{}),
@@ -145,7 +141,6 @@ func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 		redisClient: redisClient,
 		history:     api.JobHistory{},
 		startMerger: make(chan chan error),
-		wgVal:       &sync.WaitGroup{},
 		accuracyCh:  make(chan struct{}, 1),
 		wgIteration: &sync.WaitGroup{},
 		merged:      make(chan struct{}),
@@ -243,9 +238,13 @@ main:
 		if job.validateEvery != 0 &&
 			job.epoch%job.validateEvery == 0 &&
 			job.epoch != job.task.Parameters.Epochs {
-			job.validate()
+
+			err = job.validate()
+			if err != nil {
+				job.logger.Error("error performing validation",
+					zap.Error(err))
+			}
 		}
-		job.wgVal.Wait()
 
 		// check if the validation returned and we reached the goal average
 		select {
@@ -265,12 +264,15 @@ main:
 	// if the accuracy is already reached, no need to
 	// validate again
 	if !job.accuracyReached {
-		job.validate()
+		err = job.validate()
+		if err != nil {
+			job.logger.Error("error performing validation",
+				zap.Error(err))
+		}
 	}
 
 	// Wait for the val functions to finish if there
 	// are still some running
-	job.wgVal.Wait()
 	job.saveTrainingHistory()
 
 	job.logger.Info("Exiting...", zap.Any("history", job.history))
@@ -347,11 +349,16 @@ func (job *TrainJob) train() error {
 	return nil
 }
 
-// validate invokes the validation function
-func (job *TrainJob) validate() {
+// validate invokes the validation functions
+// it uses the same degree of parallelism as the train functions and
+// averages the results from the functions later
+func (job *TrainJob) validate() error {
 	// invoke the validation function concurrently
-	job.wgVal.Add(1)
-	go job.invokeValFunction(job.wgVal)
+	err := job.invokeValFunctions()
+	if err != nil {
+		return errors.Wrap(err, "error during validation")
+	}
+	return nil
 }
 
 // mergeModel waits for a signal to start listening to functions requests

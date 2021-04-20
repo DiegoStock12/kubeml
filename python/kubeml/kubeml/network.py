@@ -124,8 +124,8 @@ class KubeModel(ABC):
             return jsonify(loss=loss), 200
 
         elif self.task == "val":
-            acc, loss = self.__validate()
-            return jsonify(loss=loss, accuracy=acc), 200
+            acc, loss, length = self.__validate()
+            return jsonify(loss=loss, accuracy=acc, length=length), 200
 
         elif self.task == "infer":
             preds = self.__infer()
@@ -225,15 +225,20 @@ class KubeModel(ABC):
         - Creates a data loader
         - Feeds the validate function defined by the user with datapoints already sent to the correct device
 
-        :return: A tuple containing the mean accuracy and loss on the val dataset
+        :return: A tuple containing the mean accuracy and loss on the val dataset and the number or datapoints
         """
 
         # set the device and set the netwrok in eval mode
         self._set_device()
         self._network.eval()
 
+        # Determine the batches that we need to validate on and the first
+        # subset id that we need to get each iteration
+        assigned_subsets = split_minibatches(range(self._dataset.num_docs), self.args._N)[self.args._func_id]
+
         # load the validation data
-        self._dataset._load_validation_data()
+        self._dataset._load_validation_data(start=assigned_subsets.start,
+                                            end=assigned_subsets.stop)
 
         # create the loader that will be used
         loader = DataLoader(self._dataset, batch_size=self.batch_size)
@@ -253,7 +258,7 @@ class KubeModel(ABC):
         finally:
             self._redis_client.close()
 
-        return acc / len(loader), loss / len(loader)
+        return acc / len(loader), loss / len(loader), len(self._dataset)
 
     def __infer(self) -> Union[torch.Tensor, np.ndarray, List[float]]:
         data_json = request.json

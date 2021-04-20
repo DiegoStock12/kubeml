@@ -103,7 +103,8 @@ class KubeDataset(data.Dataset, ABC):
         try:
             dbs = set(self._client.list_database_names())
             if self.dataset not in dbs:
-                logging.error(f"Dataset not in the storage service. Dataset = {dataset},"
+                logging.error(f"Dataset not in the storage service. "
+                              f"Dataset = {dataset},"
                               f"Available = {dbs}")
                 self._client.close()
                 raise DatasetNotFoundError
@@ -112,8 +113,11 @@ class KubeDataset(data.Dataset, ABC):
             self._client.close()
             raise StorageError(e)
 
-        # Set the range of minibatches that this function will train on
+        # Set the range of minibatches that this function will train on and the ones
+        # that will be used for validation
         self.num_docs = self._database["train"].count_documents({})
+        self.num_val_docs = self._database["test"].count_documents({})
+        logging.debug(f"Num docs: {self.num_docs}, Num val docs: {self.num_val_docs}")
 
     def _load_train_data(self, start: int, end: int):
         """
@@ -129,28 +133,40 @@ class KubeDataset(data.Dataset, ABC):
         logging.debug(f"Loading minibatches {minibatches}")
         self.data, self.labels = self.__load_data(minibatches)
 
-    def _load_validation_data(self):
-        self.data, self.labels = self.__load_data()
+    def _load_validation_data(self, start: int, end: int):
+        """
+        Loads the validation data given the subsets assigned to this functions
+
+        :param start: first subset to be loaded
+        :param end: last subset to be loaded
+        """
+        minibatches = range(start, end)
+        logging.debug(f"Loading minibatches {minibatches}")
+        self.data, self.labels = self.__load_data(minibatches, validation=True)
 
     def _close(self):
         self._client.close()
 
-    def __load_data(self, minibatches: range = None):
+    def __load_data(self, minibatches: range, validation=False):
+        """
+        Load the data needed to perform the train or validation tasks.
 
-        # If the minibatches are None that means we have
-        # to perform the validation so we load all documents in the
-        # test collection
-        #
-        # If not, load the minibatches that belong to the function
-        # given the number of functions N and the function id
+        Based on the minibatches, load the validation or train subsets that are
+        within the limits of the given range
+
+        :param minibatches: start and stop ids of the subsets that we must load
+        :param validation: whether to load the validation data instead of the train data
+        :return: the numpy arrays holding the features and labels of the data
+        """
 
         try:
-            if minibatches is None:
-                batches = self._database["test"].find({})
-            else:
-                batches = self._database["train"].find({
-                    '_id': {'$gte': minibatches.start, '$lte': minibatches.stop - 1}
-                })
+            # based on the validation flag load the data from a different collection
+            collection = 'test' if validation else 'train'
+            batches = self._database[collection].find({
+                '_id': {
+                    '$gte': minibatches.start,
+                    '$lte': minibatches.stop - 1}
+            })
         except PyMongoError as e:
             self._client.close()
             raise StorageError(e)

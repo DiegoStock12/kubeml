@@ -74,6 +74,33 @@ func getAverageLoss(respChan chan *FunctionResults) (float64, []int) {
 	return avgLoss, funcs
 }
 
+// getValidationMetrics analyzes the results of validation functions containing
+// the accuracy, the loss and the number of datapoints used in each, and performs
+// the weighted averaging of both according to the number of points
+func getValidationMetrics(respChan chan *FunctionResults) (float64, float64, float64) {
+	var accuracy float64
+	var loss float64
+	var total float64
+
+	// close the channel
+	close(respChan)
+
+	// the json has atributes loss, accuracy and length
+	for response := range respChan {
+		length := response.results["length"]
+		loss += response.results["loss"] * length
+		accuracy += response.results["accuracy"] * length
+		total += length
+	}
+
+	// divide by the total number of points to get the accuracy
+	accuracy /= total
+	loss /= total
+
+	return accuracy, loss, total
+
+}
+
 // parseFunctionResults takes care of extracting the results from the response body
 func parseFunctionResults(resp *http.Response) (map[string]float64, error) {
 
