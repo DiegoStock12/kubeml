@@ -217,6 +217,10 @@ func (job *TrainJob) launchFunction(
 	// if we are validating we skip this
 	if task == Train {
 		defer func() {
+			// Send the finish notification and update the model
+			job.finishCh <- &finishNotification{funcId: funcId}
+			job.model.Update(funcId)
+
 			job.logger.Debug("adding 1 to the finished functions")
 			atomic.AddInt64(&job.finishedFuncs, 1)
 			job.wgIteration.Done()
@@ -252,9 +256,6 @@ func (job *TrainJob) launchFunction(
 	job.logger.Info("Sending result to channel and exiting",
 		zap.Int("funcId", funcId),
 		zap.Any("results", res))
-
-	job.finishCh <- &finishNotification{funcId: funcId}
-	job.model.Update(funcId)
 
 	respChan <- &FunctionResults{
 		funcId:  funcId,
