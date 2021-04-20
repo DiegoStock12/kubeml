@@ -354,10 +354,26 @@ func (job *TrainJob) train() error {
 // averages the results from the functions later
 func (job *TrainJob) validate() error {
 	// invoke the validation function concurrently
-	err := job.invokeValFunctions()
+	accuracy, loss, err := job.invokeValFunctions()
 	if err != nil {
 		return errors.Wrap(err, "error during validation")
 	}
+
+	err = job.updateValidationMetrics(loss, accuracy)
+	if err != nil {
+		return errors.Wrap(err, "error sending val results")
+	}
+
+	job.logger.Debug("History updated", zap.Any("history", job.history))
+
+	// if the accuracy reached the goal, send the notification
+	if accuracy >= job.goalAccuracy {
+		job.logger.Debug("goal accuracy reached, sending message",
+			zap.Float64("goal", job.goalAccuracy),
+			zap.Float64("acc", accuracy))
+		job.accuracyCh <- struct{}{}
+	}
+
 	return nil
 }
 

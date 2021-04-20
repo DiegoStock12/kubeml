@@ -234,7 +234,7 @@ class KubeModel(ABC):
 
         # Determine the batches that we need to validate on and the first
         # subset id that we need to get each iteration
-        assigned_subsets = split_minibatches(range(self._dataset.num_docs), self.args._N)[self.args._func_id]
+        assigned_subsets = split_minibatches(range(self._dataset.num_val_docs), self.args._N)[self.args._func_id]
 
         # load the validation data
         self._dataset._load_validation_data(start=assigned_subsets.start,

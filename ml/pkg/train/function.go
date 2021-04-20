@@ -124,7 +124,7 @@ func (job *TrainJob) invokeTrainFunctions() (float64, []int, error) {
 		job.logger.Debug("Invoking function", zap.Int("id", i))
 		args := FunctionArgs{Id: i, Num: job.parallelism}
 		funcUrl := job.buildFunctionURL(args, Train)
-		go job.launchFunction(i, funcUrl, wg, respChan, errChan)
+		go job.launchFunction(i, funcUrl, Train, wg, respChan, errChan)
 	}
 	wg.Wait()
 
@@ -158,7 +158,7 @@ func (job *TrainJob) invokeTrainFunctions() (float64, []int, error) {
 // containing the accuracy, loss and number of datapoints processed by each of the functions.
 //
 // Returns the accuracy and loss of the functions
-func (job *TrainJob) invokeValFunctions() error {
+func (job *TrainJob) invokeValFunctions() (float64, float64, error) {
 
 	wg := &sync.WaitGroup{}
 	respChan := make(chan *FunctionResults, job.parallelism)
@@ -169,7 +169,7 @@ func (job *TrainJob) invokeValFunctions() error {
 		job.logger.Debug("Invoking validation function", zap.Int("id", i))
 		args := FunctionArgs{Id: i, Num: job.parallelism}
 		funcUrl := job.buildFunctionURL(args, Validation)
-		go job.launchFunction(i, funcUrl, wg, respChan, errChan)
+		go job.launchFunction(i, funcUrl, Validation, wg, respChan, errChan)
 	}
 	wg.Wait()
 
@@ -178,9 +178,9 @@ func (job *TrainJob) invokeValFunctions() error {
 	case num == 0:
 		select {
 		case funcError := <-errChan:
-			return errors.Wrap(funcError, "all functions finished with an error")
+			return 0, 0, errors.Wrap(funcError, "all functions finished with an error")
 		default:
-			return errors.New("all functions returned an unknown error")
+			return 0, 0, errors.New("all functions returned an unknown error")
 		}
 
 	case num < job.parallelism:
@@ -198,22 +198,8 @@ func (job *TrainJob) invokeValFunctions() error {
 		zap.Float64("loss", loss),
 		zap.Float64("total points", total))
 
-	err := job.updateValidationMetrics(loss, accuracy)
-	if err != nil {
-		return errors.Wrap(err, "error sending val results")
-	}
+	return accuracy, loss, nil
 
-	job.logger.Debug("History updated", zap.Any("history", job.history))
-
-	// if the accuracy reached the goal, send the notification
-	if accuracy >= job.goalAccuracy {
-		job.logger.Debug("goal accuracy reached, sending message",
-			zap.Float64("goal", job.goalAccuracy),
-			zap.Float64("acc", accuracy))
-		job.accuracyCh <- struct{}{}
-	}
-
-	return nil
 }
 
 // launchFunction launches a training function and sends the results to the
@@ -221,17 +207,23 @@ func (job *TrainJob) invokeValFunctions() error {
 func (job *TrainJob) launchFunction(
 	funcId int,
 	funcUrl string,
+	task FunctionTask,
 	wg *sync.WaitGroup,
 	respChan chan *FunctionResults,
 	errChan chan error) {
 
-	// after exiting clean the stuff
-	defer func() {
-		wg.Done()
-		job.logger.Debug("adding 1 to the finished functions")
-		atomic.AddInt64(&job.finishedFuncs, 1)
-		job.wgIteration.Done()
-	}()
+	// If the functions are Training, we need to perform
+	// extra actions for the k-avg algorithm to know when to sync,
+	// if we are validating we skip this
+	if task == Train {
+		defer func() {
+			job.logger.Debug("adding 1 to the finished functions")
+			atomic.AddInt64(&job.finishedFuncs, 1)
+			job.wgIteration.Done()
+		}()
+	}
+
+	defer wg.Done()
 
 	resp, err := http.Get(funcUrl)
 	if err != nil {
