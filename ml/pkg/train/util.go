@@ -57,6 +57,26 @@ func createMongoURI() string {
 	}
 }
 
+//parseLayerNames is used by the init function to parse the array of layer names
+// sent by the init function in the severless function. Theses names will allow the job to load the model layers
+func parseLayerNames(resp *http.Response) ([]string, error) {
+	var names []string
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read body")
+	}
+
+	err = json.Unmarshal(body, &names)
+	if err != nil {
+		return nil, errors.Wrap(err, "error unmarshaling json")
+	}
+
+	return names, nil
+
+}
+
 // getAverageLoss iterates through the function results gotten from several
 // training functions and returns the average loss and the ids of the functions that completed
 func getAverageLoss(respChan chan *FunctionResults) (float64, []int) {
@@ -117,6 +137,32 @@ func parseFunctionResults(resp *http.Response) (map[string]float64, error) {
 	}
 
 	return results, nil
+}
+
+// checkFunctionErrors checks that all of the functions or some of them returned without
+// errors
+func (job *TrainJob) checkFunctionErrors(respChan chan *FunctionResults, errChan chan error) error {
+
+	// based on the number of responses check for the error
+	num := len(respChan)
+	switch {
+	case num == 0:
+		select {
+		case funcError := <-errChan:
+			return errors.Wrap(funcError, "all functions finished with an error")
+		default:
+			return errors.New("all functions returned an unknown error")
+		}
+
+	case num < job.parallelism:
+		job.logger.Warn("Some of the functions returned without a result",
+			zap.Int("parallelism", job.parallelism),
+			zap.Int("responses", num))
+		return nil
+
+	}
+
+	return nil
 }
 
 // parseResponseError gets the error resulting from the function calls

@@ -6,7 +6,6 @@ on:
       - master
 #      - refactor-network
       - experiments
-      - distr-val
 
 
 jobs:

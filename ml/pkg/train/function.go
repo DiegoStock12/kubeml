@@ -1,13 +1,11 @@
 package train
 
 import (
-	"encoding/json"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	kerror "github.com/diegostock12/kubeml/ml/pkg/error"
 	"github.com/diegostock12/kubeml/ml/pkg/util"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -89,24 +87,13 @@ func (job *TrainJob) invokeInitFunction() ([]string, error) {
 		return nil, err
 	}
 
-	defer resp.Body.Close()
-	var names []string
-	body, err := ioutil.ReadAll(resp.Body)
+	// read the layer name array from the response
+	layers, err := parseLayerNames(resp)
 	if err != nil {
-		job.logger.Fatal("Could not read init function response",
-			zap.Error(err))
-		return nil, err
+		return nil, errors.Wrap(err, "could not read layer names")
 	}
 
-	err = json.Unmarshal(body, &names)
-	if err != nil {
-		job.logger.Error("Could not unmarshall json",
-			zap.String("body", string(body)),
-			zap.Error(err))
-		return names, err
-	}
-
-	return names, nil
+	return layers, nil
 
 }
 
@@ -128,23 +115,9 @@ func (job *TrainJob) invokeTrainFunctions() (float64, []int, error) {
 	}
 	wg.Wait()
 
-	num := len(respChan)
-	if num == 0 {
-		select {
-		case funcError := <-errChan:
-			job.logger.Error("All the functions failed with no response",
-				zap.Error(funcError))
-			return 0, nil, funcError
-
-		default:
-			return 0, nil, errors.New("all functions returned an unknown error")
-
-		}
-
-	} else if num != job.parallelism {
-		job.logger.Warn("Some of the functions returned without a result",
-			zap.Int("parallelism", job.parallelism),
-			zap.Int("responses", num))
+	// check that at least some functions returned without errors
+	if err := job.checkFunctionErrors(respChan, errChan); err != nil {
+		return 0, nil, err
 	}
 
 	// get the average loss
@@ -173,21 +146,9 @@ func (job *TrainJob) invokeValFunctions() (float64, float64, error) {
 	}
 	wg.Wait()
 
-	num := len(respChan)
-	switch {
-	case num == 0:
-		select {
-		case funcError := <-errChan:
-			return 0, 0, errors.Wrap(funcError, "all functions finished with an error")
-		default:
-			return 0, 0, errors.New("all functions returned an unknown error")
-		}
-
-	case num < job.parallelism:
-		job.logger.Warn("Some of the functions returned without a result",
-			zap.Int("parallelism", job.parallelism),
-			zap.Int("responses", num))
-
+	// check that at least some functions returned without errors
+	if err := job.checkFunctionErrors(respChan, errChan); err != nil {
+		return 0, 0, err
 	}
 
 	accuracy, loss, total := getValidationMetrics(respChan)
