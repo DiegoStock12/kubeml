@@ -3,6 +3,8 @@ from typing import Dict, Tuple, Any, Union, Callable
 
 import flask
 import numpy as np
+import os
+import pickle
 import redisai as rai
 import requests
 from flask import request, jsonify, current_app
@@ -57,11 +59,33 @@ class KubeModel(ABC):
 
     def _config_optimizer(self):
         """
-        Configures the optimizer specified by the user to be used in training
+        Configures the optimizer specified by the user to be used in training and loads the
+        saved state in the container of there is one
         :return:
         """
         optimizer = self.configure_optimizers()
         self.optimizer = optimizer
+        self._load_optimizer_state()
+
+    def _load_optimizer_state(self):
+        """
+        Checks for a previously saved state of the optimizer and loads it
+        """
+        if os.path.isfile('opt.pkl'):
+            self.logger.debug('Loading optimizer state')
+            with open('opt.pkl', 'rb') as f:
+                state = pickle.load(f)
+                self.optimizer.load_state_dict(state)
+
+    def _save_optimizer_state(self):
+        """
+        Saves the optimizer state to be loaded again in
+        the following epochs
+        """
+        self.logger.debug('saving optimizer state')
+        with open('opt.pkl', 'wb') as f:
+            pickle.dump(self.optimizer.state_dict(), f)
+        print('saved state')
 
     def _get_logger(self):
         """
@@ -112,8 +136,8 @@ class KubeModel(ABC):
         """
         # parse arguments and
         self._read_args()
-        self._config_optimizer()
         self._get_logger()
+        self._config_optimizer()
 
         if self.task == "init":
             layers = self.__initialize()
@@ -121,6 +145,7 @@ class KubeModel(ABC):
 
         elif self.task == "train":
             loss = self.__train()
+            self._save_optimizer_state()  # save the optimizer state for the following epochs
             return jsonify(loss=loss), 200
 
         elif self.task == "val":
