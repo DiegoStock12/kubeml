@@ -19,7 +19,7 @@ RUN pip3 install -r requirements.txt
 # Run the special pytorch download
 RUN pip3 install torch==1.7.1+cu101 torchvision==0.8.2+cu101 \
  -f https://download.pytorch.org/whl/torch_stable.html
-RUN pip3 install kubeml==0.1.5.4
+RUN pip3 install kubeml==0.1.5.5
 
 
 # Copy the server and start

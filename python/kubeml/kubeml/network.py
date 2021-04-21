@@ -137,7 +137,6 @@ class KubeModel(ABC):
         # parse arguments and
         self._read_args()
         self._get_logger()
-        self._config_optimizer()
 
         if self.task == "init":
             layers = self.__initialize()
@@ -145,7 +144,6 @@ class KubeModel(ABC):
 
         elif self.task == "train":
             loss = self.__train()
-            self._save_optimizer_state()  # save the optimizer state for the following epochs
             return jsonify(loss=loss), 200
 
         elif self.task == "val":
@@ -177,6 +175,22 @@ class KubeModel(ABC):
 
         return [name for name in self._network.state_dict()]
 
+    def _on_train_start(self):
+        """
+        Prepares the network for training
+        :return:
+        """
+        self._set_device()
+        self._config_optimizer()
+        self._network.train()
+
+    def _on_train_end(self):
+        """
+        Executed after the end of the training loop
+        :return:
+        """
+        self._save_optimizer_state()
+
     def __train(self) -> float:
         """
         Function called to train the network. Loads the reference model from the database,
@@ -185,11 +199,7 @@ class KubeModel(ABC):
         :return: The loss of the epoch, as returned by the user function
         """
 
-        # set the device (cpu or any gpu) for this container
-        self._set_device()
-
-        # set the network in train mode
-        self._network.train()
+        self._on_train_start()
 
         # Determine the batches that we need to train on and the first
         # subset id that we need to get each iteration
@@ -240,7 +250,17 @@ class KubeModel(ABC):
             if i != intervals[-1]:
                 self.__send_finish_signal()
 
+        self._on_train_end()
+
         return loss / num_iterations
+
+    def _on_validation_start(self):
+        """
+        Executed before the validation
+        :return:
+        """
+        self._set_device()
+        self._network.eval()
 
     def __validate(self):
         """
@@ -253,9 +273,7 @@ class KubeModel(ABC):
         :return: A tuple containing the mean accuracy and loss on the val dataset and the number or datapoints
         """
 
-        # set the device and set the netwrok in eval mode
-        self._set_device()
-        self._network.eval()
+        self._on_validation_start()
 
         # Determine the batches that we need to validate on and the first
         # subset id that we need to get each iteration

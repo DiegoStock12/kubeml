@@ -145,6 +145,7 @@ class FuncApp(Flask):
                 'error': repr(error),
                 'code': 500
             }
+            self.logger.error(f'Exception completing request: {error}')
             response = jsonify(d)
             response.status_code = 500
             return response
