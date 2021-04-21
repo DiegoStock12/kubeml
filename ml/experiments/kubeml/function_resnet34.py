@@ -14,16 +14,31 @@ from torchvision.models.resnet import resnet34
 class Cifar10Dataset(KubeDataset):
     def __init__(self):
         super(Cifar10Dataset, self).__init__("cifar10")
-        self.transf = transforms.Compose([
+
+        self.normalize = transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+        self.train_transf = transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(32, 4),
             transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            self.normalize
+        ])
+
+        self.val_transf = transforms.Compose([
+            transforms.ToTensor(),
+            self.normalize
         ])
 
     def __getitem__(self, index):
         x = self.data[index]
         y = self.labels[index]
 
-        return self.transf(x), y.astype('int64')
+        # depending on the mode of the dataset apply some or the other
+        # transformations
+        if self.is_training():
+            return self.train_transf(x), y.astype('int64')
+        else:
+            return self.val_transf(x), y.astype('int64')
 
     def __len__(self):
         return len(self.data)

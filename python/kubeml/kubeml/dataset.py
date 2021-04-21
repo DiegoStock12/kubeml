@@ -91,6 +91,7 @@ class KubeDataset(data.Dataset, ABC):
         """
 
         self.dataset = dataset
+        self._mode = None
         self._client = MongoClient(MONGO_URL, MONGO_PORT)
         self._database = self._client[dataset]
         self._args = None
@@ -119,6 +120,28 @@ class KubeDataset(data.Dataset, ABC):
         self.num_val_docs = self._database["test"].count_documents({})
         logging.debug(f"Num docs: {self.num_docs}, Num val docs: {self.num_val_docs}")
 
+    def _eval(self):
+        """
+        Sets the dataset in eval mode
+        """
+        self._mode = 'val'
+
+    def _train(self):
+        """
+        Sets the dataset in train mode
+        """
+        self._mode = 'train'
+
+    def is_training(self) -> bool:
+        """
+        Sees if the dataset is performing the training task. This is useful to
+        do when you want to use different transformations for train and validation tasks.
+        This way, you can call this function and depending of the result, use one or other transformation.
+
+        :return: True if dataset is training, false otherwise
+        """
+        return self._mode == 'train'
+
     def _load_train_data(self, start: int, end: int):
         """
         For K averaging the data needs to be refreshed with the next K batches
@@ -133,6 +156,9 @@ class KubeDataset(data.Dataset, ABC):
         logging.debug(f"Loading minibatches {minibatches}")
         self.data, self.labels = self.__load_data(minibatches)
 
+        # put the dataset in train mode
+        self._train()
+
     def _load_validation_data(self, start: int, end: int):
         """
         Loads the validation data given the subsets assigned to this functions
@@ -143,6 +169,9 @@ class KubeDataset(data.Dataset, ABC):
         minibatches = range(start, end)
         logging.debug(f"Loading minibatches {minibatches}")
         self.data, self.labels = self.__load_data(minibatches, validation=True)
+
+        # put the dataset in validation mode
+        self._eval()
 
     def _close(self):
         self._client.close()
