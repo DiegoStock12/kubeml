@@ -181,7 +181,6 @@ class KubeModel(ABC):
         :return:
         """
         self._set_device()
-        self._config_optimizer()
         self._network.train()
 
     def _on_train_end(self):
@@ -234,6 +233,7 @@ class KubeModel(ABC):
             # load the reference model, train and save
             try:
                 self.__load_model()
+                self._config_optimizer()
                 for idx, (x, y) in enumerate(loader):
                     loss += self.train(x.to(self.device),
                                        y.to(self.device),
