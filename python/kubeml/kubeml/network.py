@@ -123,7 +123,8 @@ class KubeModel(ABC):
         since the momentum or other factors of the optimizer can hinder progress if
         carried over from another model
         """
-        self.optimizer.state = defaultdict(dict)
+        if self.optimizer is not None:
+            self.optimizer.state = defaultdict(dict)
 
     def _save_optimizer_state(self):
         """

@@ -71,7 +71,7 @@ class KubeResnet34(KubeModel):
         return loss.item()
 
     def validate(self, batch, batch_index) -> Tuple[float, float]:
-        # get the inputs 
+        # get the inputs
         x, y = batch
 
         criterion = nn.CrossEntropyLoss()
