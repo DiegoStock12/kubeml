@@ -20,4 +20,4 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         workdir: ml/environment
-        tags: "0.1.14-cuda"
+        tags: "0.1.15-cuda"

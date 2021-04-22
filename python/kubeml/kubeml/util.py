@@ -30,6 +30,7 @@ def get_gpu(func_id: int) -> int:
     gpu_count = torch.cuda.device_count()
     gpu_id = func_id % gpu_count
     os.environ['GPU_ID'] = str(gpu_id)
+    logging.debug(f'Setting GPU_ID to {gpu_id} in function {func_id}')
     return gpu_id
 
 

@@ -1,5 +1,6 @@
-from abc import ABC, abstractmethod
-from typing import Dict, Tuple, Any, Union, Callable
+from abc import ABC
+from collections import defaultdict
+from typing import Dict, Tuple, Any, Union, Callable, Iterable, Sequence
 
 import flask
 import numpy as np
@@ -50,59 +51,6 @@ class KubeModel(ABC):
         # initialize redis connection
         self._redis_client = rai.Client(host=REDIS_URL, port=REDIS_PORT)
 
-    def _read_args(self):
-        """Parse the args and update the parameters"""
-        self.args = _KubeArgs.parse()
-        self.lr = self.args.lr
-        self.batch_size = self.args.batch_size
-        self.task = self.args._task
-
-    def _config_optimizer(self):
-        """
-        Configures the optimizer specified by the user to be used in training and loads the
-        saved state in the container of there is one
-        :return:
-        """
-        optimizer = self.configure_optimizers()
-        self.optimizer = optimizer
-        self._load_optimizer_state()
-
-    def _load_optimizer_state(self):
-        """
-        Checks for a previously saved state of the optimizer and loads it
-        """
-        if os.path.isfile('opt.pkl'):
-            self.logger.debug('Loading optimizer state')
-            with open('opt.pkl', 'rb') as f:
-                state = pickle.load(f)
-                self.optimizer.load_state_dict(state)
-
-    def _save_optimizer_state(self):
-        """
-        Saves the optimizer state to be loaded again in
-        the following epochs
-        """
-        self.logger.debug('saving optimizer state')
-        with open('opt.pkl', 'wb') as f:
-            pickle.dump(self.optimizer.state_dict(), f)
-        print('saved state')
-
-    def _get_logger(self):
-        """
-        Sets the current logger within the network according to the flask context
-        """
-        self.logger = current_app.logger
-
-    # Functions that act like a proxy to the same
-    # methods of the underlying pytorch module for convenience
-    def parameters(self):
-        """
-        Parameters returns the parameter generator of the underlying network
-
-        :return: The parameter generator of the torch module
-        """
-        return self._network.parameters()
-
     # allow to call the network from the kubemodel
     def __call__(self, *args, **kwargs):
         """
@@ -119,6 +67,16 @@ class KubeModel(ABC):
         """
         return self._network(*args, **kwargs)
 
+    # Functions that act like a proxy to the same
+    # methods of the underlying pytorch module for convenience
+    def parameters(self):
+        """
+        Parameters returns the parameter generator of the underlying network
+
+        :return: The parameter generator of the torch module
+        """
+        return self._network.parameters()
+
     def apply(self, fn: Callable[[nn.Module], None]):
         """
         apply acts as a proxy to the underlying pytorch modules'
@@ -129,6 +87,59 @@ class KubeModel(ABC):
         """
         self._network.apply(fn)
         return self
+
+    def _read_args(self):
+        """Parse the args and update the parameters"""
+        self.args = _KubeArgs.parse()
+        self.lr = self.args.lr
+        self.batch_size = self.args.batch_size
+        self.task = self.args._task
+
+    def _config_optimizer(self):
+        """
+        Configures the optimizer specified by the user to be used in training. By default
+        it resets the state of the optimizer like the momentum buffer in SGD with momentum
+        :return:
+        """
+        optimizer = self.configure_optimizers()
+        self.optimizer = optimizer
+        # TODO here the state loaded should be the averaged one not the saved from earlier
+
+        # self._load_optimizer_state()
+
+    def _load_optimizer_state(self):
+        """
+        Checks for a previously saved state of the optimizer and loads it
+        """
+        if os.path.isfile('opt.pkl'):
+            self.logger.debug('Loading optimizer state')
+            with open('opt.pkl', 'rb') as f:
+                state = pickle.load(f)
+                self.optimizer.load_state_dict(state)
+
+    def _reset_optimizer_state(self):
+        """
+        Resets the optimizer state. Called at the start of each iteration
+        since the momentum or other factors of the optimizer can hinder progress if
+        carried over from another model
+        """
+        self.optimizer.state = defaultdict(dict)
+
+    def _save_optimizer_state(self):
+        """
+        Saves the optimizer state to be loaded again in
+        the following epochs
+        """
+        self.logger.debug('saving optimizer state')
+        with open('opt.pkl', 'wb') as f:
+            pickle.dump(self.optimizer.state_dict(), f)
+        print('saved state')
+
+    def _get_logger(self):
+        """
+        Sets the current logger within the network according to the flask context
+        """
+        self.logger = current_app.logger
 
     def start(self) -> Tuple[flask.Response, int]:
         """
@@ -188,7 +199,52 @@ class KubeModel(ABC):
         Executed after the end of the training loop
         :return:
         """
-        self._save_optimizer_state()
+        pass
+        # self._save_optimizer_state()
+
+    def _on_iteration_start(self):
+        """
+        Called at the start of each iteration
+
+        Load the model from the averaged storage, and
+        reset optimizer state
+        :return:
+        """
+        self.__load_model()
+        self._reset_optimizer_state()
+
+    def _on_iteration_end(self):
+        """
+        Called at the end of each iteration
+        :return:
+        """
+        self.__save_model()
+
+    def _batch_to_device(self, batch: Union[torch.Tensor, Iterable[torch.Tensor]]):
+        """
+        Moves the batch fetched from the dataloader to the in use device. This allows to
+        return an unbounded number of tensors from the dataset and passing those in the train step
+
+        :return: The batch variables moved to the device
+        """
+
+        # this can be a list, tuple or tensor if it is just one
+        elem_type = type(batch)
+
+        # if it is a tensor, return to device directly
+        if isinstance(batch, torch.Tensor):
+            return batch.to(self.device)
+
+        # if it is a tuple, return a tuple
+        # with the elements to the device
+        elif isinstance(batch, tuple):
+            return elem_type((elem.to(self.device) for elem in batch))
+
+        elif isinstance(batch, Sequence):
+            return elem_type([elem.to(self.device) for elem in batch])
+
+        else:
+            return batch
 
     def __train(self) -> float:
         """
@@ -200,29 +256,24 @@ class KubeModel(ABC):
 
         self._on_train_start()
 
-        # Determine the batches that we need to train on and the first
-        # subset id that we need to get each iteration
-        assigned_subsets = split_minibatches(range(self._dataset.num_docs), self.args._N)[self.args._func_id]
+        # Determine the batches that we need to train on and the first subset id
+        assigned_subsets = split_minibatches(range(self._dataset.num_docs),
+                                             self.args._N)[self.args._func_id]
 
         # calculate the number of subsets that we need to train on
-        # per epoch given the K parameter: the number of forward
-        # passes before synchronization
-        subsets_per_iter = get_subset_period(self.args._K, self.args.batch_size, assigned_subsets)
+        # per epoch
+        subsets_per_iter = get_subset_period(self.args._K,
+                                             self.args.batch_size,
+                                             assigned_subsets)
         self.logger.debug(f"Subsets per iteration: {subsets_per_iter}")
         intervals = range(assigned_subsets.start, assigned_subsets.stop, subsets_per_iter)
 
         # the loss will be added cross intervals, each interval will have one loader, whose length
-        # will determine the number of losses added. To get the average loss, we need to divide by the
-        # sum of the length of the loaders (num_iterations)
+        # will determine the number of losses added.
         loss = 0
         num_iterations = 0
         for i in intervals:
 
-            # Tell the dataset to load the data from the start to the end of the
-            # interval. If it is the last interval, choose to stop in the last subset
-            # of the ones assigned to us, if not just add the period
-            # i.e) I get batches (27 --> 53) and K = 5 --> 10 subsets per iteration before sync
-            # First interval (27 -> 37), second (37 -> 47), third (47 -> 53) that's why the min()
             self.logger.debug(f"Starting iteration {i}")
             self._dataset._load_train_data(start=i, end=min(assigned_subsets.stop, i + subsets_per_iter))
 
@@ -232,14 +283,15 @@ class KubeModel(ABC):
 
             # load the reference model, train and save
             try:
-                self.__load_model()
-                self._config_optimizer()
-                for idx, (x, y) in enumerate(loader):
-                    loss += self.train(x.to(self.device),
-                                       y.to(self.device),
-                                       idx)
+                self._on_iteration_start()
+
+                for idx, batch in enumerate(loader):
+                    # send the batch to the appropriate device
+                    batch = self._batch_to_device(batch)
+                    loss += self.train(batch, idx)
                     self.logger.debug(f'loss is {loss}, iterations are {num_iterations}')
-                self.__save_model()
+
+                self._on_iteration_end()
             except RedisError as re:
                 raise StorageError(re)
             finally:
@@ -290,10 +342,11 @@ class KubeModel(ABC):
         try:
             self.__load_model()
             with torch.no_grad():
-                for idx, (x, y) in enumerate(loader):
-                    _acc, _loss = self.validate(x.to(self.device),
-                                                y.to(self.device),
-                                                idx)
+                for idx, batch in enumerate(loader):
+                    batch = self._batch_to_device(batch)
+                    _acc, _loss = self.validate(batch, idx)
+
+                    # accumulate statistics
                     acc += _acc
                     loss += _loss
         except RedisError as re:
@@ -404,22 +457,17 @@ class KubeModel(ABC):
 
         self.logger.debug('Saved model to the database')
 
-    @abstractmethod
     def configure_optimizers(self) -> torch.optim.Optimizer:
         pass
 
-    @abstractmethod
     def init(self):
         pass
 
-    @abstractmethod
-    def train(self, x: torch.Tensor, y: torch.Tensor, batch_index: int) -> float:
+    def train(self, batch, batch_index: int) -> float:
         pass
 
-    @abstractmethod
-    def validate(self, x: torch.Tensor, y: torch.Tensor, batch_index: int) -> Tuple[float, float]:
+    def validate(self, batch, batch_index: int) -> Tuple[float, float]:
         pass
 
-    @abstractmethod
     def infer(self, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
         pass

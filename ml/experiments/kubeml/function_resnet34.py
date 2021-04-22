@@ -52,12 +52,11 @@ class KubeResnet34(KubeModel):
         sgd = SGD(self.parameters(), lr=self.lr, momentum=0.9, weight_decay=1e-4)
         return sgd
 
-    def init(self):
-        pass
-
-    def train(self, x, y, batch_index) -> float:
+    def train(self, batch, batch_index) -> float:
         criterion = nn.CrossEntropyLoss()
-        total_loss = 0
+
+        # get the targets and labels from the batch
+        x, y = batch
 
         self.optimizer.zero_grad()
         output = self(x)
@@ -66,28 +65,25 @@ class KubeResnet34(KubeModel):
         loss.backward()
         self.optimizer.step()
 
-        total_loss += loss.item()
         if batch_index % 10 == 0:
             logging.info(f"Index {batch_index}, error: {loss.item()}")
 
-        return total_loss
+        return loss.item()
 
-    def validate(self, x, y, batch_index) -> Tuple[float, float]:
+    def validate(self, batch, batch_index) -> Tuple[float, float]:
+        # get the inputs 
+        x, y = batch
+
         criterion = nn.CrossEntropyLoss()
-
-        correct = 0
 
         output = self(x)
         _, predicted = torch.max(output.data, 1)
         test_loss = criterion(output, y).item()
-        correct += predicted.eq(y).sum().item()
+        correct = predicted.eq(y).sum().item()
 
         accuracy = correct * 100 / self.batch_size
 
         return accuracy, test_loss
-
-    def infer(self, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
-        pass
 
 
 def main():
