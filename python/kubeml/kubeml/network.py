@@ -194,6 +194,7 @@ class KubeModel(ABC):
         """
         self._set_device()
         self._network.train()
+        self._config_optimizer()
 
     def _on_train_end(self):
         """
