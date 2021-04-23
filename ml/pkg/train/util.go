@@ -211,12 +211,13 @@ func getLatestMetrics(history *api.JobHistory) *api.MetricUpdate {
 func (job *TrainJob) clearTensors() {
 
 	// disable the pipeline in the client
-	job.redisClient.DisablePipeline()
+	redisClient := util.GetRedisAIClient(job.redisPool, false)
+	defer redisClient.Close()
 
 	// delete all of the tensors for that model in the database
 	filterStr := fmt.Sprintf("%s*", job.jobId)
 	tensorListArgs := redis.Args{filterStr}
-	tensorNames, err := redis.Strings(job.redisClient.DoOrSend("KEYS", tensorListArgs, nil))
+	tensorNames, err := redis.Strings(redisClient.DoOrSend("KEYS", tensorListArgs, nil))
 	if err != nil {
 		job.logger.Error("Error accessing tensors to be deleted", zap.Error(err))
 		return
@@ -231,7 +232,7 @@ func (job *TrainJob) clearTensors() {
 
 	// delete the temporary tensors in one call
 	deleteArgs := redis.Args{}.AddFlat(tensorNames)
-	num, err := redis.Int(job.redisClient.DoOrSend("DEL", deleteArgs, nil))
+	num, err := redis.Int(redisClient.DoOrSend("DEL", deleteArgs, nil))
 	if err != nil {
 		job.logger.Error("Error deleting database tensors", zap.Error(err))
 		return

@@ -3,6 +3,8 @@ package model
 import (
 	"github.com/RedisAI/redisai-go/redisai"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
+	"github.com/diegostock12/kubeml/ml/pkg/util"
+	"github.com/gomodule/redigo/redis"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gorgonia.org/tensor"
@@ -36,7 +38,7 @@ type (
 		// first time
 		layerNames []string
 
-		redisClient *redisai.Client
+		redisPool *redis.Pool
 
 		// Internal Lock to be applied during the update
 		mu sync.Mutex
@@ -57,18 +59,15 @@ func NewModel(
 	jobId string,
 	task api.TrainRequest,
 	layerNames []string,
-	client *redisai.Client) *Model {
-
-	// set the client to use a pipeline
-	client.Pipeline(30)
+	pool *redis.Pool) *Model {
 
 	return &Model{
-		logger:      logger.Named("model"),
-		Name:        task.ModelType,
-		jobId:       jobId,
-		layerNames:  layerNames,
-		StateDict:   make(map[string]*Layer),
-		redisClient: client,
+		logger:     logger.Named("model"),
+		Name:       task.ModelType,
+		jobId:      jobId,
+		layerNames: layerNames,
+		StateDict:  make(map[string]*Layer),
+		redisPool:  pool,
 	}
 }
 
@@ -78,12 +77,16 @@ func (m *Model) Build() error {
 	// For each layer name create a new layer with the tensors from the database
 	m.logger.Debug("Building the model", zap.String("jobId", m.jobId))
 
+	// get the client
+	redisClient := util.GetRedisAIClient(m.redisPool, true)
+	defer redisClient.Close()
+
 	// fetch the layers, they will be pipelined
 	// so we perform one loop to query, flush, and then parse all in another loop
 	for _, name := range m.layerNames {
 		m.logger.Debug("Creating new layer", zap.String("layerName", name))
 
-		err := m.fetchLayer(name, -1)
+		err := m.fetchLayer(redisClient, name, -1)
 		if err != nil {
 			m.logger.Error("Error building layer",
 				zap.String("layer", name),
@@ -93,14 +96,14 @@ func (m *Model) Build() error {
 
 	}
 
-	err := m.redisClient.Flush()
+	err := redisClient.Flush()
 	if err != nil {
 		return errors.Wrap(err, "error flushing commands")
 	}
 
 	// parse all responses
 	for _, name := range m.layerNames {
-		layer, err := m.buildLayer(name)
+		layer, err := m.buildLayer(redisClient, name)
 		if err != nil {
 			return errors.Wrapf(err, "error loading layer %s", name)
 		}
@@ -132,18 +135,22 @@ func (m *Model) Summary() {
 func (m *Model) Save() error {
 	m.logger.Info("Publishing model on the database")
 
+	// get the client
+	redisClient := util.GetRedisAIClient(m.redisPool, true)
+	defer redisClient.Close()
+
 	// start the transaction in the redis client
-	m.redisClient.DoOrSend("MULTI", nil, nil)
+	redisClient.DoOrSend("MULTI", nil, nil)
 	for name, layer := range m.StateDict {
 		m.logger.Debug("Setting layer", zap.String("name", name))
-		err := m.setLayer(name, layer)
+		err := m.setLayer(redisClient, name, layer)
 		if err != nil {
 			return err
 		}
 	}
 
 	// execute all commands as a batch and empty response buffer
-	_, err := m.redisClient.ActiveConn.Do("EXEC")
+	_, err := redisClient.ActiveConn.Do("EXEC")
 	if err != nil {
 		return errors.Wrap(err, "could not save tensors")
 	}
@@ -154,9 +161,9 @@ func (m *Model) Save() error {
 }
 
 // SetLayer saves a layer's weights and bias if available in the storage
-func (m *Model) setLayer(name string, layer *Layer) error {
+func (m *Model) setLayer(redisClient *redisai.Client, name string, layer *Layer) error {
 
-	err := m.setWeights(name, layer)
+	err := m.setWeights(redisClient, name, layer)
 	if err != nil {
 		return err
 	}
@@ -164,9 +171,9 @@ func (m *Model) setLayer(name string, layer *Layer) error {
 	return nil
 }
 
-func (m *Model) setWeights(name string, layer *Layer) error {
+func (m *Model) setWeights(redisClient *redisai.Client, name string, layer *Layer) error {
 	args, _ := makeArgs(m.jobId, name, layer.Weights.Shape(), layer.Dtype, layer.Weights.Data())
-	_, err := m.redisClient.DoOrSend("AI.TENSORSET", *args, nil)
+	_, err := redisClient.DoOrSend("AI.TENSORSET", *args, nil)
 	if err != nil {
 		return errors.Wrapf(err, "could not set weights of layer %v", name)
 	}
@@ -176,11 +183,11 @@ func (m *Model) setWeights(name string, layer *Layer) error {
 // fetchLayer calls the tensor get function in the pipelined client
 // the results are pipelined and are thus gathered later on in the buildLayer
 // function
-func (m *Model) fetchLayer(name string, funcId int) error {
+func (m *Model) fetchLayer(redisClient *redisai.Client, name string, funcId int) error {
 
 	// call get blob but ignore the results cause those are pipelined
 	tensorName := getWeightKeys(name, m.jobId, funcId)
-	_, _, _, err := m.redisClient.TensorGetBlob(tensorName)
+	_, _, _, err := redisClient.TensorGetBlob(tensorName)
 	if err != nil {
 		return err
 	}
@@ -190,10 +197,10 @@ func (m *Model) fetchLayer(name string, funcId int) error {
 }
 
 // buildLayer reads the pipelined response, parses it and returns the Layer
-func (m *Model) buildLayer(name string) (*Layer, error) {
+func (m *Model) buildLayer(redisClient *redisai.Client, name string) (*Layer, error) {
 
 	// get the next response in the pipelined client
-	resp, err := m.redisClient.Receive()
+	resp, err := redisClient.Receive()
 	err, dtype, shapeInt64, blob := redisai.ProcessTensorGetReply(resp, err)
 	if err != nil {
 		return nil, err
@@ -244,14 +251,12 @@ func (m *Model) Update(funcId int) {
 	m.logger.Debug("Updating model layers",
 		zap.Int("funcId", funcId))
 
-	// lock the model, only one thread can use the
-	// redis client concurrently
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	redisClient := util.GetRedisAIClient(m.redisPool, true)
+	defer redisClient.Close()
 
 	// load the function layers
 	for _, layer := range m.layerNames {
-		err := m.fetchLayer(layer, funcId)
+		err := m.fetchLayer(redisClient, layer, funcId)
 		if err != nil {
 			m.logger.Error("could not fetch layer",
 				zap.Error(err),
@@ -261,10 +266,15 @@ func (m *Model) Update(funcId int) {
 		}
 	}
 
-	m.redisClient.Flush()
+	redisClient.Flush()
+
+	// lock the model, only one thread can access the model
+	// concurrently,
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	for _, layerName := range m.layerNames {
-		layer, err := m.buildLayer(layerName)
+		layer, err := m.buildLayer(redisClient, layerName)
 		if err != nil {
 			m.logger.Error("Could not build layer from database",
 				zap.Error(err),

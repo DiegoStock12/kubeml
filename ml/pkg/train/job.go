@@ -2,12 +2,12 @@ package train
 
 import (
 	"fmt"
-	"github.com/RedisAI/redisai-go/redisai"
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 	"github.com/diegostock12/kubeml/ml/pkg/model"
 	psClient "github.com/diegostock12/kubeml/ml/pkg/ps/client"
 	schedulerClient "github.com/diegostock12/kubeml/ml/pkg/scheduler/client"
 	"github.com/diegostock12/kubeml/ml/pkg/util"
+	"github.com/gomodule/redigo/redis"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"sync"
@@ -23,9 +23,9 @@ type TrainJob struct {
 	logger *zap.Logger
 
 	// clients for other components
-	scheduler   *schedulerClient.Client
-	ps          *psClient.Client
-	redisClient *redisai.Client
+	scheduler *schedulerClient.Client
+	ps        *psClient.Client
+	redisPool *redis.Pool //goroutines will fetch new connections from this pool to update the model in parallel
 
 	// Training-specific resources
 	history   api.JobHistory
@@ -81,20 +81,12 @@ func NewTrainJob(
 
 	logger.Info("Creating new train job")
 
-	var redisClient *redisai.Client
-	if util.IsDebugEnv() {
-		redisClient = redisai.Connect(fmt.Sprintf(
-			"redis://%s:%d", api.RedisAddressDebug, api.RedisPortDebug), nil)
-	} else {
-		redisClient = redisai.Connect(fmt.Sprintf("redis://%s:%d", api.RedisUrl, api.RedisPort), nil)
-	}
-
 	job := &TrainJob{
 		logger:      logger.Named(fmt.Sprintf("trainJob-%s", task.Job.JobId)),
 		scheduler:   client,
 		jobId:       task.Job.JobId,
 		schedulerCh: schedulerCh,
-		redisClient: redisClient,
+		redisPool:   util.GetRedisConnectionPool(),
 		history:     api.JobHistory{},
 		startMerger: make(chan chan error),
 		accuracyCh:  make(chan struct{}, 1),
@@ -126,19 +118,11 @@ func NewTrainJob(
 func NewBasicJob(logger *zap.Logger, jobId string) *TrainJob {
 	logger.Info("Creating new basic train job")
 
-	var redisClient *redisai.Client
-	if util.IsDebugEnv() {
-		redisClient = redisai.Connect(fmt.Sprintf(
-			"redis://%s:%d", api.RedisAddressDebug, api.RedisPortDebug), nil)
-	} else {
-		redisClient = redisai.Connect(fmt.Sprintf("redis://%s:%d", api.RedisUrl, api.RedisPort), nil)
-	}
-
 	job := &TrainJob{
 		logger:      logger.Named(fmt.Sprintf("trainJob-%s", jobId)),
 		jobId:       jobId,
 		schedulerCh: make(chan *api.JobState),
-		redisClient: redisClient,
+		redisPool:   util.GetRedisConnectionPool(),
 		history:     api.JobHistory{},
 		startMerger: make(chan chan error),
 		accuracyCh:  make(chan struct{}, 1),
@@ -180,7 +164,7 @@ func (job *TrainJob) Train() {
 		// clear connections and send the finish signal to the parameter
 		// server
 		job.clearTensors()
-		job.redisClient.Close()
+		job.redisPool.Close()
 		job.logger.Debug("closing job", zap.Error(job.exitErr))
 		job.ps.JobFinished(job.jobId, job.exitErr)
 	}()
@@ -294,7 +278,7 @@ func (job *TrainJob) init() error {
 
 	job.logger.Debug("Received layers", zap.Any("layers", layers))
 	job.logger.Debug("Creating model")
-	m := model.NewModel(job.logger, job.jobId, job.task.Parameters, layers, job.redisClient)
+	m := model.NewModel(job.logger, job.jobId, job.task.Parameters, layers, job.redisPool)
 	job.model = m
 
 	err = m.Build()
