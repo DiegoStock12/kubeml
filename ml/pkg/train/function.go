@@ -58,6 +58,7 @@ func (job *TrainJob) buildFunctionURL(args FunctionArgs, task FunctionTask) stri
 	values.Set("funcId", strconv.Itoa(args.Id))
 	values.Set("batchSize", strconv.Itoa(job.task.Parameters.BatchSize))
 	values.Set("lr", strconv.FormatFloat(float64(job.task.Parameters.LearningRate), 'f', -1, 32))
+	values.Set("epoch", strconv.Itoa(job.epoch)) // add epoch to be able to train with step lr
 
 	dest := routerAddr + "/" + job.task.Parameters.FunctionName + "?" + values.Encode()
 

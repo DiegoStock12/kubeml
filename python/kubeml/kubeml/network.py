@@ -4,7 +4,6 @@ from typing import Dict, Tuple, Any, Union, Callable, Iterable, Sequence
 
 import flask
 import numpy as np
-import os
 import pickle
 import redisai as rai
 import requests
@@ -47,6 +46,7 @@ class KubeModel(ABC):
         self.batch_size = None
         self.task = None
         self.optimizer = None
+        self.epoch = None
 
         # initialize redis connection
         self._redis_client = rai.Client(host=REDIS_URL, port=REDIS_PORT)
@@ -94,6 +94,7 @@ class KubeModel(ABC):
         self.lr = self.args.lr
         self.batch_size = self.args.batch_size
         self.task = self.args._task
+        self.epoch = self.args.epoch
 
     def _config_optimizer(self):
         """

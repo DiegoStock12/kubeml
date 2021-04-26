@@ -31,7 +31,10 @@ class _KubeArgs:
                  N: int, K: int,
                  task: str,
                  func_id: int,
-                 lr: float = 0, batch_size: int = 0):
+                 epoch: int,
+                 lr: float = 0,
+                 batch_size: int = 0,
+                 ):
         """
         :arg job_id: id of the job\n
         :arg N: number of functions or parallelism
@@ -49,6 +52,7 @@ class _KubeArgs:
         self._func_id = func_id
         self.lr = lr
         self.batch_size = batch_size
+        self.epoch = epoch
 
     @classmethod
     def parse(cls):
@@ -64,12 +68,13 @@ class _KubeArgs:
             func_id = request.args.get("funcId", type=int)
             lr = request.args.get("lr", type=float)
             batch_size = request.args.get("batchSize", type=int)
+            epoch = request.args.get("epoch", type=int)
 
         except ValueError as ve:
             logging.error(f"Error parsing request arguments: {ve}, args:{request.args}")
             raise InvalidArgsError(ve)
 
-        args = cls(job_id, N, K, task, func_id, lr, batch_size)
+        args = cls(job_id, N, K, task, func_id, epoch, lr, batch_size)
         return args
 
 
