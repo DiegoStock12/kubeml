@@ -2,9 +2,7 @@ import logging
 import random
 from typing import List, Any, Union, Tuple
 
-import numpy as np
 import torch
-import torch.nn as nn
 import torchvision.transforms as transforms
 from kubeml import KubeModel, KubeDataset
 from torch.optim import SGD

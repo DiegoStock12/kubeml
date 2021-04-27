@@ -165,10 +165,10 @@ func init() {
 	historyCmd.AddCommand(historyPruneCmd)
 
 	// Get command
-	historyGetCmd.Flags().StringVar(&taskId, "network", "", "Id of the train task (required)")
+	historyGetCmd.Flags().StringVar(&taskId, "id", "", "Id of the train task (required)")
 
 	// Delete command
-	historyDeleteCmd.Flags().StringVar(&taskId, "network", "", "Id of the train task (required)")
+	historyDeleteCmd.Flags().StringVar(&taskId, "id", "", "Id of the train task (required)")
 
 	historyGetCmd.MarkFlagRequired("network")
 	historyDeleteCmd.MarkFlagRequired("network")

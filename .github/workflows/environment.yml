@@ -13,7 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
-    - name: Publish to Registry
+
+    # Build the GPU version of the environment
+    - name: Publish to Registry GPU version
       uses: elgohr/Publish-Docker-Github-Action@master
       with:
         name: diegostock12/python-env
@@ -21,3 +23,14 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
         workdir: ml/environment
         tags: "0.1.15-cuda"
+
+    # Build the CPU only version
+    - name: Publish CPU version
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: diegostock12/python-env
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        workdir: ml/environment
+        dockerfile: Dockerfile.cpu
+        tags: "0.1.15"

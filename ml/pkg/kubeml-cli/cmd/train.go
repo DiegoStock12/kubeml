@@ -158,9 +158,9 @@ func init() {
 
 	// optional params
 	trainCmd.Flags().IntVar(&validateEvery, "validate-every", 0, "Validate the network every N epochs")
-	trainCmd.Flags().IntVar(&defaultParallelism, "default-parallelism", api.DebugParallelism, "Starting level of parallelism")
+	trainCmd.Flags().IntVar(&defaultParallelism, "parallelism", api.DebugParallelism, "Starting level of parallelism")
 	trainCmd.Flags().BoolVar(&staticParallelism, "static", false, "Whether to keep parallelism static")
-	trainCmd.Flags().IntVar(&K, "K", 5, "Sync every K updates to the local network")
+	trainCmd.Flags().IntVar(&K, "K", -1, "Sync every K updates to the local network")
 	trainCmd.Flags().BoolVar(&sparseAvg, "sparse-avg", false, "If true, average only once per epoch, no matter the value of K")
 	trainCmd.Flags().Float64Var(&goalAccuracy, "goal-accuracy", 100, "Accuracy after which the training will stop")
 

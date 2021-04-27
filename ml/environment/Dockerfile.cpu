@@ -1,0 +1,32 @@
+
+# Builder image
+FROM python:3.6-slim-buster as builder
+
+# Update the packages
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install gcc libev-dev libffi-dev libpython3.6 -y && \
+    apt-get clean
+
+# update pip to install dependencies
+RUN pip3 install --upgrade pip
+
+# Copy the requirements and install
+WORKDIR /app
+COPY requirements.txt /app
+RUN pip3 install --user -r requirements.txt
+
+# Run the special pytorch download
+RUN pip3 install torch==1.7.1 torchvision==0.8.2
+RUN pip3 install kubeml==0.1.6rc4
+
+
+# Copy the server and start
+COPY . /app
+
+# Start a gunicorn server with only one worker to ensure
+# isolation on a function basis
+# and offer more performance than the default server
+CMD ["gunicorn", "-b", "0.0.0.0:8888", "-t", "2000", "-w 1", "server:app"]
+
+
