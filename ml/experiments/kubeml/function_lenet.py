@@ -72,7 +72,7 @@ class MnistDataset(KubeDataset):
 class KubeLeNet(KubeModel):
 
     def __init__(self, network: nn.Module, dataset: MnistDataset):
-        super().__init__(network, dataset, gpu=True)
+        super().__init__(network, dataset)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         sgd = SGD(self.parameters(), lr=self.lr, momentum=0.9, weight_decay=1e-4)
@@ -81,10 +81,12 @@ class KubeLeNet(KubeModel):
     def init(self):
         pass
 
-    def train(self, x, y, batch_index) -> float:
+    def train(self, batch, batch_index) -> float:
         # define the device for training and load the data
         loss_fn = nn.CrossEntropyLoss()
         total_loss = 0
+
+        x, y = batch
 
         self.optimizer.zero_grad()
         output = self(x)
@@ -103,8 +105,10 @@ class KubeLeNet(KubeModel):
 
         return total_loss
 
-    def validate(self, x, y, _) -> Tuple[float, float]:
+    def validate(self, batch, _) -> Tuple[float, float]:
         loss_fn = nn.CrossEntropyLoss()
+
+        x, y = batch
 
         test_loss = 0
         correct = 0

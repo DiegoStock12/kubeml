@@ -66,6 +66,10 @@ using a data parallel approach.
 
 ## Installation
 
+For installation, you need to add a few repositories to your helm repo list and install them. If you already have the repos
+indexed in your local machine, you can directly run the `cluster_config.sh` script under `ml/hack` that will take care
+of everything for you.
+
 ### Install Fission
 KubeML requires a Kubernetes Cluster and Fission installed to work. To install fission,
 it is recommended to use Helm.
@@ -74,10 +78,12 @@ it is recommended to use Helm.
 $ export FISSION_NAMESPACE="fission"
 $ kubectl create namespace $FISSION_NAMESPACE
 
+
+$ helm repo add fission-charts https://fission.github.io/fission-charts/
+$ helm repo update
+
 # Install fission disabling custom prometheus
-$ helm install --namespace $FISSION_NAMESPACE --name-template fission \
-    https://github.com/fission/fission/releases/download/1.12.0/fission-core-1.12.0.tgz \
-    --set prometheus.enabled=false
+$ helm install -n fission fission fission-charts/fission-core --set prometheus.enabled=False
 ```
 
 ### Install Prometheus
@@ -97,9 +103,9 @@ Then get the helm chart and install
 
 ```bash
 $ helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-$ helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+$ helm repo add stable https://charts.helm.sh/stable
 $ helm repo update
-$ helm install fission-metrics --namespace monitoring prometheus-community/kube-prometheus-stack \
+$ helm install kubeml-metrics --namespace monitoring prometheus-community/kube-prometheus-stack \
   --set kubelet.serviceMonitor.https=true \
   --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
   --set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false \
@@ -172,56 +178,55 @@ import numpy as np
 class KubeLeNet(KubeModel):
 
     def __init__(self, network: nn.Module, dataset: MnistDataset):
+        # notice that if you turn gpu on and there is no GPU on the machine
+        # the initialization would fail
         super().__init__(network, dataset, gpu=True)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        sgd = SGD(self.parameters(), lr=self.lr, momentum=0.9, weight_decay=1e-4)
+        sgd = SGD(self.parameters(), lr=self.lr, weight_decay=1e-4)
         return sgd
 
     def init(self, model: nn.Module):
         def init_weights(m: nn.Module):
-                    if isinstance(m, nn.Conv2d):
-                        nn.init.xavier_uniform_(m.weight)
-                        nn.init.constant_(m.bias, 0.01)
-                    if isinstance(m, nn.Linear):
-                        nn.init.xavier_uniform_(m.weight)
-                        nn.init.constant_(m.bias, 0.01)
+                if isinstance(m, nn.Conv2d):
+                    nn.init.xavier_uniform_(m.weight)
+                    nn.init.constant_(m.bias, 0.01)
+                if isinstance(m, nn.Linear):
+                    nn.init.xavier_uniform_(m.weight)
+                    nn.init.constant_(m.bias, 0.01)
         
         model.apply(init_weights)
 
-    def train(self, x, y, batch_index) -> float:
-        loss_fn = nn.CrossEntropyLoss()
-        total_loss = 0
+    def train(self, batch, batch_index) -> float:
+
+        x, y = batch
 
         self.optimizer.zero_grad()
         output = self(x)
-        loss = loss_fn(output, y)
+        loss = F.cross_entropy(output, y)
         loss.backward()
 
         self.optimizer.step()
-        total_loss += loss.item()
 
         if batch_index % 10 == 0:
             self.logger.info(f"Index {batch_index}, error: {loss.item()}")
 
-        return total_loss
+        return loss.item()
 
-    def validate(self, x, y, _) -> Tuple[float, float]:
-        loss_fn = nn.CrossEntropyLoss()
-
-        test_loss = 0
-        correct = 0
+    def validate(self, batch, batch_index) -> Tuple[float, float]:
+        
+        x, y = batch
 
         # forward pass and loss accuracy calculation
         output = self(x)
-        test_loss += loss_fn(output, y).item()  # sum up batch loss
+        loss = F.cross_entropy(output, y)  # sum up batch loss
         pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-        correct += pred.eq(y.view_as(pred)).sum().item()
+        correct = pred.eq(y.view_as(pred)).sum().item()
 
         accuracy = 100. * correct / self.batch_size
         self.logger.debug(f'accuracy {accuracy}')
 
-        return accuracy, test_loss
+        return accuracy, loss.item()
 
     def infer(self, data: List[Any]) -> Union[torch.Tensor, np.ndarray, List[float]]:
         pass
@@ -242,6 +247,14 @@ def main():
 
 ## Training a Network
 
+First, you need to download the kubeml client. This can be found in the downloads section of the releases, or can be downloaded
+like:
+
+```bash
+$ curl -Lo kubeml https://github.com/diegostock12/kubeml/releases/download/0.1.2/kubeml \
+&& chmod +x kubeml
+```
+
 ### Deploying a Function
 
 Once you have written you function code, you can deploy it using the KubeML CLI.
@@ -249,6 +262,15 @@ Once you have written you function code, you can deploy it using the KubeML CLI.
 ```bash
 $ kubeml function create --name example --code network.py
 ```
+
+If you want to update the code of the function after fixing issues, the best way to do so is 
+to use the fission CLI. This functionality might be added in the future to the kubeML CLI.
+
+```bash
+$ fission function update --name example --code network.py
+```
+
+Would update the function code.
 
 ### Uploading a Dataset
 
@@ -275,3 +297,11 @@ $ kubeml train \
     --batch 128 \
     --lr 0.01
 ```
+
+Other options include setting the parallelism `--parallelism`, `--static`, which keeps the parallelism stable (recommended for testing)
+, and `validate-every` which sets the number of epochs between validations.
+
+### Testing Locally
+
+To test in your computer some options tested are MiniKube or MicroK8s. MicroK8s makes it easier to turn on GPU suppost
+by doing `microk8s enable gpu`. The only thing needed are NVIDIA Drivers build for CUDA 10.1+. 

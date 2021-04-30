@@ -5,8 +5,6 @@
 #
 
 
-KUBEML_HOME=".."
-
 # declare the namespaces
 FISSION_NAMESPACE="fission"
 MONITORING_NAMESPACE="monitoring"
@@ -56,7 +54,7 @@ echo "Deploying kubeml"
 
 kubectl create namespace $KUBEML_NAMESPACE
 helm install kubeml --namespace $KUBEML_NAMESPACE  \
-    ${KUBEML_HOME}/charts/kubeml-0.1.0.tgz \
+    https://github.com/diegostock12/kubeml/releases/download/0.1.2/kubeml-0.1.2.tgz \
     2>&1
 
 echo "kubeml deployed!! all done"
