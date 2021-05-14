@@ -54,7 +54,8 @@ echo "Deploying kubeml"
 
 kubectl create namespace $KUBEML_NAMESPACE
 helm install kubeml --namespace $KUBEML_NAMESPACE  \
-    https://github.com/diegostock12/kubeml/releases/download/0.1.2/kubeml-0.1.2.tgz \
+    ../charts/kubeml-0.1.2.tgz \
+#    https://github.com/diegostock12/kubeml/releases/download/0.1.2/kubeml-0.1.2.tgz \
     2>&1
 
 echo "kubeml deployed!! all done"

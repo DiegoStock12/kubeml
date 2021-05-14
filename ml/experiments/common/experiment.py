@@ -9,7 +9,7 @@ import pandas as pd
 import requests
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
-from tensorflow.keras.callbacks import History as KerasHistory
+
 
 from .utils import check_stderr, get_hash, retry
 
@@ -128,7 +128,7 @@ class KubemlExperiment(Experiment):
                     --epochs {self.request.epochs} \
                     --batch {self.request.batch_size} \
                     --lr {self.request.lr} \
-                    --default-parallelism {self.request.options.default_parallelism} \
+                    --parallelism {self.request.options.default_parallelism} \
                     --goal-accuracy {self.request.options.goal_accuracy} \
                     --K {self.request.options.k} \
                     --validate-every {self.request.options.validate_every} \
@@ -166,7 +166,7 @@ class KubemlExperiment(Experiment):
     @retry(Exception, total_tries=5, backoff_factor=2, initial_wait=0.5)
     def get_model_history(self) -> History:
         """Gets the training history for a certain model"""
-        command = f"{kubeml} history get --network {self.network_id}"
+        command = f"{kubeml} history get --id {self.network_id}"
         print("Getting model history with command", command)
 
         res = subprocess.run(command.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -250,88 +250,3 @@ class KubemlExperiment(Experiment):
         return f'KubeMLExperiment(title:{self.title})'
 
 
-@dataclass
-class TfConfig:
-    network: str
-    batch: int
-    epochs: int
-
-
-from typing import Callable
-
-
-class TensorflowExperiment(Experiment):
-
-    def __init__(self, config: TfConfig, main_func: Callable):
-        super(TensorflowExperiment, self).__init__(self._get_title(config))
-        self.title = self._get_title(config)
-        self.history: KerasHistory = None
-        self.func = main_func
-        self.config = config
-        self.hash = get_hash(self.title)
-
-    def run(self):
-        """based on the network and the parameters call one of the mains from the lenet or resnet funcs"""
-
-        if self.config.network not in ('lenet', 'resnet'):
-            print('Unknown network name', self.config.network)
-            raise Exception('unknown network name')
-
-        # start gathering the metrics
-        self.start_metrics_collection()
-
-        if self.config.network == 'lenet':
-            self.history, self.times = self.func(self.config.epochs, self.config.batch)
-            print('Lenet exp finished', self.config)
-
-        elif self.config.network == 'resnet':
-            self.history, self.times = self.func(self.config.epochs, self.config.batch)
-            print('Resnet exp finished', self.config)
-
-        # finish metrics
-        self.end_metrics_collection()
-
-    def save(self, path: str):
-        d = self.to_dataframe()
-        _path = f'{path.rstrip("/")}/{self.hash}.pkl'
-        print('saving to', _path)
-        d.to_pickle(_path)
-
-    def to_dataframe(self) -> pd.DataFrame:
-
-        d = {
-            'model': self.config.network,
-            'hash': self.hash,
-            'batch_size': self.config.batch,
-            'epochs': self.config.epochs,
-            **{k: [v] for k, v in self.history.history.items()},
-            'times': [self.times]
-        }
-
-        return pd.DataFrame(d)
-
-    def start_metrics_collection(self):
-        """Triggers the metrics api endpoint to start collecting metrics before the experiment"""
-        url = API_URL + f'/new/{self.hash}'
-        print('triggering start url...')
-
-        resp = requests.put(url)
-        if not resp.ok:
-            print('error starting metrics')
-        else:
-            print('metrics collection started')
-
-    @staticmethod
-    def end_metrics_collection():
-        """Triggers the api to stop collecting metrics"""
-        print('triggering stop url...')
-        url = API_URL + '/finish'
-        resp = requests.delete(url)
-        if not resp.ok:
-            print('error stopping experiment')
-        else:
-            print("stopped experiment")
-
-    @staticmethod
-    def _get_title(config: TfConfig) -> str:
-        return f'{config.network}-batch{config.batch}-epochs{config.epochs}'
