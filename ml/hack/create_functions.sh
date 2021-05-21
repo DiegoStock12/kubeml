@@ -10,4 +10,4 @@ echo "creating resnet"
 "$KUBEML_HOME" fn create --name resnet --code ${FUNC_HOME}/function_resnet34.py
 
 echo "creating vgg"
-"$KUBEML_HOME" fn create --name vgg --code ${FUNC_HOME}/function_vgg11.py
+"$KUBEML_HOME" fn create --name vgg --code ${FUNC_HOME}/function_vgg16.py
