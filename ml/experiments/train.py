@@ -61,6 +61,29 @@ def run_resnet(k: int, batch: int, parallelism: int):
     exp.save(output_folder)
 
 
+def run_vgg(k: int, batch: int, parallelism: int):
+    req = TrainRequest(
+        model_type='vgg16',
+        batch_size=batch,
+        epochs=EPOCHS,
+        dataset='cifar10',
+        lr=0.01,
+        function_name='vgg',
+        options=TrainOptions(
+            default_parallelism=parallelism,
+            static_parallelism=True,
+            k=k,
+            validate_every=1,
+            goal_accuracy=100
+        )
+    )
+
+    exp = KubemlExperiment(get_title(req), req)
+    exp.run()
+    # print(exp.to_dataframe())
+    exp.save(output_folder)
+
+
 def run_api(path=None) -> Process:
     """Starts the API for setting the metrics"""
     print('Starting api')
@@ -77,8 +100,10 @@ def full_parameter_grid(network: str) -> List[Tuple[int, int, int]]:
     """Generator for the full experiments"""
     if network == 'lenet':
         grid = lenet_grid
-    else:
+    elif network=='resnet':
         grid = resnet_grid
+    elif network == 'vgg':
+        grid = vgg_grid
 
     exps = []
 
@@ -119,7 +144,7 @@ if __name__ == '__main__':
     if not net:
         print("Network not set")
         exit(-1)
-    elif net not in ('lenet', 'resnet'):
+    elif net not in ('lenet', 'resnet', 'vgg'):
         print('Network', net, 'not among accepted (lenet, resnet)')
         exit(-1)
 
@@ -163,7 +188,12 @@ if __name__ == '__main__':
         time.sleep(5)
 
         # based on the arg determine the function
-        func = run_resnet if net == 'resnet' else run_lenet
+        if net == 'resnet':
+            func = run_resnet
+        elif net == 'lenet':
+            func = run_lenet
+        elif net == 'vgg':
+            func = run_vgg
         print('Using func', func)
 
         replications = args.r

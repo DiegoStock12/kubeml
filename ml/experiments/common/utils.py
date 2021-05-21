@@ -28,6 +28,12 @@ resnet_grid = {
     'parallelism': [2, 4]
 }
 
+vgg_grid = {
+    'batch': [256, 128, 64],
+    'k': [-1],
+    'parallelism': [2, 4]
+}
+
 # resnet_grid = {
 #     'batch': [256, 128, 64, 32],
 #     'k': [-1],

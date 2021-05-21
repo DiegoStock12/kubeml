@@ -5,10 +5,11 @@ import os
 import time
 from multiprocessing import Process
 
-from common.experiment import *
+from common.tf_experiment import *
 from common.metrics import start_api
 from tflow.lenet import main as lenet_main
 from tflow.resnet34 import main as resnet_main
+from tflow.vgg import main as vgg_main
 
 EPOCHS = 5
 save_folder = './tests/tf'
@@ -22,6 +23,18 @@ def lenet(b: int):
     )
 
     exp = TensorflowExperiment(config, lenet_main)
+    exp.run()
+    exp.save(save_folder)
+
+
+def vgg(b: int):
+    config = TfConfig(
+        batch=b,
+        epochs=EPOCHS,
+        network='vgg'
+    )
+
+    exp = TensorflowExperiment(config, vgg_main)
     exp.run()
     exp.save(save_folder)
 
@@ -56,7 +69,7 @@ def check_folder(path: str) -> bool:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--network', help='Network type for the experiments from [lenet, resnet]')
+    parser.add_argument('--network', help='Network type for the experiments from [lenet, resnet, vgg]')
     parser.add_argument('-o', help='Folder to save the experiment results to')
     parser.add_argument('-m', help='folder to save the metrics to')
     parser.add_argument('-r', help='Number of replications to run', default=1, type=int)
@@ -66,8 +79,8 @@ if __name__ == '__main__':
     if not net:
         print("Network not set")
         exit(-1)
-    elif net not in ('lenet', 'resnet'):
-        print('Network', net, 'not among accepted (lenet, resnet)')
+    elif net not in ('lenet', 'resnet', 'vgg'):
+        print('Network', net, 'not among accepted (lenet, resnet, vgg)')
         exit(-1)
 
     if args.o:
@@ -92,8 +105,15 @@ if __name__ == '__main__':
         time.sleep(5)
 
         # based on the arg determine the function
-        func = resnet if net == 'resnet' else lenet
-        batches = [128, 64, 32, 16] if net == 'lenet' else [256, 128, 64, 32]
+        if net == 'resnet':
+            func = resnet
+            batches = [256, 128, 64, 32]
+        elif net == 'lenet':
+            func = lenet
+            batches = [128, 64, 32, 16]
+        elif net == 'vgg':
+            func = vgg
+            batches = [256, 128, 64]
 
         print('Using func', func, 'and batches', batches)
 
