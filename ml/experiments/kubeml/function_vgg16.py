@@ -50,7 +50,7 @@ class Cifar10Dataset(KubeDataset):
 class KubeVGG(KubeModel):
 
     def __init__(self, network, dataset: Cifar10Dataset):
-        super(KubeVGG, self).__init__(network, dataset)
+        super(KubeVGG, self).__init__(network, dataset, gpu=True)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         # according to the original paper we should divide the lr by 10 after 32k iterations

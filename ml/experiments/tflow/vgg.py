@@ -1,5 +1,7 @@
 """code to train the vgg16 network"""
 
+import argparse
+
 import tensorflow as tf
 from tensorflow.keras.layers import Conv2D, MaxPool2D, Flatten, Dense, Input
 from tensorflow.keras.models import Sequential
@@ -118,3 +120,16 @@ def main(num_epochs: int, batch_size: int) -> KerasHistory:
                         callbacks=[time_callback])
 
     return history, time_callback.times
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-e", "--epochs", help='number of epochs')
+    parser.add_argument('-b', '--batch', help='batch size')
+    args = parser.parse_args()
+
+    print(args.batch, args.epochs)
+    if args.batch is None or args.epochs is None:
+        print("error: not clarified batch or epochs")
+        exit(-1)
+
+    h = main(args.epochs, args.batch)

@@ -30,7 +30,7 @@ class TensorflowExperiment(Experiment):
     def run(self):
         """based on the network and the parameters call one of the mains from the lenet or resnet funcs"""
 
-        if self.config.network not in ('lenet', 'resnet'):
+        if self.config.network not in ('lenet', 'resnet', 'vgg'):
             print('Unknown network name', self.config.network)
             raise Exception('unknown network name')
 
@@ -44,6 +44,11 @@ class TensorflowExperiment(Experiment):
         elif self.config.network == 'resnet':
             self.history, self.times = self.func(self.config.epochs, self.config.batch)
             print('Resnet exp finished', self.config)
+
+        elif self.config.network == 'vgg':
+            self.history, self.times = self.func(self.config.epochs, self.config.batch)
+            print('VGG exp finished', self.config)
+
 
         # finish metrics
         self.end_metrics_collection()

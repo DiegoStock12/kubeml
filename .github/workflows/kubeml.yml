@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - master
+      - concurrency-improv
 #      - refactor-network
 #      - experiments
+
 
 
 jobs:
@@ -21,4 +23,4 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           workdir: ml
-          tags: "0.1.9"
+          tags: "0.1.9-concurrent"

@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gorgonia.org/tensor"
+	"math/rand"
 	"sync"
 )
 
@@ -31,7 +32,7 @@ type (
 		// StateDict holds the layer names
 		// and the layers of the model. Each
 		// layer has a bias and a weight
-		StateDict map[string]*Layer
+		StateDict map[string]*Entry
 
 		// layerNames holds the names of the layers
 		// which will be used to build the model for the
@@ -39,9 +40,6 @@ type (
 		layerNames []string
 
 		redisPool *redis.Pool
-
-		// Internal Lock to be applied during the update
-		mu sync.Mutex
 	}
 
 	// Layer keeps the Weights of a certain layer of the Neural Network
@@ -50,6 +48,12 @@ type (
 		Name    string
 		Dtype   string
 		Weights *tensor.Dense
+	}
+
+	// Entry acts like an envelope around layers to increase concurrency
+	Entry struct {
+		sync.Mutex
+		layer *Layer
 	}
 )
 
@@ -66,7 +70,7 @@ func NewModel(
 		Name:       task.ModelType,
 		jobId:      jobId,
 		layerNames: layerNames,
-		StateDict:  make(map[string]*Layer),
+		StateDict:  make(map[string]*Entry),
 		redisPool:  pool,
 	}
 }
@@ -107,7 +111,9 @@ func (m *Model) Build() error {
 		if err != nil {
 			return errors.Wrapf(err, "error loading layer %s", name)
 		}
-		m.StateDict[name] = layer
+		m.StateDict[name].Lock()
+		m.StateDict[name].layer = layer
+		m.StateDict[name].Unlock()
 	}
 
 	return nil
@@ -115,16 +121,21 @@ func (m *Model) Build() error {
 
 // Clear wipes the statedict of the model
 func (m *Model) Clear() {
-	m.StateDict = make(map[string]*Layer)
+	m.StateDict = make(map[string]*Entry)
+
+	// initialize with nil parameters
+	for _, name := range m.layerNames {
+		m.StateDict[name] = &Entry{}
+	}
 	m.logger.Debug("Wiped model state")
 }
 
 // Summary runs through the layers of a model and prints its info
 func (m *Model) Summary() {
-	for name, layer := range m.StateDict {
+	for name, entry := range m.StateDict {
 		m.logger.Info("Layer",
 			zap.String("name", name),
-			zap.Any("shape", layer.Weights.Shape()),
+			zap.Any("shape", entry.layer.Weights.Shape()),
 		)
 	}
 
@@ -141,9 +152,9 @@ func (m *Model) Save() error {
 
 	// start the transaction in the redis client
 	redisClient.DoOrSend("MULTI", nil, nil)
-	for name, layer := range m.StateDict {
+	for name, entry := range m.StateDict {
 		m.logger.Debug("Setting layer", zap.String("name", name))
-		err := m.setLayer(redisClient, name, layer)
+		err := m.setLayer(redisClient, name, entry.layer)
 		if err != nil {
 			return err
 		}
@@ -245,6 +256,25 @@ func (m *Model) buildLayer(redisClient *redisai.Client, name string) (*Layer, er
 
 }
 
+// shuffleLayers randomly shuffles the layer names so they can be loaded in a different
+// order thus increasing concurrency
+func shuffleLayers(layers []string, seed int) []string {
+
+	// set random seed so they're different
+	rand.Seed(int64(seed))
+
+	// copy the original to avoid race
+	names := make([]string, len(layers))
+	copy(names, layers)
+
+	// shuffle the names
+	rand.Shuffle(len(names), func(i, j int) {
+		names[i], names[j] = names[j], names[i]
+	})
+
+	return names
+}
+
 // Update fetches the layers saved by a function and adds them to the statedict
 func (m *Model) Update(funcId int) {
 
@@ -254,8 +284,14 @@ func (m *Model) Update(funcId int) {
 	redisClient := util.GetRedisAIClient(m.redisPool, true)
 	defer redisClient.Close()
 
-	// load the function layers
-	for _, layer := range m.layerNames {
+	// if we load the layers in the same order in all workers,
+	// we would end up with the same performance of having to wait for each other
+	// instead randomly iterate the map. Use the function id as the random seed
+	layers := shuffleLayers(m.layerNames, funcId)
+
+	// fetch layer by name in non-deterministic order
+	// by iterating the shuffled layers
+	for _, layer := range layers {
 		err := m.fetchLayer(redisClient, layer, funcId)
 		if err != nil {
 			m.logger.Error("could not fetch layer",
@@ -268,12 +304,7 @@ func (m *Model) Update(funcId int) {
 
 	redisClient.Flush()
 
-	// lock the model, only one thread can access the model
-	// concurrently,
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	for _, layerName := range m.layerNames {
+	for _, layerName := range layers {
 		layer, err := m.buildLayer(redisClient, layerName)
 		if err != nil {
 			m.logger.Error("Could not build layer from database",
@@ -283,17 +314,19 @@ func (m *Model) Update(funcId int) {
 			return
 		}
 
-		if total, exists := m.StateDict[layerName]; !exists {
-			m.StateDict[layerName] = layer
+		// lock the entry
+		m.StateDict[layerName].Lock()
+		if m.StateDict[layerName].layer == nil {
+			m.StateDict[layerName].layer = layer
 		} else {
+			total := m.StateDict[layerName].layer
 			total.Weights, err = total.Weights.Add(layer.Weights)
 			if err != nil {
 				m.logger.Error("Error adding weights",
 					zap.Error(err))
-
-				return
 			}
 		}
+		m.StateDict[layerName].Unlock()
 	}
 
 	m.logger.Debug("Model updated",

@@ -28,11 +28,11 @@ func (psgd ParallelSGD) Average(m *Model, num int) error {
 	psgd.logger.Debug("Averaging", zap.Int("num", num))
 
 	var err error
-	for _, layer := range m.StateDict {
+	for _, entry := range m.StateDict {
 		// divide the sum of the layer weights by the
-		switch layer.Dtype {
+		switch entry.layer.Dtype {
 		case redisai.TypeFloat32:
-			layer.Weights, err = layer.Weights.DivScalar(float32(num), true)
+			entry.layer.Weights, err = entry.layer.Weights.DivScalar(float32(num), true)
 			if err != nil {
 				psgd.logger.Error("Error dividing weights",
 					zap.Error(err))
@@ -40,7 +40,7 @@ func (psgd ParallelSGD) Average(m *Model, num int) error {
 			}
 
 		case redisai.TypeInt64:
-			layer.Weights, err = layer.Weights.DivScalar(int64(num), true)
+			entry.layer.Weights, err = entry.layer.Weights.DivScalar(int64(num), true)
 			if err != nil {
 				psgd.logger.Error("Error dividing weights",
 					zap.Error(err))
