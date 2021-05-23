@@ -52,7 +52,7 @@ type (
 
 	// Entry acts like an envelope around layers to increase concurrency
 	Entry struct {
-		sync.Mutex
+		mu sync.Mutex
 		layer *Layer
 	}
 )
@@ -111,9 +111,9 @@ func (m *Model) Build() error {
 		if err != nil {
 			return errors.Wrapf(err, "error loading layer %s", name)
 		}
-		m.StateDict[name].Lock()
+		m.StateDict[name].mu.Lock()
 		m.StateDict[name].layer = layer
-		m.StateDict[name].Unlock()
+		m.StateDict[name].mu.Unlock()
 	}
 
 	return nil
@@ -315,7 +315,7 @@ func (m *Model) Update(funcId int) {
 		}
 
 		// lock the entry
-		m.StateDict[layerName].Lock()
+		m.StateDict[layerName].mu.Lock()
 		if m.StateDict[layerName].layer == nil {
 			m.StateDict[layerName].layer = layer
 		} else {
@@ -326,7 +326,7 @@ func (m *Model) Update(funcId int) {
 					zap.Error(err))
 			}
 		}
-		m.StateDict[layerName].Unlock()
+		m.StateDict[layerName].mu.Unlock()
 	}
 
 	m.logger.Debug("Model updated",
