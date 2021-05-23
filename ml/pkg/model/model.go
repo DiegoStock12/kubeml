@@ -47,7 +47,7 @@ type (
 
 	// Entry acts like an envelope around layers to increase concurrency
 	Entry struct {
-		mu sync.Mutex
+		sync.Mutex
 		layer *Layer
 	}
 )
@@ -101,15 +101,14 @@ func (m *Model) Build() error {
 	}
 
 	// parse all responses
-	// tODO here we do not need to lock cause there's only one thread
 	for _, name := range m.layerNames {
 		layer, err := m.buildLayer(redisClient, name)
 		if err != nil {
 			return errors.Wrapf(err, "error loading layer %s", name)
 		}
-		m.StateDict[name].mu.Lock()
-		m.StateDict[name].layer = layer
-		m.StateDict[name].mu.Unlock()
+		m.StateDict[name] = &Entry{
+			layer: layer,
+		}
 	}
 
 	return nil
@@ -121,7 +120,7 @@ func (m *Model) Clear() {
 
 	// initialize with nil parameters
 	for _, name := range m.layerNames {
-		m.StateDict[name] = &Entry{mu: sync.Mutex{}}
+		m.StateDict[name] = &Entry{}
 	}
 	m.logger.Debug("Wiped model state")
 }
@@ -311,7 +310,7 @@ func (m *Model) Update(funcId int) {
 		}
 
 		// lock the entry
-		m.StateDict[layerName].mu.Lock()
+		m.StateDict[layerName].Lock()
 		if m.StateDict[layerName].layer == nil {
 			m.StateDict[layerName].layer = layer
 		} else {
@@ -322,7 +321,7 @@ func (m *Model) Update(funcId int) {
 					zap.Error(err))
 			}
 		}
-		m.StateDict[layerName].mu.Unlock()
+		m.StateDict[layerName].Unlock()
 	}
 
 	m.logger.Debug("Model updated",
