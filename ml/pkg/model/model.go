@@ -12,11 +12,6 @@ import (
 	"sync"
 )
 
-const (
-	// Constants to save and retrieve the gradients
-	WeightSuffix = ".weight"
-	BiasSuffix   = ".bias"
-)
 
 type (
 
@@ -106,6 +101,7 @@ func (m *Model) Build() error {
 	}
 
 	// parse all responses
+	// tODO here we do not need to lock cause there's only one thread
 	for _, name := range m.layerNames {
 		layer, err := m.buildLayer(redisClient, name)
 		if err != nil {
@@ -125,7 +121,7 @@ func (m *Model) Clear() {
 
 	// initialize with nil parameters
 	for _, name := range m.layerNames {
-		m.StateDict[name] = &Entry{}
+		m.StateDict[name] = &Entry{mu: sync.Mutex{}}
 	}
 	m.logger.Debug("Wiped model state")
 }
