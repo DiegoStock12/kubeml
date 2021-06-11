@@ -215,7 +215,7 @@ func (job *TrainJob) clearTensors() {
 	defer redisClient.Close()
 
 	// delete all of the tensors for that model in the database
-	filterStr := fmt.Sprintf("%s*", job.jobId)
+	filterStr := fmt.Sprintf("%s*/*", job.jobId)
 	tensorListArgs := redis.Args{filterStr}
 	tensorNames, err := redis.Strings(redisClient.DoOrSend("KEYS", tensorListArgs, nil))
 	if err != nil {

@@ -3,6 +3,7 @@ from typing import List, Any, Union, Tuple
 
 
 import torch
+import random
 from torch import nn
 import torchvision.transforms as transforms
 import torchvision.models as models
@@ -50,7 +51,7 @@ class Cifar10Dataset(KubeDataset):
 class KubeVGG(KubeModel):
 
     def __init__(self, network, dataset: Cifar10Dataset):
-        super(KubeVGG, self).__init__(network, dataset, gpu=True)
+        super(KubeVGG, self).__init__(network, dataset, gpu=False)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         # according to the original paper we should divide the lr by 10 after 32k iterations
@@ -58,7 +59,7 @@ class KubeVGG(KubeModel):
         #
         # with a batch of 128 -> 390 iterations per epoch
         # that means we approximately divide after 80 and 120 epochs, and finish at 160
-        sgd = SGD(self.parameters(), lr=self.lr, weight_decay=1e-4)
+        sgd = SGD(self.parameters(), lr=self.lr,momentum=0.9, weight_decay=5e-4)
         return sgd
 
     def train(self, batch, batch_index) -> float:
@@ -99,6 +100,9 @@ def vgg16():
     return m
 
 def main():
+   # torch.manual_seed(42)
+   # random.seed(42)
+
     vgg = vgg16()
     dataset = Cifar10Dataset()
     kubenet = KubeVGG(vgg, dataset)

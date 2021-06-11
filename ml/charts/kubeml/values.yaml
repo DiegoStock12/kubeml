@@ -9,7 +9,7 @@ controllerServiceType: LoadBalancer
 
 ## KubeML image
 image: diegostock12/kubeml
-kubemlVersion: "0.1.9"
+kubemlVersion: "0.1.9-concurrent"
 
 ## Storage service image
 storageImage: diegostock12/storage-svc
@@ -23,10 +23,10 @@ environment:
   defaultName: torch
   poolsize: 20
   cpuMin: 100m
-  cpuMax: 1500m
+  cpuMax: 2000m
   image: diegostock12/python-env
   imageVersion: "0.1.15-cuda"
-  gracePeriod: 5
+  gracePeriod: 2
   version: 3
 
 
