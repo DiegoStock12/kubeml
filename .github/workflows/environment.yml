@@ -4,6 +4,7 @@ on:
   push:
     branches:
     - master
+    - inference
 #    - refactor-network
 #    - experiments
 
