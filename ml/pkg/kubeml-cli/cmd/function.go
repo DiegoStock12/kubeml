@@ -132,8 +132,9 @@ func createFunction(_ *cobra.Command, _ []string) error {
 		return errors.Wrap(err, "could not create function")
 	}
 
-	// Create triggers with a certain method
-	err = createTrigger(fissionClient, fnName, []string{http.MethodGet})
+	// Create triggers with a certain method. By default allow get and post to allow
+	// train, validation and also inference afterwards
+	err = createTrigger(fissionClient, fnName, []string{http.MethodGet, http.MethodPost})
 	if err != nil {
 		return errors.Wrap(err, "error creating trigger for function")
 	}
@@ -287,9 +288,13 @@ func deleteFunction(_ *cobra.Command, _ []string) error {
 	result = multierror.Append(result, err)
 
 	fmt.Println("Deleting triggers...")
-	triggerName := fmt.Sprintf("%s-%s", fnName, strings.ToLower(http.MethodGet))
-	err = fissionClient.CoreV1().HTTPTriggers(DefaultNamespace).Delete(triggerName, &metav1.DeleteOptions{})
-	result = multierror.Append(result, err)
+	// delete the get and post endpoints
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		triggerName := fmt.Sprintf("%s-%s", fnName, strings.ToLower(method))
+		err = fissionClient.CoreV1().HTTPTriggers(DefaultNamespace).Delete(triggerName, &metav1.DeleteOptions{})
+		result = multierror.Append(result, err)
+	}
+
 
 	if err = result.ErrorOrNil(); err == nil {
 		fmt.Printf("Function \"%s\" deleted", fnName)

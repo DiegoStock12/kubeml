@@ -365,7 +365,7 @@ class KubeModel(ABC):
             self.logger.error("JSON not found in request")
             raise DataError
 
-        preds = self.infer(self._network, data_json)
+        preds = self.infer(data_json)
 
         if isinstance(preds, torch.Tensor):
             return preds.cpu().numpy().tolist()
