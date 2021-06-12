@@ -9,7 +9,7 @@ controllerServiceType: LoadBalancer
 
 ## KubeML image
 image: diegostock12/kubeml
-kubemlVersion: "0.1.9-concurrent"
+kubemlVersion: "0.1.9-inference"
 
 ## Storage service image
 storageImage: diegostock12/storage-svc
@@ -21,9 +21,9 @@ namespace: kubeml
 ## this is a fission CRD with a custom image and dependencies already installed
 environment:
   defaultName: torch
-  poolsize: 20
+  poolsize: 10
   cpuMin: 100m
-  cpuMax: 2000m
+  cpuMax: 1500m
   image: diegostock12/python-env
   imageVersion: "0.1.15-cuda"
   gracePeriod: 2

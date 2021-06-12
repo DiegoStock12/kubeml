@@ -15,6 +15,7 @@ var (
 	// the datapoints are saved in JSON format
 	network  string
 	dataFile string
+	function string
 
 	inferCmd = &cobra.Command{
 		Use:   "infer",
@@ -42,7 +43,11 @@ func infer(_ *cobra.Command, _ []string) error {
 		return errors.Wrap(err, "could not unmarshal data")
 	}
 
+	// create the request, we need the function name to know how to refer to the code
+	// from the scheduler, and we need the model id to know how to load the appropriate weights
+	// from the model storage
 	req := api.InferRequest{
+		FunctionName: function,
 		ModelId: network,
 		Data:    data,
 	}
@@ -59,8 +64,10 @@ func infer(_ *cobra.Command, _ []string) error {
 func init() {
 	rootCmd.AddCommand(inferCmd)
 
+	inferCmd.Flags().StringVarP(&function, "function", "f", "", "Function Name (required)")
 	inferCmd.Flags().StringVarP(&network, "network", "n", "", "Network ID (required)")
 	inferCmd.Flags().StringVar(&dataFile, "datafile", "", "File with the data (required)")
 	inferCmd.MarkFlagRequired("network")
 	inferCmd.MarkFlagRequired("datafile")
+	inferCmd.MarkFlagRequired("function")
 }

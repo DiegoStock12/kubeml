@@ -34,7 +34,11 @@ type (
 	}
 
 	// InferRequest is sent when wanting to get a result back from a trained network
+	// for that as of now we need the function name so that we trigger the inference method
+	// for that deployed function, as well as the model id to determine which of the weights available
+	// for that network we want to load
 	InferRequest struct {
+		FunctionName string `json:"function_name"`
 		ModelId string        `json:"model_id"`
 		Data    []interface{} `json:"data"`
 	}

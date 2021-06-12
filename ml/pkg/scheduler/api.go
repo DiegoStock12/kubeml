@@ -16,9 +16,8 @@ import (
 	"github.com/diegostock12/kubeml/ml/pkg/api"
 )
 
-// buildFunctionURL returns the url that the PS will invoke to execute the function
-// TODO make this more elegant by not having to add all the parameters
-func buildFunctionURL(funcId, numFunc int, task, funcName, psId string) string {
+// buildInferenceFunctionURL creates the url args to invoke an inference function
+func buildInferenceFunctionURL(request api.InferRequest) string {
 
 	var routerAddr string
 	if util.IsDebugEnv() {
@@ -27,18 +26,24 @@ func buildFunctionURL(funcId, numFunc int, task, funcName, psId string) string {
 		routerAddr = api.FissionRouterUrl
 	}
 
+	// a lot of these values can be set automatically, just customize the functionname
+	// and the jobId
 	values := url.Values{}
-	values.Set("task", task)
-	values.Set("jobId", psId)
-	values.Set("N", strconv.Itoa(numFunc))
-	values.Set("funcId", strconv.Itoa(funcId))
+	values.Set("task", "infer")
+	values.Set("jobId", request.ModelId)
+	values.Set("N", strconv.Itoa(1))
+	values.Set("K", strconv.Itoa(-1))
+	values.Set("funcId", strconv.Itoa(0))
 	values.Set("batchSize", "0")
 	values.Set("lr", "1")
+	values.Set("epoch", "1") // add epoch to be able to train with step lr
 
-	dest := routerAddr + "/" + funcName + "?" + values.Encode()
+	dest := routerAddr + "/" + request.FunctionName + "?" + values.Encode()
 
 	return dest
+
 }
+
 
 // newParallelism listens to the TrainJobs of the Parameter Server and their
 // requests for a new level of parallelism.
@@ -137,7 +142,7 @@ func (s *Scheduler) infer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO funcName could be model id
-	url := buildFunctionURL(0, 1, "infer", "network", req.ModelId)
+	url := buildInferenceFunctionURL(req)
 	s.logger.Debug("Build inference url", zap.String("url", url))
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))

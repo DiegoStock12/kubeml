@@ -1,6 +1,6 @@
 apiVersion: v2
 name: kubeml
-version: 0.1.2
+version: 0.1.2-inference
 description: KubeML is a Serverless Platform to Train Neural Networks on Kubernetes
 keywords:
   - serverless
